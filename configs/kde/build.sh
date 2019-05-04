@@ -40,7 +40,7 @@ _usage ()
     echo "    -o <out_dir>       Set the output directory"
     echo "                        Default: ${out_dir}"
     echo "    -l <language>      Change the default language, select one from:"
-    echo "                        de,es,fr"
+    echo "                        de,es,fr,it"
     echo "    -v                 Enable verbose output"
     echo "    -h                 This help message"
     exit ${1}
@@ -321,6 +321,7 @@ while getopts 'N:V:L:P:A:D:w:o:g:vhl:' arg; do
                 'de'|'de_DE') lang="de_DE";;
                 'es'|'es_ES') lang="es_ES";;
                 'fr'|'fr_FR') lang="fr_FR";;
+                'it'|'it_IT') lang="it_IT";;
                 *) _usage 1;;
             esac;;
         *)
