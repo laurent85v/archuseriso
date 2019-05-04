@@ -11,6 +11,7 @@ install_dir=arch
 work_dir=work
 out_dir=out
 gpg_key=
+lang=
 
 verbose=""
 script_path=$(readlink -f ${0%/*})
@@ -38,6 +39,8 @@ _usage ()
     echo "                        Default: ${work_dir}"
     echo "    -o <out_dir>       Set the output directory"
     echo "                        Default: ${out_dir}"
+    echo "    -l <language>      Change the default language, select one from:"
+    echo "                        fr"
     echo "    -v                 Enable verbose output"
     echo "    -h                 This help message"
     exit ${1}
@@ -76,7 +79,11 @@ make_basefs() {
 
 # Additional packages (airootfs)
 make_packages() {
-    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra*,-gnome*}.x86_64)" install
+    local _lang
+    if [[ -n "${lang}" ]]; then
+        _lang=$(grep -Ehv '^#|^$' ${script_path}/lang/"${lang}"/packages{-extra,-gnome}.x86_64)
+    fi
+    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra,-gnome}.x86_64) ${_lang}" install
 }
 
 # airootfs local packages
@@ -121,6 +128,11 @@ make_setup_mkinitcpio() {
 
     # Copy configs airootfs
     cp -afL --no-preserve=ownership ${script_path}/airootfs ${work_dir}/x86_64
+
+    # Copy localization
+    if [[ -n "${lang}" ]]; then
+        cp -afL --no-preserve=ownership ${script_path}/lang/"${lang}"/airootfs ${work_dir}/x86_64
+    fi
 
     # Remove Nvidia proprietary driver settings when nvidia package not installed
     if ! $(grep -Ehv '^#|^$' ${script_path}/packages{,-extra*,-gnome*}.x86_64 | sed -n 's/[[:blank:]]/\n/gp' | grep -qs '^nvidia$'); then
@@ -279,11 +291,11 @@ make_prepare() {
 
 # Build ISO
 make_iso() {
-    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
+    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-${lang}-x64.iso"
     cd "${out_dir}"
-    sha512sum -b "${iso_name}-${iso_version}-x64.iso" > "${iso_name}-${iso_version}-x64.iso.sha512"
+    sha512sum -b "${iso_name}-${iso_version}-${lang}-x64.iso" > "${iso_name}-${iso_version}-${lang}-x64.iso.sha512"
     if [[ ${gpg_key} ]]; then
-        gpg --detach-sign --default-key ${gpg_key} "${iso_name}-${iso_version}-x64.iso"
+        gpg --detach-sign --default-key ${gpg_key} "${iso_name}-${iso_version}-${lang}-x64.iso"
     fi
     cd ~-
 }
@@ -293,7 +305,7 @@ if [[ ${EUID} -ne 0 ]]; then
     _usage 1
 fi
 
-while getopts 'N:V:L:P:A:D:w:o:g:vh' arg; do
+while getopts 'N:V:L:P:A:D:w:o:g:vhl:' arg; do
     case "${arg}" in
         N) iso_name="${OPTARG}" ;;
         V) iso_version="${OPTARG}" ;;
@@ -306,6 +318,11 @@ while getopts 'N:V:L:P:A:D:w:o:g:vh' arg; do
         g) gpg_key="${OPTARG}" ;;
         v) verbose="-v" ;;
         h) _usage 0 ;;
+        l)
+            case "${OPTARG}" in
+                'fr'|'fr_FR') lang="fr_FR";;
+                *) _usage 1;;
+            esac;;
         *)
            echo "Invalid argument '${arg}'"
            _usage 1
