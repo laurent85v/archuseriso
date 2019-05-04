@@ -9,6 +9,7 @@ AUI configs highlights
 
 * no desktop customization, using upstream defaults
 * no patch, won't fix possible upstream issues
+* build option for alternate language (de, es, fr, it, pt)
 * user may edit package list, add/remove packages
 * support installation of user custom packages
   (user own packages created from AUR)
