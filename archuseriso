@@ -1,0 +1,28 @@
+#!/bin/sh
+
+_usage () {
+    echo "usage:" 
+    echo "archuseriso console [options]"
+    echo "archuseriso gnome [options]"
+    echo "archuseriso kde [options]"
+    exit ${1}
+}
+
+if [[ ${EUID} -ne 0 ]]; then
+    echo "This script must be run as root."
+    _usage 1
+fi
+
+case "${1}" in
+    console|Console)
+        shift
+        /usr/share/archiso/configs/console/build.sh $@;;
+    gnome|Gnome)
+        shift
+        /usr/share/archiso/configs/gnome/build.sh $@;;
+    kde|Kde)
+        shift
+        /usr/share/archiso/configs/kde/build.sh $@;;
+    *)
+        _usage 1;;
+esac
