@@ -2,10 +2,10 @@
 
 set -e -u
 
-iso_name=aui-console
+iso_name=archuseriso-console
 iso_label=AUIC
 iso_publisher=
-iso_application="AUI Console Spin Live/Rescue medium"
+iso_application="Archuseriso Console Live/Rescue medium"
 iso_version=$(date +%m%d)
 install_dir=arch
 work_dir=work

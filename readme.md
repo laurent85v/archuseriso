@@ -1,14 +1,16 @@
 Description
 ===========
 
-Archuseriso (AUI)  
+Archuseriso  
 Archiso user configs for creating alternate Arch Linux live and install iso images.
 
-AUI configs highlights
-----------------------
+Archuseriso configs highlights
+------------------------------
 
+* using Arch Linux repositories only
+* live system created with up-to-date packages,
+  including latest kernel, drivers
 * no desktop customization, using upstream defaults
-* no patch, won't fix possible upstream issues
 * build option for alternate language (de, es, fr, it, pt)
 * user may edit package list, add/remove packages
 * support installation of user custom packages
@@ -18,11 +20,12 @@ AUI configs highlights
 * support Nvidia proprietary driver by configuring a
   basic setup (driver not installed by default)
 * use rEFInd as the default EFI boot manager
-* alternate method for disk installation
+* alternate installation image for installing Arch Linux
+* alternate method available for installating
   (see install_alternative.txt in /root directory)
 
-AUI configs
------------
+Archuseriso configs
+-------------------
 
 * configs/console  Console spin
 * configs/gnome    Gnome desktop spin
@@ -30,17 +33,17 @@ AUI configs
 
 Run config's script `build.sh -h` for available build script options.
 
-Building an Arch user iso image
-===============================
+Building an Archuseriso image
+=============================
 
 As an example building the Kde desktop spin
 -------------------------------------------
 
-* Install AUI needed packages
+* Install Archuseriso needed packages
 
         % sudo pacman --needed -S archiso git
 
-* Clone AUI master repository
+* Clone Archuseriso master repository
 
         % git clone https://github.com/laurent85v/archuseriso.git`
 

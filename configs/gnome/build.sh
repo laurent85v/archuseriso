@@ -2,10 +2,10 @@
 
 set -e -u
 
-iso_name=aui-gnome
+iso_name=archuseriso-gnome
 iso_label=AUIG
 iso_publisher=
-iso_application="AUI Gnome Spin Live/Rescue medium"
+iso_application="Archuseriso Gnome Live/Rescue medium"
 iso_version=$(date +%m%d)
 install_dir=arch
 work_dir=work
@@ -291,11 +291,11 @@ make_prepare() {
 
 # Build ISO
 make_iso() {
-    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-${lang}-x64.iso"
+    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso"
     cd "${out_dir}"
-    sha512sum -b "${iso_name}-${iso_version}-${lang}-x64.iso" > "${iso_name}-${iso_version}-${lang}-x64.iso.sha512"
+    sha512sum -b "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso" > "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso.sha512"
     if [[ ${gpg_key} ]]; then
-        gpg --detach-sign --default-key ${gpg_key} "${iso_name}-${iso_version}-${lang}-x64.iso"
+        gpg --detach-sign --default-key ${gpg_key} "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso"
     fi
     cd ~-
 }
