@@ -79,7 +79,7 @@ make_basefs() {
 
 # Additional packages (airootfs)
 make_packages() {
-    local _lang
+    local _lang=
     if [[ -n "${lang}" ]]; then
         _lang=$(grep -Ehv '^#|^$' ${script_path}/lang/"${lang}"/packages{-extra,-gnome}.x86_64)
     fi
