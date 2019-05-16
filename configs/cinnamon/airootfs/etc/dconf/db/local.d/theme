@@ -1,0 +1,14 @@
+[org/cinnamon/desktop/interface]
+gtk-theme='Adapta'
+icon-theme='Papirus'
+font-name='Noto Sans Regular 10'
+
+[org/cinnamon/desktop/wm/preferences]
+theme='Adapta'
+titlebar-font='Noto Sans Bold 11'
+
+[org/cinnamon/theme]
+name='Adapta'
+
+[org/gnome/desktop/interface]
+document-font-name='Noto Sans Regular 11'

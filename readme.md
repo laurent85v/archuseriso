@@ -7,10 +7,10 @@ Archiso user configs for creating alternate Arch Linux live and install iso imag
 Archuseriso configs highlights
 ------------------------------
 
-* use Arch Linux repositories only
+* Arch Linux repositories only
 * live system created with up-to-date packages,
   including latest kernel, drivers
-* no desktop customization, use upstream defaults
+* upstream desktop setup, limited customization
 * build option for alternate language (de, es, fr, it, pt)
 * user may edit package list, add/remove packages
 * support installation of user custom packages
@@ -19,7 +19,7 @@ Archuseriso configs highlights
   (needs plymouth AUR package)
 * support Nvidia proprietary driver by configuring a
   basic setup (driver not installed by default)
-* use rEFInd as the default EFI boot manager
+* rEFInd as the default EFI boot manager
 * alternate installation image for installing Arch Linux
 * alternate method available for installing
   (see install_alternative.txt in /root directory)
