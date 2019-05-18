@@ -36,8 +36,8 @@ Run config's script `build.sh -h` for available build script options.
 Building an Archuseriso image
 =============================
 
-As an example building the Kde desktop spin
--------------------------------------------
+As an example building the Kde desktop
+--------------------------------------
 
 * Install Archuseriso needed packages
 

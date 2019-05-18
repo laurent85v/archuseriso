@@ -1,7 +1,7 @@
 Alternate method for disk installation
 --------------------------------------
 
-Installing the Gnome desktop spin to disk:
+Installing the Gnome desktop to disk:
 
 * Boot the live desktop environment
 

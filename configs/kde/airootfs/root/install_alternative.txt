@@ -1,7 +1,7 @@
 Alternate method for disk installation
 --------------------------------------
 
-Installing the Kde destop spin to disk:
+Installing the Kde destop to disk:
 
 * Boot the live desktop environment
 

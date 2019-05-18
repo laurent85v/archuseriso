@@ -44,12 +44,16 @@ _usage ()
 }
 
 # airootfs extra cleanup
-_cleanup_airootfs_spin() {
-    rm -r ${work_dir}/x86_64/airootfs/root/.gnupg
+_cleanup_airootfs() {
+    local _cleanlist=(  ${work_dir}/x86_64/airootfs/root/.cache/
+                        ${work_dir}/x86_64/airootfs/root/.gnupg/
+                        ${work_dir}/x86_64/airootfs/root/customize_airootfs.sh
+                        ${work_dir}/x86_64/airootfs/var/lib/systemd/catalog/database
+                     )
 
-    rm ${work_dir}/x86_64/airootfs/root/customize_airootfs.sh \
-       ${work_dir}/x86_64/airootfs/var/lib/systemd/catalog/database \
-       ${work_dir}/x86_64/airootfs/var/cache/ldconfig/aux-cache
+    for file_or_dir in "${cleanlist[@]}"; do
+      [[ -e "${file_or_dir}" ]] && rm -r "${file_or_dir}"
+    done
 }
 
 # Helper function to run make_*() only one time per architecture.
@@ -134,7 +138,7 @@ make_customize_airootfs() {
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
 
     # airootfs extra cleanup
-    _cleanup_airootfs_spin
+    _cleanup_airootfs
 }
 
 # Prepare kernel/initramfs ${install_dir}/boot/
