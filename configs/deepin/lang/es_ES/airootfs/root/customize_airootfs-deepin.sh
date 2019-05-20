@@ -5,6 +5,13 @@ set -e -u
 # Run releng's defaults
 /root/customize_airootfs.sh
 
+# es_ES.UTF8 locales
+sed -i 's/#\(es_ES\.UTF-8\)/\1/' /etc/locale.gen
+locale-gen
+
+# Spain, Madrid timezone
+ln -sf /usr/share/zoneinfo/Europe/Madrid /etc/localtime
+
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'
 # * Winbind : add 'wins'
@@ -60,3 +67,14 @@ sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
 # add live to autologin group
 groupadd -r autologin
 gpasswd -a live autologin
+
+# Deepin lightdm greeter broken
+# Commenting out configuration file
+if [[ -e /usr/share/lightdm/lightdm.conf.d/60-deepin.conf ]]; then
+    sed -i 's/^/#/' /usr/share/lightdm/lightdm.conf.d/60-deepin.conf
+fi
+
+# Deepin disable dde-dock plugin overlay warning
+if [[ -e /usr/lib/dde-dock/plugins/liboverlay-warning.so ]]; then
+    mv /usr/lib/dde-dock/plugins/liboverlay-warning.so{,-disabled_by_archuseriso}
+fi
