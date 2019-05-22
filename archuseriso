@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=0.2.1
+version=0.2.2
 confdir=/usr/share/archiso/configs
 config=
 options=
@@ -18,6 +18,8 @@ _usage () {
     echo
     echo "iso config list, select one from:"
     echo "* console"
+    echo "* cinnamon"
+    echo "* deepin"
     echo "* gnome"
     echo "* kde"
     echo
@@ -29,10 +31,10 @@ _usage () {
 
 _help () {
     echo "The archuseriso program is a wrapper"
-    echo "which executes the corresponding iso"
-    echo "config's build script."
+    echo "which executes the corresponding iso's"
+    echo "config build script."
     echo "You may directly run the config's"
-    echo "script \`build.sh\` instead."
+    echo "build script \`build.sh\` instead."
     echo
     echo "Synopsis:"
     echo "archuseriso <iso config> [-C|--config <path>] [build options]"
@@ -42,6 +44,8 @@ _help () {
     echo
     echo "iso config list, select one from:"
     echo "* console"
+    echo "* cinnnamon"
+    echo "* deepin"
     echo "* gnome"
     echo "* kde"
     echo
@@ -58,7 +62,9 @@ _help () {
     echo "To customize an iso config:"
     echo "cp -rL /usr/share/archiso/configs/<config> <destination>"
     echo
-    echo "Customize your config then run the config's \`build.sh\` script."
+    echo "Edit packages files located in <config> and <config>/lang/<locale>."
+    echo "Add your AUR pkg.tar.xz files to <config>/pkglocal."
+    echo "Then run the config's build script \`build.sh\`."
     exit ${1}
 }
 
@@ -78,6 +84,12 @@ fi
 case "$1" in
     console)
         config="console"
+        shift ;;
+    cinnamon)
+        config="cinnamon"
+        shift ;;
+    deepin)
+        config="deepin"
         shift ;;
     gnome)
         config="gnome"
@@ -121,5 +133,4 @@ while true; do
 done
 
 # Run the build script:
-echo "${confdir}/${config}"/build.sh "${options}"
 eval "${confdir}/${config}/build.sh ${options}"
