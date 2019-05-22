@@ -1,0 +1,16 @@
+[org.mate.interface]
+gtk-theme='Menta'
+icon-theme='menta'
+
+[org.mate.Marco.general]
+theme='Menta'
+
+[org.mate.peripherals-mouse]
+cursor-theme='mate-black'
+
+[org.mate.background]
+picture-filename='/usr/share/backgrounds/mate/desktop/Stripes.png'
+picture-options='zoom'
+
+[org.mate.screensaver]
+lock-enabled=false

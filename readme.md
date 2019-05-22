@@ -14,9 +14,9 @@ Archuseriso configs highlights
 * build option for alternate language (de, es, fr, it, pt)
 * user may edit package list, add/remove packages
 * support installation of user custom packages
-  (user own packages created from AUR)
+  (packages built from the AUR)
 * support Plymouth graphical boot splash screen
-  (needs plymouth AUR package)
+  (needs plymouth package from the AUR)
 * support Nvidia proprietary driver by configuring a
   basic setup (driver not installed by default)
 * rEFInd as the default EFI boot manager
@@ -31,6 +31,7 @@ Archuseriso configs
 * Deepin desktop
 * Gnome desktop
 * Kde desktop
+* Mate desktop
 
 Run config's script `build.sh -h` for available build script options.
 
@@ -52,7 +53,7 @@ As an example building the Kde desktop
 
         % sudo make -C archuseriso install
 
-* Optionally put additional .pkg.tar.xz package files compiled from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
+* Optionally put additional .pkg.tar.xz package files built from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
 
         % cp byobu-5.127-2-any.pkg.tar.xz inxi-3.0.33-1-any.pkg.tar.xz zfs-linux-0.7.13_5.0.7.arch1.1-1-x86_64.pkg.tar.xz zfs-utils-0.7.13-1-x86_64.pkg.tar.xz archuseriso/configs/kde/pkglocal
 
