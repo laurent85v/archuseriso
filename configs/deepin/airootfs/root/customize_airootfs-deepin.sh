@@ -67,7 +67,10 @@ if [[ -e /usr/share/lightdm/lightdm.conf.d/60-deepin.conf ]]; then
     sed -i 's/^/#/' /usr/share/lightdm/lightdm.conf.d/60-deepin.conf
 fi
 
-# Deepin disable dde-dock plugin overlay warning
+# Deepin disable dde-dock's plugin overlay warning
 if [[ -e /usr/lib/dde-dock/plugins/liboverlay-warning.so ]]; then
     mv /usr/lib/dde-dock/plugins/liboverlay-warning.so{,-disabled_by_archuseriso}
 fi
+
+# Update schemas
+glib-compile-schemas /usr/share/glib-2.0/schemas/

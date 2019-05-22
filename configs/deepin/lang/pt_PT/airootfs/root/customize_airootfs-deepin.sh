@@ -78,3 +78,6 @@ fi
 if [[ -e /usr/lib/dde-dock/plugins/liboverlay-warning.so ]]; then
     mv /usr/lib/dde-dock/plugins/liboverlay-warning.so{,-disabled_by_archuseriso}
 fi
+
+# Update schemas
+glib-compile-schemas /usr/share/glib-2.0/schemas/
