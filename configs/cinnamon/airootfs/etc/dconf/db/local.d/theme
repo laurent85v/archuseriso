@@ -3,6 +3,9 @@ gtk-theme='Adapta'
 icon-theme='Papirus'
 font-name='Noto Sans Regular 10'
 
+[org/cinnamon/desktop/screensaver]
+lock-enabled=false
+
 [org/cinnamon/desktop/wm/preferences]
 theme='Adapta'
 titlebar-font='Noto Sans Bold 11'
@@ -12,3 +15,5 @@ name='Adapta'
 
 [org/gnome/desktop/interface]
 document-font-name='Noto Sans Regular 11'
+
+
