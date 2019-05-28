@@ -5,12 +5,12 @@ set -e -u
 # Run releng's defaults
 /root/customize_airootfs.sh
 
-# de_DE.UTF8 locales
-sed -i 's/#\(de_DE\.UTF-8\)/\1/' /etc/locale.gen
+# ru_RU.UTF8 locales
+sed -i 's/#\(ru_RU\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 
-# Germany, Berlin timezone
-ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+# Russia, Moscow timezone
+ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'
@@ -27,13 +27,16 @@ fi
 
 # Lightdm display-manager
 # * live user autologin
-# * Deepin theme
+# * Adwaita theme
 # * background color
 sed -i 's/^#\(autologin-user=\)$/\1live/
-        s/^#\(autologin-session=\)$/\1deepin/' /etc/lightdm/lightdm.conf
+        s/^#\(autologin-session=\)$/\1cinnamon/' /etc/lightdm/lightdm.conf
 sed -i 's/^#\(background=\)$/\1#204a87/
-        s/^#\(theme-name=\)$/\1Deepin/
-        s/^#\(icon-theme-name=\)$/\1Deepin/' /etc/lightdm/lightdm-gtk-greeter.conf
+        s/^#\(theme-name=\)$/\1Adapta/
+        s/^#\(icon-theme-name=\)$/\1Adapta/' /etc/lightdm/lightdm-gtk-greeter.conf
+
+# missing link pointing to default vncviewer
+ln -s /usr/bin/gvncviewer /usr/local/bin/vncviewer
 
 # Enable service when available
 { [[ -e /usr/lib/systemd/system/acpid.service                ]] && systemctl enable acpid.service;
@@ -67,17 +70,3 @@ sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
 # add live to autologin group
 groupadd -r autologin
 gpasswd -a live autologin
-
-# Deepin lightdm greeter broken
-# Commenting out configuration file
-if [[ -e /usr/share/lightdm/lightdm.conf.d/60-deepin.conf ]]; then
-    sed -i 's/^/#/' /usr/share/lightdm/lightdm.conf.d/60-deepin.conf
-fi
-
-# Deepin disable dde-dock plugin overlay warning
-if [[ -e /usr/lib/dde-dock/plugins/liboverlay-warning.so ]]; then
-    mv /usr/lib/dde-dock/plugins/liboverlay-warning.so{,-disabled_by_archuseriso}
-fi
-
-# Update schemas
-glib-compile-schemas /usr/share/glib-2.0/schemas/

@@ -5,12 +5,12 @@ set -e -u
 # Run releng's defaults
 /root/customize_airootfs.sh
 
-# de_DE.UTF8 locales
-sed -i 's/#\(de_DE\.UTF-8\)/\1/' /etc/locale.gen
+# ru_RU.UTF8 locales
+sed -i 's/#\(ru_RU\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 
-# Germany, Berlin timezone
-ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
+# Russia, Moscow timezone
+ln -sf /usr/share/zoneinfo/Europe/Moscow /etc/localtime
 
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'

@@ -9,8 +9,8 @@ set -e -u
 sed -i 's/#\(de_DE\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 
-# France, Paris timezone
-ln -sf /usr/share/zoneinfo/Europe/Paris /etc/localtime
+# Germany, Berlin timezone
+ln -sf /usr/share/zoneinfo/Europe/Berlin /etc/localtime
 
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'
