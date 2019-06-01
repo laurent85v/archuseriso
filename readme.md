@@ -11,7 +11,7 @@ Archuseriso configs highlights
   including latest kernel, drivers
 * alternate installation image for installing Arch Linux
 * upstream desktop setup, limited customization
-* build option for alternate language (de, es, fr, it, pt)
+* build option for alternate language (de, es, fr, it, pt, ru, tr)
 * user may edit package list, add/remove packages
 * support installation of user custom packages
   (packages built from the AUR)
@@ -41,7 +41,7 @@ Building an Archuseriso image
 As an example building the Kde desktop
 --------------------------------------
 
-* Install Archuseriso needed packages
+* Install needed packages
 
         % sudo pacman --needed -S archiso git
 
@@ -61,16 +61,12 @@ As an example building the Kde desktop
 
         % sudo archuseriso/configs/kde/build.sh
 
-* Building with default language set to either German, Spanish, French, Italian, Portuguese:
+* Building with default language set to German:
 
         % sudo archuseriso/configs/kde/build.sh -l de
-        % sudo archuseriso/configs/kde/build.sh -l es
-        % sudo archuseriso/configs/kde/build.sh -l fr
-        % sudo archuseriso/configs/kde/build.sh -l it
-        % sudo archuseriso/configs/kde/build.sh -l pt
 
-* Using the archuseriso program interface, building the gnome iso, Italian language :
+* Using the archuseriso program interface, building the Gnome iso, Spanish language :
 
-        % sudo archuseriso gnome -l it
+        % sudo archuseriso gnome -l es
 
 When done you can remove the `work` directory that was used for building the iso image. The iso image is generated in the `out` directory.
