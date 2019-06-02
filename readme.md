@@ -20,7 +20,7 @@ Archuseriso configs highlights
 * support Nvidia proprietary driver by configuring a
   basic setup (driver not installed by default)
 * rEFInd as the default EFI boot manager
-* alternate method available for installing
+* alternate method for installing to disk
   (see install_alternative.txt in /root directory)
 
 Archuseriso configs
