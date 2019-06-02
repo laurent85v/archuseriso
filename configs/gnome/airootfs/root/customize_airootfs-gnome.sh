@@ -20,13 +20,22 @@ fi
 
 # Lightdm display-manager
 # * live user autologin
-# * Deepin theme
+# * Adwaita theme
 # * background color
 sed -i 's/^#\(autologin-user=\)$/\1live/
-        s/^#\(autologin-session=\)$/\1deepin/' /etc/lightdm/lightdm.conf
+        s/^#\(autologin-session=\)$/\1gnome/' /etc/lightdm/lightdm.conf
 sed -i 's/^#\(background=\)$/\1#204a87/
-        s/^#\(theme-name=\)$/\1Deepin/
-        s/^#\(icon-theme-name=\)$/\1Deepin/' /etc/lightdm/lightdm-gtk-greeter.conf
+        s/^#\(theme-name=\)$/\1Adwaita/
+        s/^#\(icon-theme-name=\)$/\1Adwaita/' /etc/lightdm/lightdm-gtk-greeter.conf
+
+# Force wayland session type (related to Nvidia proprietary driver)
+sed -i 's|^\(Exec=\).*|\1env XDG_SESSION_TYPE=wayland /usr/bin/gnome-session|' /usr/share/xsessions/gnome.desktop
+
+# Remove duplicate from lightdm sessions type list
+mv /usr/share/wayland-sessions/gnome.desktop{,.duplicate}
+
+# missing link pointing to default vncviewer
+ln -s /usr/bin/gvncviewer /usr/local/bin/vncviewer
 
 # Enable service when available
 { [[ -e /usr/lib/systemd/system/acpid.service                ]] && systemctl enable acpid.service;
