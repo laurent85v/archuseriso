@@ -16,7 +16,7 @@ sed -i '/^hosts:/ {
 # Nvidia GPU proprietary driver setup
 if $(pacman -Qsq '^nvidia$' > /dev/null 2>&1); then
     echo 'xrandr --setprovideroutputsource modesetting NVIDIA-0' >> /usr/share/sddm/scripts/Xsetup
-    echo 'xrandr --auto' >> /usr/share/sddm/scripts/Xsetup
+    echo 'xrandr --auto --dpi 96' >> /usr/share/sddm/scripts/Xsetup
 fi
 
 # Enable service when available
