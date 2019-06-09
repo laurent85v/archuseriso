@@ -32,6 +32,7 @@ Archuseriso configs
 * Gnome desktop
 * Kde desktop
 * Mate desktop
+* Xfce desktop
 
 Run config's script `build.sh -h` for available build script options.
 

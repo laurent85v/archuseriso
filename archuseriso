@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version=0.2.3
+version=0.2.4
 confdir=/usr/share/archiso/configs
 config=
 options=
@@ -23,6 +23,7 @@ _usage () {
     echo "* gnome"
     echo "* kde"
     echo "* mate"
+    echo "* xfce"
     echo
     echo "Build examples:"
     echo "archuseriso kde"
@@ -50,6 +51,7 @@ _help () {
     echo "* gnome"
     echo "* kde"
     echo "* mate"
+    echo "* xfce"
     echo
     echo "Build examples:"
     echo "archuseriso kde"
@@ -101,6 +103,9 @@ case "$1" in
         shift ;;
     mate)
         config="mate"
+        shift ;;
+    xfce)
+        config="xfce"
         shift ;;
     *)
         _usage 1 ;;

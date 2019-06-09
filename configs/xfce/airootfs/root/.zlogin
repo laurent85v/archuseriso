@@ -1,0 +1,1 @@
+../../../console/airootfs/root/.zlogin
