@@ -1,7 +1,7 @@
 Description
 ===========
 
-Archiso user configs for building alternate Arch Linux live and install iso images.
+Archiso configs for building alternate Arch Linux live and install iso images.
 
 Archuseriso configs highlights
 ------------------------------
