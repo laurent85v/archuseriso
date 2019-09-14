@@ -8,14 +8,16 @@ exa
 fakeroot
 git
 hddtemp
+hwdetect
 hwinfo
+neofetch
 net-tools
+nmon
 os-prober
 pacman-contrib
 pkgfile
 powertop
 pwgen
-screenfetch
 strace
 tmux
 tree

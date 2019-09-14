@@ -46,14 +46,16 @@ dmidecode
 exa
 git
 hddtemp
+hwdetect
 hwinfo
+neofetch
 net-tools
+nmon
 p7zip
 pacman-contrib
 pkgfile
 powertop
 pwgen
-screenfetch
 strace
 tmux
 tree

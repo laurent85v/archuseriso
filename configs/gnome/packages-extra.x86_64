@@ -47,13 +47,15 @@ exa
 git
 grsync
 hddtemp
+hwdetect
 hwinfo
+neofetch
 net-tools
+nmon
 p7zip
 pacman-contrib
 pkgfile
 pwgen
-screenfetch
 strace
 tmux
 tree
