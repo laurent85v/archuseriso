@@ -74,7 +74,6 @@ make_pacman_conf() {
 # Base installation, plus needed packages (airootfs)
 make_basefs() {
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" init
-    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "cryptsetup device-mapper dhcpcd e2fsprogs inetutils jfsutils linux linux-firmware logrotate lvm2 man-db man-pages mdadm nano netctl perl s-nail shadow sysfsutils texinfo usbutils vi xfsprogs" install
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "haveged intel-ucode amd-ucode memtest86+ mkinitcpio-nfs-utils nbd zsh efitools" install
 }
 
