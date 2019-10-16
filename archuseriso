@@ -67,7 +67,7 @@ _help () {
     echo "cp -rL /usr/share/archiso/configs/<config> <destination>"
     echo
     echo "Edit packages files located in <config> and <config>/lang/<locale>."
-    echo "Add your AUR pkg.tar.xz files to <config>/pkglocal."
+    echo "Add your packages files to <config>/pkglocal."
     echo "Then run the config's build script \`build.sh\`."
     exit ${1}
 }

@@ -54,7 +54,7 @@ As an example building the Kde desktop
 
         % sudo make -C archuseriso install
 
-* Optionally put additional .pkg.tar.xz package files built from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
+* Optionally put additional packages files built from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
 
         % cp byobu-5.127-2-any.pkg.tar.xz inxi-3.0.33-1-any.pkg.tar.xz zfs-linux-0.7.13_5.0.7.arch1.1-1-x86_64.pkg.tar.xz zfs-utils-0.7.13-1-x86_64.pkg.tar.xz archuseriso/configs/kde/pkglocal
 

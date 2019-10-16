@@ -1,4 +1,3 @@
 Local packages directory
 
-Place your *.pkg.tar.xz packages in this directory you want installed
-to the system.
+Packages files in this directory are installed by the build script.

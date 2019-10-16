@@ -83,9 +83,9 @@ make_packages() {
 }
 
 # airootfs local packages
-# installs *.pkg.tar.xz packages located in configs pkglocal folder
+# installs packages located in pkglocal folder
 make_packages_local() {
-    local _pkglocal=($(find ${script_path}/pkglocal/ -maxdepth 1 -name "*.pkg.tar.xz"))
+    local _pkglocal=($(find ${script_path}/pkglocal/ -maxdepth 1 \( -name "*.pkg.tar.xz" -o -name "*.pkg.tar.zst" \) ))
 
     if [[ ${_pkglocal[@]} ]]; then
         mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing local packages"' run
