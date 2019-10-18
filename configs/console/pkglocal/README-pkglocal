@@ -1,3 +1,2 @@
-Local packages directory
-
-Packages files in this directory are installed by the build script.
+Local pre-built packages
+Pre-built packages in this directory are automatically installed by the build script.

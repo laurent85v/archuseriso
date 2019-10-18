@@ -9,15 +9,16 @@ Archuseriso configs highlights
 * Arch Linux repositories only
 * live system created with up-to-date packages,
   including latest kernel, drivers
+* favors speed over very high compression ratio
+  (gzip and zstd compressors)
 * alternate installation image for installing Arch Linux
-* upstream desktop setup, limited customization
+* upstream desktop setup with limited customizations
 * build option for alternate language (de, es, fr, it, pt, ru, tr)
 * user may edit package list, add/remove packages
-* support installation of user custom packages
-  (packages built from the AUR)
-* support Plymouth graphical boot splash screen
-  (needs plymouth package from the AUR)
-* support Nvidia proprietary driver by configuring a
+* supports installation of pre-built binary packages from the AUR
+* supports Plymouth graphical boot splash screen
+  (needs plymouth pre-built binary package from the AUR)
+* supports Nvidia proprietary driver by configuring a
   basic setup (driver not installed by default)
 * rEFInd as the default EFI boot manager
 * alternate method for installing to disk
@@ -34,7 +35,7 @@ Archuseriso configs
 * Mate desktop
 * Xfce desktop
 
-Run config's script `build.sh -h` for available build script options.
+Run config's script `build.sh -h` for available options.
 
 Building an Archuseriso image
 =============================
@@ -54,7 +55,7 @@ As an example building the Kde desktop
 
         % sudo make -C archuseriso install
 
-* Optionally put additional packages files built from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
+* Optionally put additional binary packages built from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
 
         % cp byobu-5.127-2-any.pkg.tar.xz inxi-3.0.33-1-any.pkg.tar.xz zfs-linux-0.7.13_5.0.7.arch1.1-1-x86_64.pkg.tar.xz zfs-utils-0.7.13-1-x86_64.pkg.tar.xz archuseriso/configs/kde/pkglocal
 

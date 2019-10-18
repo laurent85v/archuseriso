@@ -11,6 +11,7 @@ install_dir=arch
 work_dir=work
 out_dir=out
 gpg_key=
+comp_type=zstd
 
 verbose=""
 script_path=$(readlink -f ${0%/*})
@@ -38,6 +39,8 @@ _usage ()
     echo "                        Default: ${work_dir}"
     echo "    -o <out_dir>       Set the output directory"
     echo "                        Default: ${out_dir}"
+    echo "    -c <comp_type>     Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
+    echo "                       Default: ${comp_type}"
     echo "    -v                 Enable verbose output"
     echo "    -h                 This help message"
     exit ${1}
@@ -215,7 +218,7 @@ make_efi() {
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode
 make_efiboot() {
     mkdir -p ${work_dir}/iso/EFI/archiso
-    truncate -s 64M ${work_dir}/iso/EFI/archiso/efiboot.img
+    truncate -s 80M ${work_dir}/iso/EFI/archiso/efiboot.img
     mkfs.fat -n LIVEMEDIUM ${work_dir}/iso/EFI/archiso/efiboot.img
 
     mkdir -p ${work_dir}/efiboot
@@ -258,7 +261,7 @@ make_efiboot() {
 make_prepare() {
     cp -a -l -f ${work_dir}/x86_64/airootfs ${work_dir}
     mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" pkglist
-    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" ${gpg_key:+-g ${gpg_key}} prepare
+    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -c "${comp_type}" ${gpg_key:+-g ${gpg_key}} prepare
     rm -rf ${work_dir}/airootfs
     # rm -rf ${work_dir}/x86_64/airootfs (if low space, this helps)
 }
@@ -279,7 +282,7 @@ if [[ ${EUID} -ne 0 ]]; then
     exit 1
 fi
 
-while getopts 'N:V:L:P:A:D:w:o:g:vh' arg; do
+while getopts 'N:V:L:P:A:D:w:o:g:vhc:' arg; do
     case "${arg}" in
         N) iso_name="${OPTARG}" ;;
         V) iso_version="${OPTARG}" ;;
@@ -292,6 +295,7 @@ while getopts 'N:V:L:P:A:D:w:o:g:vh' arg; do
         g) gpg_key="${OPTARG}" ;;
         v) verbose="-v" ;;
         h) _usage 0 ;;
+        c) comp_type="${OPTARG}" ;;
         *)
            echo "Invalid argument '${arg}'"
            _usage 1

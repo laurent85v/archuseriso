@@ -12,6 +12,7 @@ work_dir=work
 out_dir=out
 gpg_key=
 lang=
+comp_type=zstd
 
 verbose=""
 script_path=$(readlink -f ${0%/*})
@@ -41,6 +42,8 @@ _usage ()
     echo "                        Default: ${out_dir}"
     echo "    -l <language>      Change the default language, select one from:"
     echo "                        de, es, fr, it, pt, ru, tr"
+    echo "    -c <comp_type>     Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
+    echo "                       Default: ${comp_type}"
     echo "    -v                 Enable verbose output"
     echo "    -h                 This help message"
     exit ${1}
@@ -245,7 +248,7 @@ make_efi() {
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode
 make_efiboot() {
     mkdir -p ${work_dir}/iso/EFI/archiso
-    truncate -s 64M ${work_dir}/iso/EFI/archiso/efiboot.img
+    truncate -s 80M ${work_dir}/iso/EFI/archiso/efiboot.img
     mkfs.fat -n LIVEMEDIUM ${work_dir}/iso/EFI/archiso/efiboot.img
 
     mkdir -p ${work_dir}/efiboot
@@ -289,7 +292,7 @@ make_efiboot() {
 make_prepare() {
     cp -a -l -f ${work_dir}/x86_64/airootfs ${work_dir}
     mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" pkglist
-    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" ${gpg_key:+-g ${gpg_key}} prepare
+    mkarchiso ${verbose} -w "${work_dir}" -D "${install_dir}" -c "${comp_type}" ${gpg_key:+-g ${gpg_key}} prepare
     rm -rf ${work_dir}/airootfs
     # rm -rf ${work_dir}/x86_64/airootfs (if low space, this helps)
 }
@@ -310,7 +313,7 @@ if [[ ${EUID} -ne 0 ]]; then
     exit 1
 fi
 
-while getopts 'N:V:L:P:A:D:w:o:g:vhl:' arg; do
+while getopts 'N:V:L:P:A:D:w:o:g:vhl:c:' arg; do
     case "${arg}" in
         N) iso_name="${OPTARG}" ;;
         V) iso_version="${OPTARG}" ;;
@@ -334,6 +337,7 @@ while getopts 'N:V:L:P:A:D:w:o:g:vhl:' arg; do
                 'tr'|'tr_TR') lang="tr_TR";;
                 *) _usage 1;;
             esac;;
+        c) comp_type="${OPTARG}" ;;
         *)
            echo "Invalid argument '${arg}'"
            _usage 1
