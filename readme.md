@@ -1,31 +1,29 @@
 Description
 ===========
 
-Archiso configs for building alternate Arch Linux live and install iso images.
+Archiso configurations for building alternate Arch Linux live and install iso images.
+Live iso images support persistent storage.
 
-Archuseriso configs highlights
-------------------------------
+Archuseriso Configurations Highlights
+-------------------------------------
 
 * Arch Linux repositories only
-* live system created with up-to-date packages,
-  including latest kernel, drivers
-* favors speed over very high compression ratio
-  (gzip and zstd compressors)
-* alternate installation image for installing Arch Linux
-* upstream desktop setup with limited customizations
-* build option for alternate language (de, es, fr, it, pt, ru, tr)
-* user may edit package list, add/remove packages
+* iso image build fast and easy
+* live images are fast (zstd compressor)
+* supports persistent storage
+* alternate image for installing Arch Linux
+* upstream desktop setup mainly
+* build option for default language (de, es, fr, it, pt, ru, tr)
+* user may edit package list for installation
 * supports installation of pre-built binary packages from the AUR
-* supports Plymouth graphical boot splash screen
-  (needs plymouth pre-built binary package from the AUR)
 * supports Nvidia proprietary driver by configuring a
   basic setup (driver not installed by default)
 * rEFInd as the default EFI boot manager
 * alternate method for installing to disk
   (see install_alternative.txt in /root directory)
 
-Archuseriso configs
--------------------
+Archuseriso Configurations
+--------------------------
 
 * Console, english only
 * Cinnamon desktop
@@ -35,13 +33,12 @@ Archuseriso configs
 * Mate desktop
 * Xfce desktop
 
-Run config's script `build.sh -h` for available options.
+Run the config's script `build.sh -h` for available options.
 
-Building an Archuseriso image
-=============================
+Building an Archuseriso Image
+-----------------------------
 
-As an example building the Kde desktop
---------------------------------------
+### Kde Desktop Example
 
 * Install needed packages
 
@@ -67,8 +64,20 @@ As an example building the Kde desktop
 
         % sudo archuseriso/configs/kde/build.sh -l de
 
-* Using the archuseriso program interface, building the Gnome iso, Spanish language :
+* Using archuseriso wrapper, building the Gnome iso, Spanish language :
 
         % sudo archuseriso gnome -l es
 
 When done you can remove the `work` directory that was used for building the iso image. The iso image is generated in the `out` directory.
+
+Adding Persistence
+------------------
+`mkauipers` creates a usb boot device allowing persistent storage. Command synopsys:
+
+        % mkauipers <usb device> <archuseriso image>
+
+Example:
+
+        % sudo mkauipers /dev/sdc archuseriso-xfce-1030-x64.iso
+
+From the Arch boot menu select the line `With Persistent Storage`, all your settings and files are saved to the persistent partition. Enjoy ;)
