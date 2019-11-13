@@ -111,6 +111,7 @@ xorg-fonts-75dpi
 xorg-mkfontscale
 xorg-server
 xorg-twm
+xorg-xdpyinfo
 xorg-xdriinfo
 xorg-xgamma
 xorg-xhost

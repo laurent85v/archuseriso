@@ -147,6 +147,7 @@ xorg-mkfontscale
 xorg-server
 xorg-server-xwayland
 xorg-twm
+xorg-xdpyinfo
 xorg-xdriinfo
 xorg-xgamma
 xorg-xhost
