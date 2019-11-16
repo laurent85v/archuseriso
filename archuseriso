@@ -143,4 +143,4 @@ while true; do
 done
 
 # Run the build script:
-eval "${confdir}/${config}/build.sh ${options}"
+eval "${confdir}/${config}/build.sh -v ${options}"
