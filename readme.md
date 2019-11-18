@@ -1,29 +1,24 @@
 Description
 ===========
 
-Archiso configurations for building alternate Arch Linux live and install iso images.
-Live iso images support persistent storage.
+Archiso configurations for building Arch Linux live iso with
+persistent storage support.
 
-Archuseriso Configurations Highlights
--------------------------------------
+Highlights
+----------
 
-* Arch Linux repositories only
-* iso image build fast and easy
-* live images are fast (zstd compressor)
-* supports persistent storage
+* iso build fast and easy
+* live images are fast (zstd compression)
+* live usb supports persistent storage
 * alternate image for installing Arch Linux
-* upstream desktop setup mainly
 * build option for default language (de, es, fr, it, pt, ru, tr)
-* user may edit package list for installation
+* user may edit package list
 * supports installation of pre-built binary packages from the AUR
-* supports Nvidia proprietary driver by configuring a
-  basic setup (driver not installed by default)
-* rEFInd as the default EFI boot manager
-* alternate method for installing to disk
-  (see install_alternative.txt in /root directory)
+* supports Nvidia proprietary driver (default: disabled)
+* rEFInd boot manager
 
-Archuseriso Configurations
---------------------------
+Configurations
+--------------
 
 * Console, english only
 * Cinnamon desktop
@@ -33,10 +28,10 @@ Archuseriso Configurations
 * Mate desktop
 * Xfce desktop
 
-Run the config's script `build.sh -h` for available options.
+Run the config's script `build.sh -h` for help.
 
-Building an Archuseriso Image
------------------------------
+Building an iso image
+---------------------
 
 ### Kde Desktop Example
 
@@ -52,11 +47,11 @@ Building an Archuseriso Image
 
         % sudo make -C archuseriso install
 
-* Optionally put additional binary packages built from the AUR into the `configs/kde/pkglocal` directory. Here adding some extra tools and ZFS support not available in official Arch repositories.
+* Optionally put additional binary packages built from the AUR into the `configs/kde/pkglocal` directory.
 
-        % cp byobu-5.127-2-any.pkg.tar.xz inxi-3.0.33-1-any.pkg.tar.xz zfs-linux-0.7.13_5.0.7.arch1.1-1-x86_64.pkg.tar.xz zfs-utils-0.7.13-1-x86_64.pkg.tar.xz archuseriso/configs/kde/pkglocal
+        % cp zfs-linux-0.7.13_5.0.7.arch1.1-1-x86_64.pkg.tar.xz zfs-utils-0.7.13-1-x86_64.pkg.tar.xz archuseriso/configs/kde/pkglocal
 
-* Launch the build script
+* Running the build script:
 
         % sudo archuseriso/configs/kde/build.sh
 
@@ -64,15 +59,15 @@ Building an Archuseriso Image
 
         % sudo archuseriso/configs/kde/build.sh -l de
 
-* Using archuseriso wrapper, building the Gnome iso, Spanish language :
+* Using the `archuseriso` wrapper, building Gnome iso, Spanish language :
 
         % sudo archuseriso gnome -l es
 
-When done you can remove the `work` directory that was used for building the iso image. The iso image is generated in the `out` directory.
+When done remove the `work` directory. The generated iso image is located the `out` directory.
 
-Adding Persistence
-------------------
-`mkauipers` creates a usb boot device allowing persistent storage. Command synopsys:
+Creating a Live USB with Persistent Storage
+-------------------------------------------
+Command synopsys:
 
         % mkauipers <usb device> <archuseriso image>
 
@@ -81,3 +76,7 @@ Example:
         % sudo mkauipers /dev/sdc archuseriso-xfce-1030-x64.iso
 
 From the Arch boot menu select the line `With Persistent Storage`, all your settings and files are saved to the persistent partition. Enjoy ;)
+
+Installing to disk using copy
+-----------------------------
+See install_alternative.txt in the live's `/root` directory.

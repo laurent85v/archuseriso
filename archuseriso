@@ -1,11 +1,12 @@
 #!/bin/bash
 
-version=0.3
+version=0.3.1
 confdir=/usr/share/archiso/configs
 config=
 options=
 
 _usage () {
+    echo
     echo "archuseriso v${version} usage:"
     echo
     echo "archuseriso <iso config> [-C|--config <path>] [build options]"
@@ -17,13 +18,7 @@ _usage () {
     echo "archuseriso <iso config> -h"
     echo
     echo "iso config list, select one from:"
-    echo "* console"
-    echo "* cinnamon"
-    echo "* deepin"
-    echo "* gnome"
-    echo "* kde"
-    echo "* mate"
-    echo "* xfce"
+    echo "console, cinnamon, deepin, gnome, kde, mate, xfce"
     echo
     echo "Build examples:"
     echo "archuseriso kde"
@@ -32,11 +27,11 @@ _usage () {
 }
 
 _help () {
-    echo "The archuseriso program is a wrapper"
-    echo "which executes the corresponding iso's"
-    echo "config build script."
+    echo
+    echo "archuseriso is a wrapper which runs the"
+    echo "corresponding iso config's build script."
     echo "You may directly run the config's"
-    echo "build script \`build.sh\` instead."
+    echo "build script \`build.sh\`."
     echo
     echo "Synopsis:"
     echo "archuseriso <iso config> [-C|--config <path>] [build options]"
@@ -45,13 +40,7 @@ _help () {
     echo "    Path to configs directory (default: /usr/share/archiso/configs)"
     echo
     echo "iso config list, select one from:"
-    echo "* console"
-    echo "* cinnnamon"
-    echo "* deepin"
-    echo "* gnome"
-    echo "* kde"
-    echo "* mate"
-    echo "* xfce"
+    echo "console, cinnamon, deepin, gnome, kde, mate, xfce"
     echo
     echo "Build examples:"
     echo "archuseriso kde"
@@ -66,8 +55,8 @@ _help () {
     echo "To customize an iso config:"
     echo "cp -rL /usr/share/archiso/configs/<config> <destination>"
     echo
-    echo "Edit packages files located in <config> and <config>/lang/<locale>."
-    echo "Add your packages files to <config>/pkglocal."
+    echo "Edit package lists located in <config> and <config>/lang/<locale>."
+    echo "Add your pre-built AUR packages to <config>/pkglocal."
     echo "Then run the config's build script \`build.sh\`."
     exit ${1}
 }

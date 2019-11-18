@@ -5,7 +5,7 @@ Installing the Kde destop to disk:
 
 * Boot the live desktop environment
 
-* Copy live file system to disk, suppose /dev/sda2 the new root "/" partition
+* Copy live filesystem to disk, suppose /dev/sda2 the new root "/" partition
 % sudo mount /dev/sda2 /mnt
 % sudo cp -aT /run/archiso/sfs/airootfs /mnt
 

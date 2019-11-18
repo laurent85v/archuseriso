@@ -3,38 +3,38 @@
 _usage () {
     echo
     echo 'Usage:'
-    echo 'mkauipers <block device> <archuseriso image>'
+    echo 'mkauipers <usb device> <iso image>'
     echo
     echo 'example:'
     echo 'mkauipers /dev/sdc archuseriso-xfce-1030-x64.iso'
     exit $1
 }
 
-[[ ${EUID} -eq 0 ]] || { echo "This script must be run as root!"; exit 1; }
-[[ $# -eq 2 ]] || { echo "Invalid parameters error!"; _usage 1; }
-[[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "$1 not a block device error!"; _usage 1; }
-[[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "$1 not a removable block device error!"; _usage 1; }
-[[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == "usb" ]] || { echo "$1 not a usb device error!"; _usage 1; }
+[[ ${EUID} -eq 0 ]] || { echo 'This script must be run as root!'; exit 1; }
+[[ $# -eq 2 ]] || { echo 'Error: Invalid parameters!'; _usage 1; }
+[[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
+[[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
+[[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
 [[ -f "$2" ]] || { echo "file $2 not found!"; _usage 1; }
-[[ $(file "$2" 2> /dev/null) =~ "MBR boot sector" ]] || { echo "$2 not an iso image error!"; _usage 1; }
+[[ $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]] || { echo "Error: $2 is not an iso image!"; _usage 1; }
 
 usbdevice=$1
 isoname=$2
 devicesize=$(blockdev --getsize64 "${usbdevice}")
 isosize=$(stat -c %s "${isoname}")
 
-[[ ${devicesize} -gt $(( isosize + 1073741824 )) ]] || { echo "USB device storage capacity error!"; exit 1; }
+[[ ${devicesize} -gt $(( isosize + 1073741824 )) ]] || { echo 'Storage capacity error!'; exit 1; }
 
 read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
 echo
-[[ "${REPLY}" =~ ^[Yy]$ ]] || { echo "Operation canceled by user!";  exit 0; }
+[[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
 
-echo "Writing to USB device..."
-cp -v "${isoname}" "${usbdevice}" || { echo "Write failed!"; exit 1; }
-echo "Creating persistent partition..."
+echo 'Writing to USB device...'
+cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
+echo 'Creating persistent partition...'
 echo "$(( isosize / 512 + 1 )),,83," | flock "${usbdevice}" sfdisk "${usbdevice}" --append &> /dev/null || \
-    { echo "Creation of persistent partition failed!"; exit 1; }
-echo "Formating..."
+    { echo 'Creation of persistent partition failed!'; exit 1; }
+echo 'Formatting...'
 mkfs.ext4 -L AUIPERS -O encrypt "${usbdevice}3" &> /dev/null || \
-    { echo "Persistent partition format failed!"; exit 1; }
-echo Done!
+    { echo 'Formatting Persistent partition failed!'; exit 1; }
+echo 'Done!'
