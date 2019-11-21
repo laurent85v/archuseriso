@@ -1,0 +1,8 @@
+comp_type=%COMP_TYPE%
+cow_label=AUIPERS
+desktop=%DESKTOP%
+install_dir=%INSTALL_DIR%
+iso_label=%ARCHISO_LABEL%
+iso_name=%ISO_NAME%
+iso_version=%ISO_VERSION%
+lang=%LANG%

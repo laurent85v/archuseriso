@@ -1,0 +1,109 @@
+#!/bin/bash
+
+set -e -u
+
+_usage () {
+    echo
+    echo 'aui-mkpersistent creates a live USB device'
+    echo 'with persistent storage'
+    echo
+    echo 'Usage:'
+    echo 'aui-mkpersistent <usb device> <iso image>'
+    echo
+    echo 'example:'
+    echo 'aui-mkpersistent /dev/sdc archuseriso-xfce-1130-x64.iso'
+    exit $1
+}
+
+# Check parameters
+[[ ${EUID} -eq 0 ]] || { echo 'This script must be run as root!'; exit 1; }
+[[ $# -eq 2 ]] || { echo 'Error: Invalid parameters!'; _usage 1; }
+[[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
+[[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
+[[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
+grep -q "$1" /proc/mounts && { echo "Error: $1 appears in active mounts, unmount device before proceeding!"; exit 1; }
+[[ -f "$2" ]] || { echo "file $2 not found!"; _usage 1; }
+[[ $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]] || { echo "Error: $2 is not an iso image!"; _usage 1; }
+
+WD="${PWD}"
+usbdevice=$1
+isoname=$2
+devicesize=$(blockdev --getsize64 "${usbdevice}")
+isosize=$(stat -c %s "${isoname}")
+MINFREESPACE=1073741824 # 1GB
+ESPSIZE=786432 # 384MB
+
+# Check usb device capacity
+[[ ${devicesize} -gt $(( isosize + MINFREESPACE )) ]] || { echo 'Storage capacity error!'; exit 1; }
+
+# Confim write
+read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
+echo
+[[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
+
+# Check & prepare working directory 
+for mountpoint in auiso auimnt/{3,4,}; do
+  grep -q "${mountpoint}" /proc/mounts && \
+   { echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!";
+     exit 1; }
+done
+for mountpoint in auiso auimnt/{3,4,}; do
+  [[ -e "${WD}/${mountpoint}" ]] && \
+  { echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!";
+    exit 1; }
+done
+
+mkdir -p "${WD}/auiso" "${WD}/auimnt/"{3,4}
+
+# Mount archuseriso image
+echo 'Mounting iso...'
+mount "${isoname}" "${WD}/auiso" -o ro
+
+# check archuseriso image
+if [[ -f "${WD}/auiso/aui/AUIDATA" ]]; then
+  eval $(grep cow_label "${WD}/auiso/aui/AUIDATA")
+else
+  echo "Error: ${isoname} is not a compatible image!"
+  umount "${WD}/auiso"
+  rmdir "${WD}/auimnt/"{3,4,} "${WD}/auiso"
+  _usage 1
+fi
+
+# Copy iso to usb 
+echo 'Writing to USB device...'
+flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
+cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
+
+# Add ESP and persistent partitions, format ext4 partition with encryption support
+echo 'Creating partitions...'
+echo "$(( isosize / 512 )),${ESPSIZE},ef," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always > /dev/null || \
+  { echo 'Creation of ESP partition failed!'; exit 1; }
+echo "$(( isosize / 512 + ESPSIZE )),,83," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always > /dev/null || \
+  { echo 'Creation of persistent partition failed!'; exit 1; }
+echo 'Formatting...'
+flock "${usbdevice}" mkfs.fat "${usbdevice}3" -F32 -n 'AUIESP' > /dev/null || \
+  { echo 'Formatting Persistent partition failed!'; exit 1; }
+flock "${usbdevice}" mkfs.ext4 -q -L "${cow_label}" -O encrypt "${usbdevice}4" > /dev/null || \
+  { echo 'Formatting Persistent partition failed!'; exit 1; }
+
+# Mount usb device
+echo 'Mounting usb device...'
+mount "${usbdevice}3" "${WD}/auimnt/3"
+mount "${usbdevice}4" "${WD}/auimnt/4"
+
+# Ppersistence setup
+echo 'Setting up persistence...'
+cp -aTL "${WD}/auiso/aui/esp" "${WD}/auimnt/3/"
+cp -a "${WD}/auiso/aui/loader" "${WD}/auimnt/3/"
+cp -a "${WD}/auiso/aui/"persistent_* "${WD}/auimnt/4/"
+cp -a "${WD}/auiso/aui/refind.conf" "${WD}/auimnt/3/EFI/BOOT/" 
+cp -a "${WD}/auiso/aui/AUIDATA" "${WD}/auimnt/4/"
+
+# Disable iso esp
+flock "${usbdevice}" sfdisk "${usbdevice}" 2 --part-type 0 &> /dev/null
+
+# Clean up
+umount "${WD}/auimnt/"{3,4} "${WD}/auiso"
+rmdir "${WD}/auimnt/"{3,4,} "${WD}/auiso"
+
+echo 'Done!'

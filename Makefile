@@ -1,16 +1,19 @@
-V=0.3.1
+V=0.3.2
 
 all:
 
 install: install-program install-examples
 
 install-program:
-	install -D -m 755 archuseriso $(DESTDIR)/usr/bin/archuseriso
-	install -D -m 755 mkauipers $(DESTDIR)/usr/bin/mkauipers
+	install -D aui-mkiso $(DESTDIR)/usr/bin/aui-mkiso
+	install aui-mkusb $(DESTDIR)/usr/bin/aui-mkusb
+	install aui-mkpersistent $(DESTDIR)/usr/bin/aui-mkpersistent
+	ln -sf aui-mkiso $(DESTDIR)/usr/bin/archuseriso
 
 install-examples:
-	install -d -m 755 $(DESTDIR)/usr/share/archiso/
+	install -d $(DESTDIR)/usr/share/archiso/
 	cp -a --no-preserve=ownership configs $(DESTDIR)/usr/share/archiso/
+	cp -a --no-preserve=ownership aui $(DESTDIR)/usr/share/archiso/
 
 dist:
 	git archive --format=tar --prefix=archuseriso-$(V)/ v$(V) | gzip -9 > archuseriso-$(V).tar.gz

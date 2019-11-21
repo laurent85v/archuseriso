@@ -13,6 +13,7 @@ out_dir=out
 gpg_key=
 lang=
 comp_type=zstd
+desktop=Cinnamon
 
 verbose=""
 script_path=$(readlink -f ${0%/*})
@@ -235,11 +236,10 @@ make_efi() {
     cp ${script_path}/efiboot/loader/entries/archiso-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf
-    cp ${script_path}/efiboot/loader/entries/archiso_4_persistence-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso_4_persistence-x86_64.conf
 
     sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
             s|%INSTALL_DIR%|${install_dir}|g" \
-            ${work_dir}/iso/loader/entries/archiso{,_2_console,_3_ram,_4_persistence}-x86_64.conf
+            ${work_dir}/iso/loader/entries/archiso{,_2_console,_3_ram}-x86_64.conf
 
     # EFI Shell 2.0 for UEFI 2.3+
     curl -o ${work_dir}/iso/EFI/shellx64_v2.efi https://raw.githubusercontent.com/tianocore/edk2/UDK2018/ShellBinPkg/UefiShell/X64/Shell.efi
@@ -279,16 +279,53 @@ make_efiboot() {
     cp ${script_path}/efiboot/loader/entries/archiso-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf
-    cp ${script_path}/efiboot/loader/entries/archiso_4_persistence-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso_4_persistence-x86_64.conf
 
     sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
             s|%INSTALL_DIR%|${install_dir}|g" \
-            ${work_dir}/efiboot/loader/entries/archiso{,_2_console,_3_ram,_4_persistence}-x86_64.conf
+            ${work_dir}/efiboot/loader/entries/archiso{,_2_console,_3_ram}-x86_64.conf
 
     cp ${work_dir}/iso/EFI/shellx64_v2.efi ${work_dir}/efiboot/EFI/
     cp ${work_dir}/iso/EFI/shellx64_v1.efi ${work_dir}/efiboot/EFI/
 
     umount -d ${work_dir}/efiboot
+}
+
+# Archuseriso data
+make_aui() {
+    cp -a --no-preserve=ownership ${script_path}/aui/ ${work_dir}/iso
+    mv ${work_dir}/iso/aui/persistent{,_${iso_label}}
+
+    # esp
+    mkdir -p "${work_dir}/iso/aui/esp/EFI"
+    ln -s "../../${install_dir}/boot/amd_ucode.img" "${work_dir}/iso/aui/esp/amd-ucode.img"
+    ln -s "../../${install_dir}/boot/intel_ucode.img" "${work_dir}/iso/aui/esp/intel-ucode.img"
+    ln -s "../../${install_dir}/boot/x86_64/vmlinuz" "${work_dir}/iso/aui/esp/vmlinuz-linux"
+    ln -s "../../${install_dir}/boot/x86_64/archiso.img" "${work_dir}/iso/aui/esp/initramfs-linux.img"
+    ln -s ../../loader "${work_dir}/iso/aui/esp/loader"
+    ln -s ../../../EFI/boot "${work_dir}/iso/aui/esp/EFI/BOOT"
+    ln -s ../../../EFI/live "${work_dir}/iso/aui/esp/EFI/live"
+    ln -s ../../../EFI/shellx64_v1.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v1.efi"
+    ln -s ../../../EFI/shellx64_v2.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v2.efi"
+    
+
+    if [[ -f ${work_dir}/iso/aui/AUIDATA ]]; then
+        eval $(grep cow_label ${work_dir}/iso/aui/AUIDATA)
+        sed -i "s|%COMP_TYPE%|${comp_type}|;
+                s|%DESKTOP%|${desktop}|;
+                s|%INSTALL_DIR%|${install_dir}|;
+                s|%ARCHISO_LABEL%|${iso_label}|;
+                s|%ISO_NAME%|${iso_name}|;
+                s|%ISO_VERSION%|${iso_version}|;
+                s|%LANG%|${lang}|" \
+                ${work_dir}/iso/aui/AUIDATA
+    fi
+    if [[ -f ${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf ]]; then
+        sed -i "s|%ARCHISO_LABEL%|${iso_label}|;
+                s|%INSTALL_DIR%|${install_dir}|;
+                s|%COW_LABEL%|${cow_label}|;
+                s|%DESKTOP%|${desktop}|" \
+                ${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf
+    fi
 }
 
 # Build airootfs filesystem image
@@ -363,5 +400,6 @@ run_once make_syslinux
 run_once make_isolinux
 run_once make_efi
 run_once make_efiboot
+run_once make_aui
 run_once make_prepare
 run_once make_iso
