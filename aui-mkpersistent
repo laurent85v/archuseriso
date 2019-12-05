@@ -32,6 +32,7 @@ devicesize=$(blockdev --getsize64 "${usbdevice}")
 isosize=$(stat -c %s "${isoname}")
 MINFREESPACE=1073741824 # 1GB
 ESPSIZE=786432 # 384MB
+workdir=auiwork
 
 # Check usb device capacity
 [[ ${devicesize} -gt $(( isosize + MINFREESPACE )) ]] || { echo 'Storage capacity error!'; exit 1; }
@@ -42,35 +43,35 @@ echo
 [[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
 
 # Check & prepare working directory 
-for mountpoint in auiso auimnt/{3,4,}; do
+for mountpoint in "${workdir}" "${workdir}/auiso" "${workdir}/auimnt"{3,4}; do
   grep -q "${mountpoint}" /proc/mounts && \
    { echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!";
      exit 1; }
 done
-for mountpoint in auiso auimnt/{3,4,}; do
+for mountpoint in "${workdir}" "${workdir}/auiso" "${workdir}/auimnt"{3,4}; do
   [[ -e "${WD}/${mountpoint}" ]] && \
   { echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!";
     exit 1; }
 done
 
-mkdir -p "${WD}/auiso" "${WD}/auimnt/"{3,4}
+mkdir -p "${WD}/${workdir}/auiso" "${WD}/${workdir}/auimnt"{3,4}
 
 # Mount archuseriso image
 echo 'Mounting iso...'
-mount "${isoname}" "${WD}/auiso" -o ro
+mount "${isoname}" "${WD}/${workdir}/auiso" -o ro
 
 # check archuseriso image
-if [[ -f "${WD}/auiso/aui/AUIDATA" ]]; then
-  eval $(grep cow_label "${WD}/auiso/aui/AUIDATA")
+if [[ -f "${WD}/${workdir}/auiso/aui/AUIDATA" ]]; then
+  eval $(grep cow_label "${WD}/${workdir}/auiso/aui/AUIDATA")
 else
   echo "Error: ${isoname} is not a compatible image!"
-  umount "${WD}/auiso"
-  rmdir "${WD}/auimnt/"{3,4,} "${WD}/auiso"
+  umount "${WD}/${workdir}/auiso"
+  rmdir "${WD}/${workdir}/auimnt"{3,4} "${WD}/${workdir}/auiso" "${WD}/${workdir}"
   _usage 1
 fi
 
 # Copy iso to usb 
-echo 'Writing to USB device...'
+echo 'Writing image to USB device...'
 flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
 cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
 
@@ -88,22 +89,23 @@ flock "${usbdevice}" mkfs.ext4 -q -L "${cow_label}" -O encrypt "${usbdevice}4" >
 
 # Mount usb device
 echo 'Mounting usb device...'
-mount "${usbdevice}3" "${WD}/auimnt/3"
-mount "${usbdevice}4" "${WD}/auimnt/4"
+mount "${usbdevice}3" "${WD}/${workdir}/auimnt3"
+mount "${usbdevice}4" "${WD}/${workdir}/auimnt4"
 
-# Ppersistence setup
+# Persistence setup
 echo 'Setting up persistence...'
-cp -aTL "${WD}/auiso/aui/esp" "${WD}/auimnt/3/"
-cp -a "${WD}/auiso/aui/loader" "${WD}/auimnt/3/"
-cp -a "${WD}/auiso/aui/"persistent_* "${WD}/auimnt/4/"
-cp -a "${WD}/auiso/aui/refind.conf" "${WD}/auimnt/3/EFI/BOOT/" 
-cp -a "${WD}/auiso/aui/AUIDATA" "${WD}/auimnt/4/"
+cp -LrT "${WD}/${workdir}/auiso/aui/esp" "${WD}/${workdir}/auimnt3/"
+cp -r "${WD}/${workdir}/auiso/aui/loader" "${WD}/${workdir}/auimnt3/"
+cp -a "${WD}/${workdir}/auiso/aui/"persistent_* "${WD}/${workdir}/auimnt4/"
+cp "${WD}/${workdir}/auiso/aui/refind.conf" "${WD}/${workdir}/auimnt3/EFI/BOOT/" 
+cp "${WD}/${workdir}/auiso/aui/AUIDATA" "${WD}/${workdir}/auimnt4/"
 
 # Disable iso esp
 flock "${usbdevice}" sfdisk "${usbdevice}" 2 --part-type 0 &> /dev/null
 
 # Clean up
-umount "${WD}/auimnt/"{3,4} "${WD}/auiso"
-rmdir "${WD}/auimnt/"{3,4,} "${WD}/auiso"
+umount "${WD}/${workdir}/auimnt"{3,4} "${WD}/${workdir}/auiso"
+rmdir "${WD}/${workdir}/auimnt"{3,4} "${WD}/${workdir}/auiso" "${WD}/${workdir}"
+
 
 echo 'Done!'

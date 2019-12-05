@@ -290,42 +290,20 @@ make_efiboot() {
     umount -d ${work_dir}/efiboot
 }
 
-# Copy archuseriso data
-make_aui() {
-    cp -af --no-preserve=ownership ${script_path}/aui ${work_dir}/iso
-    [[ -d ${work_dir}/iso/aui/persistent ]] && mv ${work_dir}/iso/aui/persistent{,_${iso_label}}
-    if [[ ! ${install_dir} == 'arch' ]];  then
-        for lnk in $(find ${script_path}/aui/esp -maxdepth 1 -type l | xargs readlink); do
-            ln -sf ${lnk/arch/${install_dir}} ${work_dir}/iso/aui/esp/${lnk//*\/}
-        done
-    fi
-    if [[ -f ${work_dir}/iso/aui/AUIDATA ]]; then
-        eval $(grep cow_label ${work_dir}/iso/aui/AUIDATA)
-        sed -i "s|%COMP_TYPE%|${comp_type}|;
-                s|%DESKTOP%|${desktop}|;
-                s|%INSTALL_DIR%|${install_dir}|;
-                s|%ARCHISO_LABEL%|${iso_label}|;
-                s|%ISO_NAME%|${iso_name}|;
-                s|%ISO_VERSION%|${iso_version}|;
-                s|%LANG%|${lang}|" \
-                ${work_dir}/iso/aui/AUIDATA
-    fi
-    if [[ -f ${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf ]]; then
-        sed -i "s|%ARCHISO_LABEL%|${iso_label}|;
-                s|%INSTALL_DIR%|${install_dir}|;
-                s|%COW_LABEL%|${cow_label}|;
-                s|%DESKTOP%|${desktop}|" \
-                ${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf
-    fi
-}
-
 # Archuseriso data
 make_aui() {
     cp -a --no-preserve=ownership ${script_path}/aui/ ${work_dir}/iso
     mv ${work_dir}/iso/aui/persistent{,_${iso_label}}
 
-    # esp
-    mkdir -p "${work_dir}/iso/aui/esp/EFI"
+    ### esp
+    # live kernel & initramfs
+    mkdir -p "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    ln -s "../../../../${install_dir}/boot/amd_ucode.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../${install_dir}/boot/intel_ucode.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../../${install_dir}/boot/x86_64/vmlinuz" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    ln -s "../../../../../${install_dir}/boot/x86_64/archiso.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    # persistent kernel & initramfs
+    mkdir -p "${work_dir}/iso/aui/esp/EFI/"
     ln -s "../../${install_dir}/boot/amd_ucode.img" "${work_dir}/iso/aui/esp/amd-ucode.img"
     ln -s "../../${install_dir}/boot/intel_ucode.img" "${work_dir}/iso/aui/esp/intel-ucode.img"
     ln -s "../../${install_dir}/boot/x86_64/vmlinuz" "${work_dir}/iso/aui/esp/vmlinuz-linux"
@@ -336,7 +314,6 @@ make_aui() {
     ln -s ../../../EFI/shellx64_v1.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v1.efi"
     ln -s ../../../EFI/shellx64_v2.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v2.efi"
     
-
     if [[ -f ${work_dir}/iso/aui/AUIDATA ]]; then
         eval $(grep cow_label ${work_dir}/iso/aui/AUIDATA)
         sed -i "s|%COMP_TYPE%|${comp_type}|;
