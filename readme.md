@@ -1,7 +1,7 @@
 Description
 ===========
 
-Build your own Arch Linux Live iso image. Features Persistent Storage, Encryption.
+Build your own Arch Linux Live iso image. Features Persistent Storage, Encryption and standard installation on a USB flash drive.
 
 Highlights
 ----------
@@ -9,7 +9,8 @@ Highlights
 * easy build
 * very fast images (zstd compression)
 * live USB with persistent storage, supports full updates
-* LUKS encryption option for persistent partition
+* LUKS encryption option
+* standard installation on a USB flash drive
 * rEFInd boot manager
 * language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * user customization
@@ -64,7 +65,7 @@ Live USB creation
 -----------------
 Command synopsis
 
-    aui-mkusb <usb device> <iso image> [options]
+    aui-mkusb <usb device> <iso image>
 
 Example
 
@@ -87,6 +88,18 @@ Example Live USB with persistent partition encrypted
 
 Persistence supports full updates `pacman -Syu` including kernel updates!
 All your settings and files are saved to the persistent partition. Enjoy ;)
+
+Standard installation on a USB flash drive
+------------------------------------------
+Hard disk like installation on a USB flash drive. Supports full disk encryption.
+
+Command synopsis:
+
+    aui-mkinstall <usb device> <iso image> [options]
+
+Example
+
+    sudo aui-mkinstall /dev/sdc archuseriso-xfce-1210-x64.iso --encrypt
 
 User Customization
 -------------------
