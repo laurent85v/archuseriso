@@ -1,68 +1,101 @@
 #!/bin/bash
 
-version=0.3.3
+set -e -u
+
 confdir=/usr/share/archiso/configs
 config=
 options=
 
 _usage () {
     echo
-    echo "aui-mkiso v${version} usage:"
+    echo 'aui-mkiso, Live ISO image build.'
     echo
-    echo "aui-mkiso <iso config> [-C|--config <path>] [build options]"
+    echo 'Command synopsis:'
+    echo 'aui-mkiso <iso config> [options] [build options]'
     echo
-    echo "help:"
-    echo "aui-mkiso -h"
+    echo 'To get help run:'
+    echo 'aui-mkiso --help'
     echo
-    echo "iso config help:"
-    echo "aui-mkiso <iso config> -h"
-    echo
-    echo "iso config list, select one from:"
-    echo "console, cinnamon, deepin, gnome, kde, mate, xfce"
-    echo
-    echo "Build examples:"
-    echo "aui-mkiso kde"
-    echo "aui-mkiso kde -l fr"
     exit ${1}
 }
 
 _help () {
     echo
-    echo "aui-mkiso is a wrapper which runs the"
-    echo "corresponding iso config's build script."
-    echo "You may directly run the config's"
-    echo "build script \`build.sh\`."
+    echo 'Archuseriso tool for building a custom Arch Linux Live ISO image.'
     echo
-    echo "Synopsis:"
-    echo "aui-mkiso <iso config> [-C|--config <path>] [build options]"
+    echo 'Command synopsis:'
+    echo 'aui-mkiso <iso config> [options] [build options]'
     echo
-    echo "-C, --confdir <path>"
-    echo "    Path to configs directory (default: /usr/share/archiso/configs)"
+    echo 'Options:'
+    echo '-h, --help           command help'
+    echo '-C, --configs-path   path to directory configs'
+    echo '                     default: /usr/share/archiso/configs'
     echo
-    echo "iso config list, select one from:"
-    echo "console, cinnamon, deepin, gnome, kde, mate, xfce"
+    echo "Config's specific help:"
+    echo 'aui-mkiso <iso config> -h | --help'
     echo
-    echo "Build examples:"
-    echo "aui-mkiso kde"
-    echo "aui-mkiso kde -l fr"
+    echo 'Configs list, select one from:'
+    echo 'console, cinnamon, deepin, gnome, kde, mate, xfce'
     echo
-    echo "To list the build script options:"
-    echo "aui-mkiso <iso config> -h"
+    echo 'Build example:'
+    echo 'sudo aui-mkiso xfce'
     echo
-    echo "or run the config's build script:"
-    echo "<path>/build.sh -h"
+    echo 'To customize a config, copy a config to your working directory:'
+    echo 'cp -LrT /usr/share/archiso/configs/<config> [path/]<config> 2> /dev/null'
+    echo 'cp -rT /usr/share/archiso/aui [path/]<config>/aui'
     echo
-    echo "To customize an iso config:"
-    echo "cp -rL /usr/share/archiso/configs/<config> <destination>"
+    echo 'Example, copy xfce config to home subdir sources:'
+    echo 'cp -LrT /usr/share/archiso/configs/xfce ~/sources/xfce 2> /dev/null'
+    echo 'cp -rT /usr/share/archiso/aui ~/sources/xfce/aui'
     echo
-    echo "Edit package lists located in <config> and <config>/lang/<locale>."
-    echo "Add your pre-built AUR packages to <config>/pkglocal."
-    echo "Then run the config's build script \`build.sh\`."
+    echo 'Edit the packages*.x86_64 files located in ~/sources/xfce and'
+    echo '~/sources/xfce/lang'.
+    echo
+    echo 'Optionnally add your own pre-built AUR binary packages to ~/sources/xfce/pkglocal'
+    echo
+    echo 'To build your customized iso use the --configs-path command option:'
+    echo 'sudo aui-mkiso xfce --configs-path ~/sources'
+    echo
     exit ${1}
 }
 
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'configs-path:,help' -n 'aui-mkiso' -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+[[ $# -eq 1 ]] && _usage 0
 
-if [[ ${EUID} -ne 0 ]]; then
+while true; do
+    case "$1" in
+        '-C'|'--configs-path')
+            confdir="$2"
+            shift 2 ;;
+        '-A'|'-D'|'-L'|'-N'|'-P'|'-V'|'-c'|'-g'|'-l'|'-o'|'-w')
+            options+="$1 $2 "
+            shift 2 ;;
+        '-h'|'--help')
+            options="-h "
+            shift ;;
+        '-v')
+            options+="-v "
+            shift ;;
+        '--')
+            shift
+            break ;;
+    esac
+done
+
+[[ $# -eq 0 ]] && [[ "${options}" =~ '-h' ]] && _help 0
+[[ $# -eq 1 ]] || { echo 'Error: invalid arguments!'; _usage 1; }
+
+case $1 in
+    cinnamon | console | deepin | gnome | kde | mate | xfce)
+        config=$1 ;;
+    *)
+        _usage 1 ;;
+esac
+
+if [[ ! "${options}" =~ '-h' && ${EUID} -ne 0 ]]; then
     echo "This script must be run as root."
     echo
     echo "help:"
@@ -70,66 +103,5 @@ if [[ ${EUID} -ne 0 ]]; then
     exit 1
 fi
 
-if [[ "$1" == '-h' ]]; then
-  _help 0
-fi
-
-case "$1" in
-    console)
-        config="console"
-        shift ;;
-    cinnamon)
-        config="cinnamon"
-        shift ;;
-    deepin)
-        config="deepin"
-        shift ;;
-    gnome)
-        config="gnome"
-        shift ;;
-    kde)
-        config="kde"
-        shift ;;
-    mate)
-        config="mate"
-        shift ;;
-    xfce)
-        config="xfce"
-        shift ;;
-    *)
-        _usage 1 ;;
-esac
-
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'confdir:,help' -n 'aui-mkiso' -- "$@")
-eval set -- "${OPTS}"
-
-[[ "$?" -eq 0 ]] || _usage 1
-unset OPTS
-
-while true; do
-    case "$1" in
-        '-C'|'--confdir')
-            confdir="$2"
-            shift 2 ;;
-        '-A'|'-D'|'-L'|'-N'|'-P'|'-V'|'-c'|'-g'|'-l'|'-o'|'-w')
-            options+="$1 $2 "
-            shift 2 ;;
-        '-h'|'--help')
-            options="-h"
-            shift
-            break ;;
-        '-v')
-            options+="-v "
-            shift ;;
-        '--')
-            shift
-            break ;;
-        *)
-            shift
-            echo "Invalid argument ${arg}"
-            _usage 1 ;;
-    esac
-done
-
-# Run the build script:
+# Launch the build script:
 eval "${confdir}/${config}/build.sh ${options}"

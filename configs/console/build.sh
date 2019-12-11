@@ -277,11 +277,6 @@ make_iso() {
     cd ~-
 }
 
-if [[ ${EUID} -ne 0 ]]; then
-    echo "This script must be run as root."
-    exit 1
-fi
-
 while getopts 'N:V:L:P:A:D:w:o:g:vhc:' arg; do
     case "${arg}" in
         N) iso_name="${OPTARG}" ;;
@@ -302,6 +297,11 @@ while getopts 'N:V:L:P:A:D:w:o:g:vhc:' arg; do
            ;;
     esac
 done
+
+if [[ ${EUID} -ne 0 ]]; then
+    echo "This script must be run as root."
+    exit 1
+fi
 
 mkdir -p ${work_dir}
 

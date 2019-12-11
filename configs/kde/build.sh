@@ -312,7 +312,7 @@ make_aui() {
     ln -s ../../../EFI/live "${work_dir}/iso/aui/esp/EFI/live"
     ln -s ../../../EFI/shellx64_v1.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v1.efi"
     ln -s ../../../EFI/shellx64_v2.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v2.efi"
-    
+
     if [[ -f ${work_dir}/iso/aui/AUIDATA ]]; then
         eval $(grep cow_label ${work_dir}/iso/aui/AUIDATA)
         sed -i "s|%COMP_TYPE%|${comp_type}|;
@@ -353,11 +353,6 @@ make_iso() {
     cd ~-
 }
 
-if [[ ${EUID} -ne 0 ]]; then
-    echo "This script must be run as root."
-    exit 1
-fi
-
 while getopts 'N:V:L:P:A:D:w:o:g:vhl:c:' arg; do
     case "${arg}" in
         N) iso_name="${OPTARG}" ;;
@@ -389,6 +384,11 @@ while getopts 'N:V:L:P:A:D:w:o:g:vhl:c:' arg; do
            ;;
     esac
 done
+
+if [[ ${EUID} -ne 0 ]]; then
+    echo "This script must be run as root."
+    exit 1
+fi
 
 mkdir -p ${work_dir}
 

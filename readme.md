@@ -1,26 +1,25 @@
 Description
 ===========
 
-Archiso configurations for building your own Arch Linux live iso
-with persistent storage support.
+Build your own Arch Linux Live iso image. Features Persistent Storage, Encryption.
 
 Highlights
 ----------
 
 * easy build
 * very fast images (zstd compression)
-* live usb supports persistent storage including `pacman -Syu`
+* live USB with persistent storage, supports full updates
+* LUKS encryption option for persistent partition
 * rEFInd boot manager
-* alternate image for installing Arch Linux to disk
 * language build option (de, es, fr, it, pt, ru, tr)
-* package list customization
+* user customization
 * supports installation of AUR packages (user own binary packages)
 * supports Nvidia driver (disabled by default)
 
 Desktop environments
 --------------------
 
-* Console, english only
+* Console
 * Cinnamon
 * Deepin
 * Gnome
@@ -28,55 +27,76 @@ Desktop environments
 * Mate
 * Xfce
 
-Building an iso image
----------------------
+`console` config english only, no persistence.
 
-* Install dependencies
+ISO image build
+---------------
 
-        % sudo pacman --needed -S archiso git
+Install dependencies
 
-* Clone master repository
+    sudo pacman --needed -S archiso git
 
-        % git clone https://github.com/laurent85v/archuseriso.git`
+Clone master repository
 
-* Install
+    git clone https://github.com/laurent85v/archuseriso.git`
 
-        % sudo make -C archuseriso install
+Install
 
-* Command synopsys
+    sudo make -C archuseriso install
 
-        % aui-mkiso <desktop environment> [options]
+Command synopsis
+
+    aui-mkiso <desktop environment> [options]
 
 ### Kde desktop iso example (Plasma)
 
-        % sudo aui-mkiso kde
+    sudo aui-mkiso kde
 
-Build iso with default language set to German
+Build with default language set to German
 
-        % sudo aui-mkiso kde -l de
+    sudo aui-mkiso kde -l de
 
 When done remove the `work` directory. The generated image is located in the `out` directory.
 
-Creating a Live USB
--------------------
-Command synopsys
+Live USB creation
+-----------------
+Command synopsis
 
-        % aui-mkusb <usb device> <iso image>
+    aui-mkusb <usb device> <iso image> [options]
 
 Example
 
-        % sudo aui-mkusb /dev/sdc archuseriso-xfce-1130-x64.iso
+    sudo aui-mkusb /dev/sdc archuseriso-xfce-1130-x64.iso
 
-Creating a Live USB with persistent storage support
----------------------------------------------------
-Adds a persistence entry in the boot menu options.
-Command synopsys:
+Live USB with persistent storage support
+----------------------------------------
+Adds a persistence entry to the boot menu options.
+Command synopsis:
 
-        % aui-mkpersistent <usb device> <iso image>
+    aui-mkpersistent <usb device> <iso image> [options]
 
-Persistence supports `pacman -Syu` including kernel updates!
+Example Live USB with persistent partition encrypted
+
+    sudo aui-mkpersistent /dev/sdc archuseriso-xfce-1210-x64.iso --encrypt
+
+Persistence supports full updates `pacman -Syu` including kernel updates!
 All your settings and files are saved to the persistent partition. Enjoy ;)
 
-Installing to disk using copy
------------------------------
-See install_alternative.txt in the live's `/root` directory.
+User Customization
+-------------------
+Copy a config to your own working directory:
+
+    cp -LrT /usr/share/archiso/configs/<iso config> [path/]<config> 2> /dev/null
+    cp -rT /usr/share/archiso/aui [path/]<config>/aui
+
+Example:
+
+    cp -LrT /usr/share/archiso/configs/xfce ~/sources/xfce 2> /dev/null
+    cp -rT /usr/share/archiso/aui ~/sources/xfce/aui
+
+Customize packages\*.x86_64 files. To build the iso image run:
+    sudo aui-mkiso xfce --configs-path ~/sources'
+
+Hard disk installation
+----------------------
+Hard disk installation is not supported however the file `install_alternative.txt` in the live's `/root` directory describes in a few steps how to migrate the live filesystem to a hard disk and how to easily remove the live settings.

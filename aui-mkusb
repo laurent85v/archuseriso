@@ -3,20 +3,53 @@
 set -e -u
 
 _usage () {
-    echo
-    echo 'aui-mkusb creates a live USB device'
-    echo
-    echo 'Usage:'
-    echo 'aui-mkusb <usb device> <iso image>'
-    echo
-    echo 'example:'
-    echo 'aui-mkusb /dev/sdc archuseriso-xfce-1130-x64.iso'
-    exit $1
+  echo
+  echo 'aui-mkusb, Live USB creation tool.'
+  echo
+  echo 'Command synopsis:'
+  echo 'aui-mkusb <usb device> <iso image> [options]'
+  echo
+  echo 'To get help run:'
+  echo 'aui-mkusb --help'
+  exit $1
 }
 
-# check parameters
+_help () {
+  echo
+  echo 'Archuseriso tool for creating a Live USB'
+  echo
+  echo 'Command synopsis:'
+  echo 'aui-mkusb <usb device> <iso image> [options]'
+  echo
+  echo 'Options:'
+  echo '-h, --help           command help'
+  echo
+  echo 'Example:'
+  echo 'aui-mkusb /dev/sdc archuseriso-xfce-1130-x64.iso'
+  echo
+  exit $1
+}
+
+# check arguments
+OPTS=$(getopt -o 'h' --long 'help' -n 'aui-mkusb' -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+[[ $# -eq 1 ]] && _usage 1
+
+while true; do
+  case "$1" in
+    '-h'|'--help')
+      _help 0 ;;
+    '--')
+      shift
+      break ;;
+  esac
+done
+
+[[ $# -eq 2 ]] || { echo 'Error: invalid arguments!'; _usage 1; }
 [[ ${EUID} -eq 0 ]] || { echo 'This script must be run as root!'; exit 1; }
-[[ $# -eq 2 ]] || { echo 'Error: Invalid parameters!'; _usage 1; }
+
 [[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
 [[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
 [[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
@@ -36,6 +69,6 @@ isosize=$(stat -c %s "${isoname}")
 read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
 echo
 [[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
-echo 'Writing to USB device...'
+echo 'Writing image to USB device...'
 cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
 echo 'Done!'
