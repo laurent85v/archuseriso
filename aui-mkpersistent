@@ -129,8 +129,9 @@ _iso_copy () {
   # Copy iso to usb
   echo 'Writing image to USB device...'
   flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
+  partprobe "${usbdevice}"
   cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
-  sleep 1
+  sleep 2
 }
 
 _partitions () {
