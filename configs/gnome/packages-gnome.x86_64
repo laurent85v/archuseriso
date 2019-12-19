@@ -98,8 +98,6 @@ vino
 xdg-user-dirs-gtk
 xf86-input-elographics
 xf86-input-evdev
-xf86-input-keyboard
-xf86-input-mouse
 xf86-input-void
 xf86-input-wacom
 xf86-video-amdgpu
@@ -111,7 +109,7 @@ xorg-fonts-75dpi
 xorg-mkfontscale
 xorg-server
 xorg-twm
-xorg-xdpyinfo
+#xorg-xdpyinfo
 xorg-xdriinfo
 xorg-xgamma
 xorg-xhost
