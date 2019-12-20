@@ -95,6 +95,7 @@ Example:
     cp -rT /usr/share/archiso/aui ~/sources/xfce/aui
 
 Customize packages\*.x86_64 files. To build the iso image run:
+
     sudo aui-mkiso xfce --configs-path ~/sources
 
 Hard disk installation
