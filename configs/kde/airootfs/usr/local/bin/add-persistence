@@ -4,29 +4,30 @@ set -e -u
 
 _usage () {
   echo
-  echo 'aui-mkpersistent, Live USB creation tool featuring persistent storage.'
+  echo 'add-persistence, adds the persistence feature to the boot menu options.'
   echo
   echo 'Command synopsis:'
-  echo 'aui-mkpersistent <usb device> <iso image> [options]'
+  echo 'add-persistence [options]'
   echo
   echo 'To get help run:'
-  echo 'aui-mkpersistent --help'
+  echo 'add-persistence --help'
   exit $1
 }
 
 _help () {
   echo
-  echo 'Archuseriso tool for creating a Live USB with persistent storage'
+  echo 'Archuseriso Live USB tool for adding the persistence feature'
+  echo 'to the boot menu options.'
   echo
   echo 'Command synopsis:'
-  echo 'aui-mkpersistent <usb device> <iso image> [options]'
+  echo 'add-persistence [options]'
   echo
   echo 'Options:'
   echo '-h, --help           command help'
   echo '--encrypt            encrypt persistent partition'
   echo
   echo 'Example:'
-  echo 'aui-mkpersistent /dev/sdc archuseriso-xfce-1130-x64.iso --encrypt'
+  echo 'add-persistence --encrypt'
   echo
   exit $1
 }
@@ -45,8 +46,7 @@ _encrypt_mkluks () {
 _encrypt_setup () {
   echo 'Setting up encryption...'
   mkdir "${WD}/${workdir}/"{overlay,squashfs}
-  mount "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs" -o ro
-  mkdir "${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir"
+  mount /run/archiso/sfs/airootfs "${WD}/${workdir}/squashfs" -o bind
   mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir" "${WD}/${workdir}/overlay"
   mount "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot" -o bind
   cp "${WD}/${workdir}/iso/aui/mkinitcpio-archiso-encryption.conf" "${WD}/${workdir}/overlay/etc/"
@@ -61,24 +61,23 @@ _encrypt_setup () {
 }
 
 _checks () {
-  [[ $# -eq 2 ]] || { echo 'Error: Invalid arguments!'; _usage 1; }
+  [[ $# -eq 0 ]] || { echo 'Error: Invalid arguments!'; _usage 1; }
   [[ ${EUID} -eq 0 ]] || { echo 'This script must be run as root!'; exit 1; }
 
-  [[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
-  [[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
-  [[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
-  grep -q "$1" /proc/mounts && { echo "Error: $1 appears in active mounts, unmount device before proceeding!"; exit 1; }
-  [[ -f "$2" ]] || { echo "file $2 not found!"; _usage 1; }
-  [[ $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]] || { echo "Error: $2 is not an iso image!"; _usage 1; }
+  usbdevice=/dev/$(grep bootmnt /proc/mounts | cut -d' ' -f1 | xargs lsblk -no pkname)
+  
+  blkid "${usbdevice}2" | grep -q 'LIVEMEDIUM' || \
+  { echo "Error: persistence already enabled or medium compatibility issue, can't proceed!"; exit 1; }
 
-  usbdevice=$1
-  isoname=$2
+  [[ $(stat -c %t "${usbdevice}" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
+  [[ $(lsblk -dnro rm "${usbdevice}" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
+  [[ "$(lsblk -dnro tran "${usbdevice}" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
 }
 
 _init () {
   devicesize=$(blockdev --getsize64 "${usbdevice}")
   ESPSIZE=786432 # 384 MiB
-  isosize=$(stat -c %s "${isoname}")
+  isosize=$(blockdev --getsize64 "${usbdevice}1")
   MINFREESPACE=1073741824 # 1 GiB
   WD="${PWD}"
   workdir=auiwork
@@ -88,7 +87,7 @@ _init () {
 
 _confirm_write () {
   # Confim write
-  read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
+  read -r -n1 -p "Confirm writing new partition table to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
   echo
   [[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
 
@@ -105,62 +104,48 @@ _confirm_write () {
   done
   [[ -e /dev/mapper/auicrypt ]] && \
     { echo 'Error: cryptsetup mapping /dev/mapper/auicrypt exists! cannot proceed.'; exit 1; }
-
-  mkdir -p "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{2,3}
-}
-
-_iso_copy () {
-  # Mount iso
-  echo 'Mounting iso...'
-  mount "${isoname}" "${WD}/${workdir}/iso" -o ro
-
-  # check iso
-  if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" ]]; then
-    eval $(grep cow_label "${WD}/${workdir}/iso/aui/AUIDATA")
-    eval $(grep iso_label "${WD}/${workdir}/iso/aui/AUIDATA")
-    eval $(grep install_dir "${WD}/${workdir}/iso/aui/AUIDATA")
-  else
-    echo "Error: ${isoname} is not a compatible image!"
-    umount "${WD}/${workdir}/iso"
-    rmdir "${WD}/${workdir}/usb"{2,3} "${WD}/${workdir}/iso" "${WD}/${workdir}"
-    _usage 1
-  fi
-
-  # Copy iso to usb
-  echo 'Writing image...'
-  flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
-  partprobe "${usbdevice}"
-  cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
-  sleep 2
+  true
 }
 
 _partitions () {
   # Delete iso esp
-  flock "${usbdevice}" sfdisk --delete "${usbdevice}" 2 -w always &> /dev/null
+  sfdisk --delete "${usbdevice}" 2 -w always --no-reread --no-tell-kernel --force
+  sleep 2
   # Add ESP and persistent partitions, format ext4 partition with encryption support
-  sleep 1
   echo 'Creating partitions...'
-  echo "$(( isosize / 512 )),${ESPSIZE},ef," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always || \
+  echo "$(( isosize / 512 )),${ESPSIZE},ef," | sfdisk "${usbdevice}" --append -W always --no-reread --no-tell-kernel --force || \
     { echo 'Failed to create new partition layout!'; exit 1; }
-  sleep 1
-  echo "$(( isosize / 512 + ESPSIZE )),,83," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always || \
+  sleep 2
+  echo "$(( isosize / 512 + ESPSIZE )),,83," | sfdisk "${usbdevice}" --append -W always --no-reread --no-tell-kernel --force || \
     { echo 'Failed to create new partition layout!'; exit 1; }
-  sleep 1
+  sleep 2
+  set +e
+  partprobe "${usbdevice}" &> /dev/null
+  set -e
+  sleep 2
 }
 
 _format () {
+  mkdir -p "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{2,3}
+  mount /run/archiso/bootmnt "${WD}/${workdir}/iso" -o bind
+
+  if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" ]]; then
+    eval $(grep cow_label "${WD}/${workdir}/iso/aui/AUIDATA")
+    eval $(grep iso_label "${WD}/${workdir}/iso/aui/AUIDATA")
+  fi
+
   echo 'Formatting...'
-  flock "${usbdevice}2" mkfs.fat "${usbdevice}2" -F32 -n 'AUIESP' || \
+  mkfs.fat "${usbdevice}2" -F32 -n 'AUIESP' || \
     { echo 'Partition format failed!'; exit 1; }
   cowdevice="${usbdevice}3"
   [[ -n "${encryption:-}" ]] && _encrypt_mkluks
-  flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt || \
+  mkfs.ext4 "${cowdevice}" -L "${cow_label:-AUIPERS}" -O encrypt -F || \
     { echo 'Partition format failed!'; exit 1; }
 }
 
 _mount () {
   # Mount usb device
-  echo 'Mounting usb device...'
+  echo 'Mounting partitions...'
   mount "${usbdevice}2" "${WD}/${workdir}/usb2"
   mount "${cowdevice}" "${WD}/${workdir}/usb3"
 }
@@ -170,25 +155,26 @@ _persistence () {
   echo 'Setting up persistence...'
   cp -LrT "${WD}/${workdir}/iso/aui/esp" "${WD}/${workdir}/usb2/"
   cp -r "${WD}/${workdir}/iso/aui/loader" "${WD}/${workdir}/usb2/"
-  cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/"
+  cp -a "${WD}/${workdir}/iso/aui/"persistent_* "${WD}/${workdir}/usb3/"
   cp "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
   cp "${WD}/${workdir}/iso/aui/AUIDATA" "${WD}/${workdir}/usb3/"
-  [[ -n "${encryption:-}" ]] && _encrypt_setup || true
+  [[ -n "${encryption:-}" ]] && _encrypt_setup
+  true
 }
 
 _finalize () {
   # Clean up
   umount "${WD}/${workdir}/usb"{2,3} "${WD}/${workdir}/iso"
   rmdir "${WD}/${workdir}/usb"{2,3} "${WD}/${workdir}/iso" "${WD}/${workdir}"
-  [[ -n "${encryption:-}" ]] && cryptsetup close auicrypt || true
+  [[ -n "${encryption:-}" ]] && cryptsetup close auicrypt
+  true
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,help' -n 'aui-mkpersistent' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,help' -n 'auto_persistent' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
-[[ $# -eq 1 ]] && _usage 1
 
 while true; do
   case "$1" in
@@ -206,11 +192,10 @@ done
 _checks "$@"
 _init
 _confirm_write
-_iso_copy
 _partitions
 _format
 _mount
 _persistence
 _finalize
 
-echo 'Done!'
+echo 'Done! Persistence menu option will be available on next boot.'

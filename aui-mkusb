@@ -69,6 +69,6 @@ isosize=$(stat -c %s "${isoname}")
 read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
 echo
 [[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
-echo 'Writing image to USB device...'
+echo 'Writing image...'
 cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
 echo 'Done!'
