@@ -41,12 +41,7 @@ sed -i 's/^#\(background=\)$/\1#204a87/
 } > /dev/null 2>&1
 
 # Set lightdm display-manager
-# Using lightdm-plymouth when available
-if [[ -e /usr/lib/systemd/system/lightdm-plymouth.service ]]; then
-    ln -s /usr/lib/systemd/system/lightdm-plymouth.service /etc/systemd/system/display-manager.service
-else
-    ln -s /usr/lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
-fi
+ln -s /usr/lib/systemd/system/lightdm.service /etc/systemd/system/display-manager.service
 
 # Add live user
 # * groups member

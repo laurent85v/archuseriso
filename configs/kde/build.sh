@@ -108,15 +108,6 @@ make_packages_local() {
     fi
 }
 
-# airootfs local packages
-# installs *.pkg.tar.xz packages located in configs pkglocal folder
-make_packages_setup() {
-
-    if [[ -e ${work_dir}/x86_64/airootfs/usr/bin/plymouth-set-default-theme ]]; then
-        chroot ${work_dir}/x86_64/airootfs plymouth-set-default-theme spinfinity
-    fi
-}
-
 # Copy mkinitcpio archiso hooks and build initramfs (airootfs)
 make_setup_mkinitcpio() {
     local _hook
@@ -396,7 +387,6 @@ run_once make_pacman_conf
 run_once make_basefs
 run_once make_packages
 run_once make_packages_local
-run_once make_packages_setup
 run_once make_setup_mkinitcpio
 run_once make_customize_airootfs
 run_once make_boot

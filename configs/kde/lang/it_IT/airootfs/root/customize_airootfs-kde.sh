@@ -40,12 +40,7 @@ fi
 } > /dev/null 2>&1
 
 # Set sddm display-manager
-# Using sddm-plymouth when available
-if [[ -e /usr/lib/systemd/system/sddm-plymouth.service ]]; then
-    ln -s /usr/lib/systemd/system/sddm-plymouth.service /etc/systemd/system/display-manager.service
-else
-    ln -s /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.service
-fi
+ln -s /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.service
 
 # Add live user
 # * groups member
