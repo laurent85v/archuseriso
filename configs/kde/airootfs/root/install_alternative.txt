@@ -74,4 +74,3 @@ or
 
   You still need to install a bootloader, refer to the Arch documentation for
   this task.
-

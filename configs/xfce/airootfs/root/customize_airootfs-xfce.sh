@@ -55,4 +55,3 @@ sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
 # add live to autologin group
 groupadd -r autologin
 gpasswd -a live autologin
-
