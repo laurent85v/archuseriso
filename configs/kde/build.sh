@@ -42,7 +42,7 @@ _usage ()
     echo "    -o <out_dir>       Set the output directory"
     echo "                        Default: ${out_dir}"
     echo "    -l <language>      Change the default language, select one from:"
-    echo "                        de, es, fr, it, pl, pt, ru, tr"
+    echo "                        de, es, fr, it, pl, pt, ru, tr, ua"
     echo "    -c <comp_type>     Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
     echo "                       Default: ${comp_type}"
     echo "    -v                 Enable verbose output"
@@ -367,6 +367,7 @@ while getopts 'N:V:L:P:A:D:w:o:g:vhl:c:' arg; do
                 'pt'|'pt_PT') lang="pt_PT";;
                 'ru'|'ru_RU') lang="ru_RU";;
                 'tr'|'tr_TR') lang="tr_TR";;
+                'ua'|'uk_UA') lang="uk_UA";;
                 *) _usage 1;;
             esac;;
         c) comp_type="${OPTARG}" ;;
