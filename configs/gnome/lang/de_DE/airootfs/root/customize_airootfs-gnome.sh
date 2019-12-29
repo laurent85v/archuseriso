@@ -5,7 +5,7 @@ set -e -u
 # Run releng's defaults
 /root/customize_airootfs.sh
 
-# de_DE.UTF8 locales
+# de_DE.UTF-8 locales
 sed -i 's/#\(de_DE\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 

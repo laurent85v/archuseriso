@@ -5,7 +5,7 @@ set -e -u
 # Run releng's defaults
 /root/customize_airootfs.sh
 
-# pt_PT.UTF8 locales
+# pt_PT.UTF-8 locales
 sed -i 's/#\(pt_PT\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 
