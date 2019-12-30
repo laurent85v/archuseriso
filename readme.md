@@ -11,7 +11,7 @@ Highlights
 * live USB with persistent storage, supports full updates
 * LUKS encryption option for persistent partition
 * rEFInd boot manager
-* language build option (de, es, fr, it, pt, ru, tr)
+* language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * user customization
 * supports installation of AUR packages (user own binary packages)
 * supports Nvidia driver (disabled by default)
@@ -27,7 +27,9 @@ Desktop environments
 * Mate
 * Xfce
 
-`console` config english only, no persistence.
+`console`: english only, no persistence.
+
+Hint for gr, rs, ru and ua with two keyboard layouts: press both `Shift keys` together for keyboard layout switch. 
 
 ISO image build
 ---------------
@@ -70,7 +72,7 @@ Example
 
 Live USB with persistent storage support
 ----------------------------------------
-Adds a persistence entry to the boot menu options.
+1st method while creating the Live USB, adds a persistence entry to the boot menu options.
 Command synopsis:
 
     aui-mkpersistent <usb device> <iso image> [options]
@@ -78,6 +80,10 @@ Command synopsis:
 Example Live USB with persistent partition encrypted
 
     sudo aui-mkpersistent /dev/sdc archuseriso-xfce-1210-x64.iso --encrypt
+
+2nd method from the Live USB itself when the Live USB was created with a different tool, adds missing persistence feature to the boot menu options. Adding persistence encrypted:
+
+    sudo add-persistence --encrypt
 
 Persistence supports full updates `pacman -Syu` including kernel updates!
 All your settings and files are saved to the persistent partition. Enjoy ;)
