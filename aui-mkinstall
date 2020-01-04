@@ -3,230 +3,284 @@
 set -e -u
 
 _usage () {
-  echo
-  echo 'aui-mkinstall, performs a standard installation on a USB flash drive.'
-  echo
-  echo 'Command synopsis:'
-  echo 'aui-mkinstall <usb device> <iso image> [options]'
-  echo
-  echo 'To get help run:'
-  echo 'aui-mkinstall --help'
-  exit $1
+        echo
+        echo 'aui-mkinstall, performs a standard installation on a USB flash drive.'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-mkinstall <usb device> <iso image> [options]'
+        echo
+        echo 'To get help run:'
+        echo 'aui-mkinstall --help'
+        exit $1
 }
 
 _help () {
-  echo
-  echo 'Archuseriso tool for installing on a USB flash drive'
-  echo
-  echo 'Command synopsis:'
-  echo 'aui-mkinstall <usb device> <iso image> [options]'
-  echo
-  echo 'Options:'
-  echo '-h, --help           command help'
-  echo '--encrypt            encrypt persistent partition'
-  echo
-  echo 'Example:'
-  echo 'aui-mkinstall /dev/sdc archuseriso-xfce-1231-x64.iso --encrypt'
-  echo
-  exit $1
+        echo
+        echo 'Archuseriso tool for installing on a USB flash drive'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-mkinstall <usb device> <iso image> [options]'
+        echo
+        echo 'Options:'
+        echo '-h, --help           command help'
+        echo '--encrypt            encrypt persistent partition'
+        echo
+        echo 'Example:'
+        echo 'aui-mkinstall /dev/sdc archuseriso-xfce-1231-x64.iso --encrypt'
+        echo
+        exit $1
 }
 
 _encrypt_mkluks () {
-  echo
-  echo 'Setting up encrypted partition, type in a passphrase of your choice...'
-  cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat "${usbdevice}2" || \
-    { echo 'Encryption setup failed, exiting!'; exit 1; }
-  echo
-  echo 'LUKS encryption setup done! type in your passphrase to unlock device...'
-  cryptsetup open "${usbdevice}2" auicrypt || { echo 'Error: Could not unlock device! Exiting.'; exit 1; }
-  rootdevice=/dev/mapper/auicrypt
+        echo
+        echo 'Setting up encrypted partition, type in a passphrase of your choice...'
+        if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat "${usbdevice}2"; then
+                echo 'Encryption setup failed, exiting!'
+                exit 1
+        fi
+        echo
+        echo 'LUKS encryption setup done! type in your passphrase to unlock device...'
+        if ! cryptsetup open "${usbdevice}2" auicrypt; then
+                echo 'Error: Could not unlock device! Exiting.'
+                exit 1
+        fi
+        rootdevice=/dev/mapper/auicrypt
 }
 
 _encrypt_setup () {
-  echo 'Finalizing encryption...'
-  sed -i "s|block|& encrypt|" \
-         "${WD}/${workdir}/usb/etc/mkinitcpio.conf"
-  sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
-         "${WD}/${workdir}/usb/boot/refind_linux.conf"
-  arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P
+        echo 'Finalizing encryption...'
+        sed -i "s|block|& encrypt|" "${WD}/${workdir}/usb/etc/mkinitcpio.conf"
+        sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+               "${WD}/${workdir}/usb/boot/refind_linux.conf"
+        arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P
 }
 
 _checks () {
-  [[ $# -eq 2 ]] || { echo 'Error: Invalid arguments!'; _usage 1; }
-  [[ ${EUID} -eq 0 ]] || { echo 'This script must be run as root!'; exit 1; }
-
-  [[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
-  [[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
-  [[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
-  grep -q "$1" /proc/mounts && { echo "Error: $1 appears in active mounts, unmount device before proceeding!"; exit 1; }
-  [[ -f "$2" ]] || { echo "file $2 not found!"; _usage 1; }
-  [[ $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]] || { echo "Error: $2 is not an iso image!"; _usage 1; }
-
-  usbdevice=$1
-  isoname=$2
+        if [[ $# -ne 2 ]]; then
+                echo 'Error: Invalid arguments!'
+                _usage 1
+        fi
+        if [[ ${EUID} -ne 0 ]]; then
+                echo 'This script must be run as root!'
+                exit 1
+        fi
+        if [[ $(stat -c %t "$1" 2> /dev/null) -ne 8 ]]; then
+                echo "Error: $1 is not a block device!"
+                _usage 1
+        fi
+        if [[ $(lsblk -dnro rm "$1" 2> /dev/null) -ne 1 ]]; then
+                echo "Error: $1 is not a removable block device!"
+                _usage 1
+        fi
+        if [[ "$(lsblk -dnro tran "$1" 2> /dev/null)" != 'usb' ]]; then
+                echo "Error: $1 is not a usb device!"
+                _usage 1
+        fi
+        if grep -q "$1" /proc/mounts; then
+                echo "Error: $1 appears in active mounts, unmount device before proceeding!"
+                exit 1
+        fi
+        if [[ ! -f "$2" ]]; then
+                echo "file $2 not found!"
+                _usage 1
+        fi
+        if [[ ! $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+                echo "Error: $2 is not an iso image!"
+                _usage 1
+        fi
+        usbdevice=$1
+        isoname=$2
 }
 
 _init () {
-  devicesize=$(blockdev --getsize64 "${usbdevice}")
-  ESPSIZE=786432 # 384 MiB
-  installuser='archy'
-  isosize=$(stat -c %s "${isoname}")
-  MINCAPACITY=16000000000 # 16 GB
-  SECSTART=2048 # 1st sector
-  WD="${PWD}"
-  workdir=auiwork
-  # Check usb device capacity
-  [[ ${devicesize} -gt ${MINCAPACITY} ]] || { echo 'Storage capacity error!'; exit 1; }
+        devicesize=$(blockdev --getsize64 "${usbdevice}")
+        ESPSIZE=786432 # 384 MiB
+        installuser='archy'
+        isosize=$(stat -c %s "${isoname}")
+        MINCAPACITY=16000000000 # 16 GB
+        SECSTART=2048 # 1st sector
+        WD="${PWD}"
+        workdir=auiwork
+        # Check usb device capacity
+        if [[ ${devicesize} -lt ${MINCAPACITY} ]]; then
+                echo 'Storage capacity error!'
+                exit 1
+        fi
 }
 
 _confirm_write () {
-  # Confim write
-  read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
-  echo
-  [[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
+        # Confim write
+        echo "Copying files to the usb device can take up to several minutes, be patient!"
+        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
+        echo
+        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+                echo 'Operation canceled by user!'
+                exit 0
+        fi
 
-  # Check & prepare working directory
-  for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs,usb}; do
-    grep -q "${mountpoint}" /proc/mounts && \
-     { echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!";
-       exit 1; }
-  done
-  for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs,usb}; do
-    [[ -e "${WD}/${mountpoint}" ]] && \
-    { echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!";
-      exit 1; }
-  done
-  [[ -e /dev/mapper/auicrypt ]] && \
-    { echo 'Error: cryptsetup mapping /dev/mapper/auicrypt exists! cannot proceed.'; exit 1; }
+        # Check & prepare working directory
+        for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs,usb}; do
+                if grep -q "${mountpoint}" /proc/mounts; then
+                        echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
+                        exit 1
+                fi
+        done
+        for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs,usb}; do
+                if [[ -e "${WD}/${mountpoint}" ]]; then
+                       echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
+                       exit 1
+                fi
+        done
+        if [[ -e /dev/mapper/auicrypt ]]; then
+                echo 'Error: cryptsetup mapping /dev/mapper/auicrypt exists! cannot proceed.'
+                exit 1
+        fi
+        mkdir -p "${WD}/${workdir}/"{iso,squashfs,usb}
 
-  mkdir -p "${WD}/${workdir}/"{iso,squashfs,usb}
+        # Mount iso & live filesystem
+        echo 'Mounting iso & live filesystem...'
+        mount "${isoname}" "${WD}/${workdir}/iso" -o ro
+        mount "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs" -o ro
 
-  # Mount iso & live filesystem
-  echo 'Mounting iso & live filesystem...'
-  mount "${isoname}" "${WD}/${workdir}/iso" -o ro
-  mount "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs" -o ro
-
-  # check iso
-  if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" && -d "${WD}/${workdir}/iso/aui/install" ]]; then
-    eval $(grep label_root "${WD}/${workdir}/iso/aui/AUIDATA")
-    eval $(grep label_boot "${WD}/${workdir}/iso/aui/AUIDATA")
-  else
-    echo "Error: ${isoname} is not a compatible image!"
-    umount "${WD}/${workdir}/squashfs"
-    sleep 1
-    umount "${WD}/${workdir}/iso"
-    rmdir "${WD}/${workdir}/"{usb,squashfs,iso,}
-    _usage 1
-  fi
+        # check iso
+        if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" && -d "${WD}/${workdir}/iso/aui/install" ]]; then
+                eval $(grep label_root "${WD}/${workdir}/iso/aui/AUIDATA")
+                eval $(grep label_boot "${WD}/${workdir}/iso/aui/AUIDATA")
+        else
+                echo "Error: ${isoname} is not a compatible image!"
+                umount "${WD}/${workdir}/squashfs"
+                sleep 1
+                umount "${WD}/${workdir}/iso"
+                rmdir "${WD}/${workdir}/"{usb,squashfs,iso,}
+                _usage 1
+        fi
 }
 
 _partitions () {
-  # Create usb device partition table & partitions
-  echo 'Creating partitions...'
-  flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
-  sleep 1
-  echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always
-  sleep 1
-  echo "${SECSTART},${ESPSIZE},1," | sudo flock "${usbdevice}" sfdisk "${usbdevice}" -W always
-  sleep 1
-  echo "$(( SECSTART + ESPSIZE)),,20," | sudo flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
-  sleep 1
+        # Create usb device partition table & partitions
+        echo 'Creating partitions...'
+        flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
+        sleep 1
+        echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always
+        sleep 1
+        echo "${SECSTART},${ESPSIZE},1," | sudo flock "${usbdevice}" sfdisk "${usbdevice}" -W always
+        sleep 1
+        echo "$(( SECSTART + ESPSIZE)),,20," | sudo flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
+        sleep 1
 }
 
 _format () {
-  echo 'Formatting...'
-  flock "${usbdevice}1" mkfs.fat "${usbdevice}1" -F32 -n "${label_boot:=AUIBOOT}" || \
-    { echo 'Partition format failed!'; exit 1; }
-  rootdevice="${usbdevice}2"
-  [[ -n "${encryption:-}" ]] && _encrypt_mkluks
-  flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt || \
-    { echo 'Partition format failed!'; exit 1; }
+        echo 'Formatting...'
+        if ! flock "${usbdevice}1" mkfs.fat "${usbdevice}1" -F32 -n "${label_boot:=AUIBOOT}"; then
+                echo 'Partition format failed!'
+                exit 1
+        fi
+        rootdevice="${usbdevice}2"
+        if [[ -n "${encryption:-}" ]]; then
+                _encrypt_mkluks
+        fi
+        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt; then
+                echo 'Partition format failed!'
+                exit 1
+        fi
 }
 
 _mount () {
-  # Mount usb device
-  echo 'Mounting usb device...'
-  mount "${rootdevice}" "${WD}/${workdir}/usb"
-  mkdir "${WD}/${workdir}/usb/boot"
-  mount "${usbdevice}1" "${WD}/${workdir}/usb/boot"
-  mkdir -p "${WD}/${workdir}/usb/boot/EFI/BOOT"
+        # Mount usb device
+        echo 'Mounting usb device...'
+        mount "${rootdevice}" "${WD}/${workdir}/usb"
+        mkdir "${WD}/${workdir}/usb/boot"
+        mount "${usbdevice}1" "${WD}/${workdir}/usb/boot"
+        mkdir -p "${WD}/${workdir}/usb/boot/EFI/BOOT"
 }
 
 _install () {
-  # Copy livesystem to usb device
-  echo 'Copying...'
-  cp -aTv "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usb"
-  # Copy aui install tree
-  cp -aT "${WD}/${workdir}/iso/aui/install" "${WD}/${workdir}/usb"
+        # Copy livesystem to usb device
+        echo 'Copying...'
+        cp -aTv "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usb"
+        # Copy aui install tree
+        cp -aT "${WD}/${workdir}/iso/aui/install" "${WD}/${workdir}/usb"
 
-  # System settings
-  # * remove live settings except volatile journal
-  # * fstab
-  # * live user renamed 'archy', no password set
-  # * no mirror configured, mirrorlist needs editing right after 1st boot
-  echo 'Removing live settings...'
-  # kernel
-  cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz" "${WD}/${workdir}/usb/boot/vmlinuz-linux"
-  cp "${WD}/${workdir}/iso/arch/boot/intel_ucode.img" "${WD}/${workdir}/usb/boot/intel-ucode.img"
-  cp "${WD}/${workdir}/iso/arch/boot/amd_ucode.img" "${WD}/${workdir}/usb/boot/amd-ucode.img"
-  # fstab
-  sed -i "s|%AUIROOT%|${label_root}|;
-          s|%AUIBOOT%|${label_boot}|" \
-         "${WD}/${workdir}/usb/etc/fstab"
-  # sshd, mirrorlist, logind.conf
-  sed -i 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usb/etc/ssh/sshd_config"
-  curl -s -o "${WD}/${workdir}/usb/etc/pacman.d/mirrorlist" https://www.archlinux.org/mirrorlist/all/
-  sed -i 's/\(HandleSuspendKey=\)ignore/#\1suspend/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
-  sed -i 's/\(HandleHibernateKey=\)ignore/#\1hibernate/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
-  sed -i 's/#\(HandleLidSwitch=\)ignore/#\1suspend/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
-  # live services
-  arch-chroot "${WD}/${workdir}/usb" systemctl disable pacman-init.service choose-mirror.service --quiet
-  rm -r "${WD}/${workdir}/usb/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
-  rm "${WD}/${workdir}/usb/root/"{.automated_script.sh,.zlogin}
-  rm "${WD}/${workdir}/usb/etc/mkinitcpio-archiso.conf"
-  rm -r "${WD}/${workdir}/usb/etc/initcpio"
-  # autologin
-  [[ -e "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf" ]] && \
-    { sed -i 's/^\(autologin-user=\)live$/#\1/' "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf";
-      sed -i 's/^\(autologin-session=\).*/#\1/' "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf"; }
-  [[ -e "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf" ]] && \
-    rm "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf"
-  # Arch keyring
-  arch-chroot "${WD}/${workdir}/usb" pacman-key --init &> /dev/null
-  arch-chroot "${WD}/${workdir}/usb" pacman-key --populate archlinux &> /dev/null
-  # sudo
-  sed -i 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usb/etc/sudoers"
-  sed -i 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usb/etc/sudoers"
-  # username
-  mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${installuser}"
-  sed -i "s/live/${installuser}/g" "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} "${WD}/${workdir}/usb/etc/samba/smb.conf"
-  # default target, haveged, initramfs
-  arch-chroot "${WD}/${workdir}/usb" systemctl set-default graphical --quiet
-  arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
-  arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
+        # System settings
+        # * remove live settings except volatile journal
+        # * fstab
+        # * live user renamed 'archy', no password set
+        # * no mirror configured, mirrorlist needs editing right after 1st boot
+        echo 'Removing live settings...'
+        # kernel
+        cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz" "${WD}/${workdir}/usb/boot/vmlinuz-linux"
+        cp "${WD}/${workdir}/iso/arch/boot/intel_ucode.img" "${WD}/${workdir}/usb/boot/intel-ucode.img"
+        cp "${WD}/${workdir}/iso/arch/boot/amd_ucode.img" "${WD}/${workdir}/usb/boot/amd-ucode.img"
+        # fstab
+        sed -i "s|%AUIROOT%|${label_root}|;
+                s|%AUIBOOT%|${label_boot}|" \
+               "${WD}/${workdir}/usb/etc/fstab"
+        # sshd, mirrorlist, logind.conf
+        sed -i 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usb/etc/ssh/sshd_config"
+        curl -s -o "${WD}/${workdir}/usb/etc/pacman.d/mirrorlist" https://www.archlinux.org/mirrorlist/all/
+        sed -i 's/\(HandleSuspendKey=\)ignore/#\1suspend/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
+        sed -i 's/\(HandleHibernateKey=\)ignore/#\1hibernate/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
+        sed -i 's/#\(HandleLidSwitch=\)ignore/#\1suspend/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
+        # live services
+        arch-chroot "${WD}/${workdir}/usb" systemctl disable pacman-init.service choose-mirror.service --quiet
+        rm -r "${WD}/${workdir}/usb/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
+        rm "${WD}/${workdir}/usb/root/"{.automated_script.sh,.zlogin}
+        rm "${WD}/${workdir}/usb/etc/mkinitcpio-archiso.conf"
+        rm -r "${WD}/${workdir}/usb/etc/initcpio"
+        # autologin
+        if [[ -e "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf" ]]; then
+                sed -i 's/^\(autologin-user=\)live$/#\1/' "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf"
+                sed -i 's/^\(autologin-session=\).*/#\1/' "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf"
+        fi
+        if [[ -e "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf" ]]; then
+                rm "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf"
+        fi
+        # Arch keyring
+        arch-chroot "${WD}/${workdir}/usb" pacman-key --init &> /dev/null
+        arch-chroot "${WD}/${workdir}/usb" pacman-key --populate archlinux &> /dev/null
+        # sudo
+        sed -i 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usb/etc/sudoers"
+        sed -i 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usb/etc/sudoers"
+        # username
+        mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${installuser}"
+        sed -i "s/live/${installuser}/g" \
+               "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
+               "${WD}/${workdir}/usb/etc/samba/smb.conf"
+        # default target, haveged, initramfs
+        arch-chroot "${WD}/${workdir}/usb" systemctl set-default graphical --quiet
+        arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
+        arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
 
-  # rEFInd boot manager
-  sudo cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
-  sudo cp "${WD}/${workdir}/iso/EFI/shellx64_v1.efi" "${WD}/${workdir}/usb/boot/EFI/"
-  sudo cp "${WD}/${workdir}/iso/EFI/shellx64_v2.efi" "${WD}/${workdir}/usb/boot/EFI/"
-  cp "${WD}/${workdir}/iso/EFI/boot/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
-  cp "${WD}/${workdir}/iso/aui/refind_linux.conf" "${WD}/${workdir}/usb/boot/"
-  sed -i "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
+        # rEFInd boot manager
+        sudo cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
+        sudo cp "${WD}/${workdir}/iso/EFI/shellx64_v1.efi" "${WD}/${workdir}/usb/boot/EFI/"
+        sudo cp "${WD}/${workdir}/iso/EFI/shellx64_v2.efi" "${WD}/${workdir}/usb/boot/EFI/"
+        cp "${WD}/${workdir}/iso/EFI/boot/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
+        cp "${WD}/${workdir}/iso/aui/refind_linux.conf" "${WD}/${workdir}/usb/boot/"
+        sed -i "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
 
-  [[ -n "${encryption:-}" ]] && _encrypt_setup || true
+        if [[ -n "${encryption:-}" ]]; then
+                _encrypt_setup
+        else
+                true
+        fi
 }
 
 _finalize () {
-  # Unmount & remove temp dirs
-  echo 'Unmounting USB device, might take up to a few minutes, be patient!'
-  echo '. .. ...Waiting for USB device to complete copy'
-  umount "${usbdevice}1" "${rootdevice}"
-  umount "${WD}/${workdir}/squashfs"
-  sleep 1
-  umount "${WD}/${workdir}/iso"
-  rmdir "${WD}/${workdir}/"{usb,squashfs,iso,}
+        # Unmount & remove temp dirs
+        echo 'Unmounting USB device, might take up to a few minutes, be patient!'
+        echo '. .. ...Waiting for USB device to complete copy'
+        umount "${usbdevice}1" "${rootdevice}"
+        umount "${WD}/${workdir}/squashfs"
+        sleep 1
+        umount "${WD}/${workdir}/iso"
+        rmdir "${WD}/${workdir}/"{usb,squashfs,iso,}
 
-  [[ -n "${encryption:-}" ]] && cryptsetup close auicrypt || true
+        if [[ -n "${encryption:-}" ]]; then
+                cryptsetup close auicrypt
+        else
+                true
+        fi
 }
 
 # arguments
@@ -237,16 +291,16 @@ unset OPTS
 [[ $# -eq 1 ]] && _usage 1
 
 while true; do
-  case "$1" in
-    '-h'|'--help')
-      _help 0 ;;
-    '--encrypt')
-      encryption=yes
-      shift ;;
-    '--')
-      shift
-      break ;;
-  esac
+        case "$1" in
+                '-h'|'--help')
+                        _help 0 ;;
+                '--encrypt')
+                        encryption=yes
+                        shift ;;
+                '--')
+                        shift
+                        break ;;
+        esac
 done
 
 _checks "$@"
@@ -265,3 +319,5 @@ echo "Configured username is ${installuser}, no password was set!"
 echo 'No mirror was configured! You need to edit mirrorlist right after 1st boot!'
 echo
 echo 'Enjoy ;)'
+
+# vim: set expandtab:

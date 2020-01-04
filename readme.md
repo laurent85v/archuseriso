@@ -14,7 +14,7 @@ Highlights
 * rEFInd boot manager
 * language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * user customization
-* supports installation of AUR packages (user own binary packages)
+* supports installation of local packages
 * supports Nvidia driver (disabled by default)
 
 Desktop environments
@@ -65,7 +65,7 @@ Live USB creation
 -----------------
 Command synopsis
 
-    aui-mkusb <usb device> <iso image>
+    aui-mkusb <usb device> <iso image> [options]
 
 Example
 

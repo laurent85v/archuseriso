@@ -3,31 +3,31 @@
 set -e -u
 
 _usage () {
-  echo
-  echo 'aui-mkusb, Live USB creation tool.'
-  echo
-  echo 'Command synopsis:'
-  echo 'aui-mkusb <usb device> <iso image> [options]'
-  echo
-  echo 'To get help run:'
-  echo 'aui-mkusb --help'
-  exit $1
+        echo
+        echo 'aui-mkusb, Live USB creation tool.'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-mkusb <usb device> <iso image> [options]'
+        echo
+        echo 'To get help run:'
+        echo 'aui-mkusb --help'
+        exit $1
 }
 
 _help () {
-  echo
-  echo 'Archuseriso tool for creating a Live USB'
-  echo
-  echo 'Command synopsis:'
-  echo 'aui-mkusb <usb device> <iso image> [options]'
-  echo
-  echo 'Options:'
-  echo '-h, --help           command help'
-  echo
-  echo 'Example:'
-  echo 'aui-mkusb /dev/sdc archuseriso-xfce-1130-x64.iso'
-  echo
-  exit $1
+        echo
+        echo 'Archuseriso tool for creating a Live USB'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-mkusb <usb device> <iso image> [options]'
+        echo
+        echo 'Options:'
+        echo '-h, --help           command help'
+        echo
+        echo 'Example:'
+        echo 'aui-mkusb /dev/sdc archuseriso-xfce-1130-x64.iso'
+        echo
+        exit $1
 }
 
 # check arguments
@@ -38,24 +38,47 @@ unset OPTS
 [[ $# -eq 1 ]] && _usage 1
 
 while true; do
-  case "$1" in
-    '-h'|'--help')
-      _help 0 ;;
-    '--')
-      shift
-      break ;;
-  esac
+        case "$1" in
+                '-h'|'--help')
+                        _help 0 ;;
+                '--')
+                        shift
+                        break ;;
+        esac
 done
 
-[[ $# -eq 2 ]] || { echo 'Error: invalid arguments!'; _usage 1; }
-[[ ${EUID} -eq 0 ]] || { echo 'This script must be run as root!'; exit 1; }
-
-[[ $(stat -c %t "$1" 2> /dev/null) -eq 8 ]] || { echo "Error: $1 is not a block device!"; _usage 1; }
-[[ $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]] || { echo "Error: $1 is not a removable block device!"; _usage 1; }
-[[ "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]] || { echo "Error: $1 is not a usb device!"; _usage 1; }
-grep -q "$1" /proc/mounts && { echo "Error: $1 appears in active mounts, unmount device before proceeding!"; exit 1; }
-[[ -f "$2" ]] || { echo "file $2 not found!"; _usage 1; }
-[[ $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]] || { echo "Error: $2 is not an iso image!"; _usage 1; }
+if [[ $# -ne 2 ]]; then
+       echo 'Error: invalid arguments!'
+       _usage 1
+fi
+if [[ ${EUID} -ne 0 ]]; then
+       echo 'This script must be run as root!'
+       exit 1
+fi
+if [[ ! $(stat -c %t "$1" 2> /dev/null) -eq 8 ]]; then
+       echo "Error: $1 is not a block device!"
+       _usage 1
+fi
+if [[ ! $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]]; then
+       echo "Error: $1 is not a removable block device!"
+       _usage 1
+fi
+if [[ ! "$(lsblk -dnro tran "$1" 2> /dev/null)" == 'usb' ]]; then
+       echo "Error: $1 is not a usb device!"
+       _usage 1
+fi
+if grep -q "$1" /proc/mounts; then
+       echo "Error: $1 appears in active mounts, unmount device before proceeding!"
+       exit 1
+fi
+if [[ ! -f "$2" ]]; then
+       echo "file $2 not found!"
+       _usage 1
+fi
+if [[ ! $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+       echo "Error: $2 is not an iso image!"
+       _usage 1
+fi
 
 usbdevice=$1
 isoname=$2
@@ -63,12 +86,23 @@ devicesize=$(blockdev --getsize64 "${usbdevice}")
 isosize=$(stat -c %s "${isoname}")
 
 # Check usb device capacity
-[[ ${devicesize} -gt ${isosize} ]] || { echo 'Storage capacity error!'; exit 1; }
+if [[ ! ${devicesize} -gt ${isosize} ]]; then
+        echo 'Storage capacity error!'
+        exit 1
+fi
 
 # Confirm write
 read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
 echo
-[[ "${REPLY}" =~ ^[Yy]$ ]] || { echo 'Operation canceled by user!';  exit 0; }
+if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+       echo 'Operation canceled by user!'
+       exit 0
+fi
 echo 'Writing image...'
-cp -v "${isoname}" "${usbdevice}" || { echo 'Write failed!'; exit 1; }
+if ! cp -v "${isoname}" "${usbdevice}"; then
+       echo 'Write failed!'
+       exit 1
+fi
 echo 'Done!'
+
+# vim: set expandtab:
