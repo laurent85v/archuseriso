@@ -47,6 +47,7 @@ _encrypt_setup () {
   echo 'Setting up encryption...'
   mkdir "${WD}/${workdir}/"{overlay,squashfs}
   mount /run/archiso/sfs/airootfs "${WD}/${workdir}/squashfs" -o bind
+  mkdir "${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir"
   mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir" "${WD}/${workdir}/overlay"
   mount "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot" -o bind
   cp "${WD}/${workdir}/iso/aui/mkinitcpio-archiso-encryption.conf" "${WD}/${workdir}/overlay/etc/"
@@ -171,7 +172,7 @@ _finalize () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,help' -n 'auto_persistent' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,help' -n 'add-persistence' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
