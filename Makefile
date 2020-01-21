@@ -1,4 +1,4 @@
-V=0.3.6.1
+V=0.3.7
 
 all:
 
@@ -8,6 +8,7 @@ install-program:
 	install -D aui-mkiso $(DESTDIR)/usr/bin/aui-mkiso
 	install aui-mkusb $(DESTDIR)/usr/bin/aui-mkusb
 	install aui-mkpersistent $(DESTDIR)/usr/bin/aui-mkpersistent
+	install aui-mkinstall $(DESTDIR)/usr/bin/aui-mkinstall
 
 install-examples:
 	install -d $(DESTDIR)/usr/share/archiso/
