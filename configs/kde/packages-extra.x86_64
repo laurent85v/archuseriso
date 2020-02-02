@@ -30,6 +30,15 @@ calligra
 #
 #virtualbox-guest-modules-arch virtualbox-guest-utils
 
+### Vulkan
+##
+#
+amdvlk
+vulkan-intel
+vulkan-mesa-layer
+vulkan-radeon
+vulkan-tools
+
 ### Xorg
 ## The Xorg built-in modesetting driver generally performs
 ## better than Intel's driver. Use the one which works
