@@ -57,6 +57,7 @@ _cleanup_airootfs() {
                         ${work_dir}/x86_64/airootfs/var/cache/fontconfig/
                         ${work_dir}/x86_64/airootfs/root/customize_airootfs.sh
                         ${work_dir}/x86_64/airootfs/root/customize_airootfs-cinnamon.sh
+                        ${work_dir}/x86_64/airootfs/root/customize_airootfs-lang.sh
                         ${work_dir}/x86_64/airootfs/var/lib/systemd/catalog/database
                         ${work_dir}/x86_64/airootfs/var/cache/ldconfig/aux-cache
                      )
@@ -93,7 +94,7 @@ make_packages() {
     if [[ -n "${lang}" ]]; then
         _lang=$(grep -Ehv '^#|^$' ${script_path}/lang/"${lang}"/packages{-extra,-cinnamon}.x86_64)
     fi
-    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra,-cinnamon}.x86_64) ${_lang}" install
+    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra,-cinnamon}.x86_64) ${_lang} ${AUI_ADDITIONALPKGS:-}" install
 }
 
 # airootfs local packages
@@ -104,7 +105,7 @@ make_packages_local() {
     if [[ ${_pkglocal[@]} ]]; then
         mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing local packages"' run
         echo "      ${_pkglocal[@]##*/}"
-        pacman -r "${work_dir}/x86_64/airootfs" -U --needed --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
+        pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
     fi
 }
 
@@ -133,12 +134,6 @@ make_setup_mkinitcpio() {
     # Copy localization
     if [[ -n "${lang}" ]]; then
         cp -afL --no-preserve=ownership ${script_path}/lang/"${lang}"/airootfs ${work_dir}/x86_64
-    fi
-
-    # Remove Nvidia proprietary driver settings when nvidia package not installed
-    if ! $(grep -Ehv '^#|^$' ${script_path}/packages{,-extra*,-cinnamon*}.x86_64 | sed -n 's/[[:blank:]]/\n/gp' | grep -qs '^nvidia$'); then
-        rm ${work_dir}/x86_64/airootfs/etc/lightdm/display_setup.sh
-        rm ${work_dir}/x86_64/airootfs/etc/modprobe.d/nvidia-drm.conf
     fi
 
     gnupg_fd=

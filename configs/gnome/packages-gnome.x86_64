@@ -95,6 +95,7 @@ system-config-printer
 totem
 vdpauinfo
 vino
+virtualgl
 xdg-user-dirs-gtk
 xf86-input-elographics
 xf86-input-evdev

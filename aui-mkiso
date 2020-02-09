@@ -30,6 +30,9 @@ _help () {
         echo '-h, --help           command help'
         echo '-C, --configs-path   path to directory configs'
         echo '                     default: /usr/share/archiso/configs'
+        echo '--nvidia             installs nvidia graphics driver'
+        echo '--optimus            Optimus hardware. Installs nvidia graphics driver'
+        echo '                     and setup Xorg for PRIME render offload'
         echo
         echo "Config's specific help:"
         echo 'aui-mkiso <iso config> -h | --help'
@@ -59,7 +62,7 @@ _help () {
         exit ${1}
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'configs-path:,help' -n 'aui-mkiso' -- "$@")
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'configs-path:,help,nvidia,optimus' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -75,6 +78,13 @@ while true; do
                         shift 2 ;;
                 '-h'|'--help')
                         options="-h "
+                        shift ;;
+                '--nvidia')
+                        export AUI_ADDITIONALPKGS+="nvidia nvidia-settings bbswitch "
+                        shift ;;
+                '--optimus')
+                        export AUI_ADDITIONALPKGS+="nvidia nvidia-settings nvidia-prime "
+                        export AUI_OPTIMUS=1
                         shift ;;
                 '-v')
                         options+="-v "

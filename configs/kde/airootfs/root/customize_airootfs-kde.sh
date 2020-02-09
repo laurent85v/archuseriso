@@ -5,6 +5,11 @@ set -e -u
 # Run releng's defaults
 /root/customize_airootfs.sh
 
+# language script
+if [[ -f /root/customize_airootfs_lang.sh ]]; then
+    /root/customize_airootfs_lang.sh
+fi
+
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'
 # * Winbind : add 'wins'
@@ -12,11 +17,20 @@ sed -i '/^hosts:/ {
         s/\(resolve\)/mdns_minimal \[NOTFOUND=return\] \1/
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
-# Test nvidia package installed
 # Nvidia GPU proprietary driver setup
+# either nvidia only setup
+# either optimus, both graphics devices setup
+# either no nvidia driver installed
 if $(pacman -Qsq '^nvidia$' > /dev/null 2>&1); then
-    echo 'xrandr --setprovideroutputsource modesetting NVIDIA-0' >> /usr/share/sddm/scripts/Xsetup
-    echo 'xrandr --auto --dpi 96' >> /usr/share/sddm/scripts/Xsetup
+    # checking optimus option
+    if [[ -z "${AUI_OPTIMUS:-}" ]]; then
+        # No optimus option, nvidia driver only setup
+        echo 'xrandr --setprovideroutputsource modesetting NVIDIA-0' >> /usr/share/sddm/scripts/Xsetup
+        echo 'xrandr --auto --dpi 96' >> /usr/share/sddm/scripts/Xsetup
+    fi
+else
+    # nvidia not installed, removing configuration file
+    rm /etc/modprobe.d/nvidia-drm.conf
 fi
 
 # Enable service when available

@@ -82,6 +82,7 @@ simple-scan
 system-config-printer
 vdpauinfo
 vino
+virtualgl
 xdg-user-dirs-gtk
 xed
 xf86-input-elographics
