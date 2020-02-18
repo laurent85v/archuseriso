@@ -28,6 +28,7 @@ _help () {
         echo
         echo 'Options:'
         echo '-h, --help           command help'
+        echo '--addpkg             Comma separated list of additional package names to install'
         echo '-C, --configs-path   path to directory configs'
         echo '                     default: /usr/share/archiso/configs'
         echo '--nvidia             installs nvidia graphics driver'
@@ -62,7 +63,7 @@ _help () {
         exit ${1}
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'configs-path:,help,nvidia,optimus' -n 'aui-mkiso' -- "$@")
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addpkg:,configs-path:,help,nvidia,optimus' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -70,6 +71,9 @@ unset OPTS
 
 while true; do
         case "$1" in
+                '--addpkg')
+                        export AUI_ADDITIONALPKGS+="$(tr ',' ' ' <<< $2) "
+                        shift 2 ;;               
                 '-C'|'--configs-path')
                         confdir="$2"
                         shift 2 ;;
