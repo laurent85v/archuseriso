@@ -55,9 +55,9 @@ Command synopsis
 
     sudo aui-mkiso kde
 
-Build with default language set to German
+Build with default language set to German, plus options for Optimus hardware and some additional package names to install
 
-    sudo aui-mkiso kde -l de
+    sudo aui-mkiso kde -l de --optimus --addpkg iperf,ntop
 
 When done remove the `work` directory. The generated image is located in the `out` directory.
 
