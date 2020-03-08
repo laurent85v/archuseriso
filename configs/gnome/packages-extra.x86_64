@@ -49,24 +49,20 @@ vulkan-tools
 ### Others
 ##
 #
+byobu
 cpio
 cpupower
 dmidecode
-exa
 git
 grsync
 hddtemp
-hwdetect
 hwinfo
 neofetch
 net-tools
-nmon
 p7zip
 pacman-contrib
-pkgfile
 pwgen
 strace
-tmux
 tree
 unrar
 whois
