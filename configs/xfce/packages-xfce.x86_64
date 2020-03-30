@@ -49,7 +49,6 @@ os-prober
 pavucontrol
 pulseaudio-bluetooth
 pulseaudio-zeroconf
-pygtk
 samba
 seahorse
 sound-theme-freedesktop

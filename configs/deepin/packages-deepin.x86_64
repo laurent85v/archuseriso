@@ -52,7 +52,6 @@ os-prober
 pavucontrol
 pulseaudio-bluetooth
 pulseaudio-zeroconf
-pygtk
 samba
 seahorse
 system-config-printer

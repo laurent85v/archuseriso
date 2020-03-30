@@ -84,7 +84,6 @@ pavucontrol
 polkit-gnome
 pulseaudio-bluetooth
 pulseaudio-zeroconf
-pygtk
 rygel
 samba
 seahorse
