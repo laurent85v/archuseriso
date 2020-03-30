@@ -27,43 +27,45 @@ _help () {
         echo 'aui-mkiso <iso config> [options] [build options]'
         echo
         echo 'Options:'
-        echo '-h, --help           command help'
-        echo '--addpkg             Comma separated list of additional package names to install'
-        echo '-C, --configs-path   path to directory configs'
-        echo '                     default: /usr/share/archiso/configs'
-        echo '--nvidia             installs nvidia graphics driver'
-        echo '--optimus            Optimus hardware. Installs nvidia graphics driver'
-        echo '                     and setup Xorg for PRIME render offload'
+        echo '-h, --help                        Command help'
+        echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to install'
+        echo '-C, --configs-path <path>         Path to directory configs'
+        echo '                                  default: /usr/share/archiso/configs'
+        echo '-l, --language <language>         Default language'
+        echo '                                  cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
+        echo '--nvidia                          Nvidia graphics driver'
+        echo '--optimus                         Optimus hardware. Nvidia graphics driver and Xorg setup'
+        echo '                                  for PRIME render offload'
         echo
-        echo "Config's specific help:"
-        echo 'aui-mkiso <iso config> -h | --help'
-        echo
-        echo 'Configs list, select one from:'
+        echo 'ISO config list:'
         echo 'console, cinnamon, deepin, gnome, kde, mate, xfce'
         echo
         echo 'Build example:'
         echo 'sudo aui-mkiso xfce'
         echo
-        echo 'To customize a config, copy a config to your working directory:'
+        echo 'User customization. Duplicate an iso configurations to your working directory:'
         echo 'cp -LrT /usr/share/archiso/configs/<config> [path/]<config> 2> /dev/null'
         echo 'cp -rT /usr/share/archiso/aui [path/]<config>/aui'
         echo
-        echo 'Example, copy xfce config to home subdir sources:'
+        echo 'Example, xfce config copy, user home sub-directory sources:'
         echo 'cp -LrT /usr/share/archiso/configs/xfce ~/sources/xfce 2> /dev/null'
         echo 'cp -rT /usr/share/archiso/aui ~/sources/xfce/aui'
         echo
-        echo 'Edit the packages*.x86_64 files located in ~/sources/xfce and'
+        echo 'Edit the packages files located in ~/sources/xfce and'
         echo '~/sources/xfce/lang'.
         echo
-        echo 'Optionnally add your own pre-built AUR binary packages to ~/sources/xfce/pkglocal'
+        echo 'Optionnally add your own pre-built AUR packages to ~/sources/xfce/pkglocal'
         echo
         echo 'To build your customized iso use the --configs-path command option:'
         echo 'sudo aui-mkiso xfce --configs-path ~/sources'
         echo
+        echo "Desktop configuration specific help:"
+        echo 'aui-mkiso <iso config> -h | --help'
+        echo
         exit ${1}
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addpkg:,configs-path:,help,nvidia,optimus' -n 'aui-mkiso' -- "$@")
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addpkg:,configs-path:,help,language:,nvidia,optimus' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -73,7 +75,7 @@ while true; do
         case "$1" in
                 '--addpkg')
                         export AUI_ADDITIONALPKGS+="$(tr ',' ' ' <<< $2) "
-                        shift 2 ;;               
+                        shift 2 ;;
                 '-C'|'--configs-path')
                         confdir="$2"
                         shift 2 ;;
@@ -83,6 +85,9 @@ while true; do
                 '-h'|'--help')
                         options="-h "
                         shift ;;
+                '--language')
+                        options+="-l $2 "
+                        shift 2 ;;
                 '--nvidia')
                         export AUI_ADDITIONALPKGS+="nvidia nvidia-settings bbswitch "
                         shift ;;

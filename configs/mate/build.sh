@@ -282,12 +282,23 @@ make_aui() {
     mv ${work_dir}/iso/aui/persistent{,_${iso_label}}
 
     ### esp
+    # syslinux
+    mkdir -p "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../${install_dir}/boot/syslinux" "${work_dir}/iso/aui/esp/${install_dir}/boot/syslinux"
+    mkdir -p "${work_dir}/iso/aui/esp/syslinux/"
+    ln -s "../../../isolinux/isolinux.cfg" "${work_dir}/iso/aui/esp/syslinux/syslinux.cfg"
+
     # live kernel & initramfs
     mkdir -p "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
     ln -s "../../../../${install_dir}/boot/amd_ucode.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../${install_dir}/boot/amd_ucode.LICENSE" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
     ln -s "../../../../${install_dir}/boot/intel_ucode.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../${install_dir}/boot/intel_ucode.LICENSE" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../${install_dir}/boot/memtest" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
+    ln -s "../../../../${install_dir}/boot/memtest.COPYING" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
     ln -s "../../../../../${install_dir}/boot/x86_64/vmlinuz" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
     ln -s "../../../../../${install_dir}/boot/x86_64/archiso.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+
     # persistent kernel & initramfs
     mkdir -p "${work_dir}/iso/aui/esp/EFI/"
     ln -s "../../${install_dir}/boot/amd_ucode.img" "${work_dir}/iso/aui/esp/amd-ucode.img"
@@ -300,7 +311,13 @@ make_aui() {
     ln -s ../../../EFI/shellx64_v1.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v1.efi"
     ln -s ../../../EFI/shellx64_v2.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v2.efi"
 
-    if [[ -f ${work_dir}/iso/aui/AUIDATA ]]; then
+    # duplicate /boot contents to persistent boot partition
+    # mounting persistent boot partition would hide original /boot contents
+    mkdir -p "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
+    cp -a "${work_dir}/x86_64/airootfs/boot/memtest86+/" "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
+    cp -a "${work_dir}/x86_64/airootfs/boot/syslinux/" "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
+
+    if [[ -f "${work_dir}/iso/aui/AUIDATA" ]]; then
         eval $(grep cow_label ${work_dir}/iso/aui/AUIDATA)
         sed -i "s|%COMP_TYPE%|${comp_type}|;
                 s|%DESKTOP%|${desktop}|;
@@ -309,14 +326,21 @@ make_aui() {
                 s|%ISO_NAME%|${iso_name}|;
                 s|%ISO_VERSION%|${iso_version}|;
                 s|%LANG%|${lang}|" \
-                ${work_dir}/iso/aui/AUIDATA
+                "${work_dir}/iso/aui/AUIDATA"
     fi
-    if [[ -f ${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf ]]; then
+    if [[ -f "${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf" ]]; then
         sed -i "s|%ARCHISO_LABEL%|${iso_label}|;
                 s|%INSTALL_DIR%|${install_dir}|;
                 s|%COW_LABEL%|${cow_label}|;
                 s|%DESKTOP%|${desktop}|" \
-                ${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf
+                "${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf"
+    fi
+    if [[ -f "${work_dir}/iso/aui/archiso_sys.cfg" ]]; then
+        sed -i "s|%ARCHISO_LABEL%|${iso_label}|;
+                s|%INSTALL_DIR%|${install_dir}|;
+                s|%COW_LABEL%|${cow_label}|;
+                s|%DESKTOP%|${desktop}|" \
+                "${work_dir}/iso/aui/archiso_sys.cfg"
     fi
 }
 
