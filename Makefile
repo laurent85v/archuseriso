@@ -1,4 +1,4 @@
-V=0.3.8.1
+V=0.4
 
 all:
 
@@ -7,7 +7,6 @@ install: install-program install-examples
 install-program:
 	install -D aui-mkiso $(DESTDIR)/usr/bin/aui-mkiso
 	install aui-mkusb $(DESTDIR)/usr/bin/aui-mkusb
-	install aui-mkpersistent $(DESTDIR)/usr/bin/aui-mkpersistent
 	install aui-mkinstall $(DESTDIR)/usr/bin/aui-mkinstall
 
 install-examples:
