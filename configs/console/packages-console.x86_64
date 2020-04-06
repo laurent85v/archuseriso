@@ -18,6 +18,5 @@ pwgen
 strace
 tree
 whois
-wireguard-arch
 wireguard-tools
 zsh-autosuggestions
