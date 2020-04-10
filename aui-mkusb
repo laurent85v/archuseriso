@@ -103,7 +103,7 @@ _checks () {
                echo "Error: $1 is not a block device!"
                _usage 1
         fi
-        if [[ ! $(lsblk -dnro rm "$1" 2> /dev/null) -eq 1 ]]; then
+        if [[ ! $(lsblk -dnro hotplug "$1" 2> /dev/null) -eq 1 ]]; then
                 echo "Error: $1 is not a removable block device!"
                 _usage 1
         fi
