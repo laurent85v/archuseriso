@@ -97,15 +97,18 @@ make_packages() {
     mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra,-deepin}.x86_64) ${_lang} ${AUI_ADDITIONALPKGS:-}" install
 }
 
-# airootfs local packages
-# installs packages located in pkglocal folder
+# airootfs user packages
+# installs packages located in path provided directory
 make_packages_local() {
-    local _pkglocal=($(find ${script_path}/pkglocal/ -maxdepth 1 \( -name "*.pkg.tar.xz" -o -name "*.pkg.tar.zst" \) ))
+    local _pkglocal
+    if [[ -n "${AUI_USERPKGDIR:-}" && -d "${AUI_USERPKGDIR:-}" ]]; then
+        _pkglocal+=($(find "${AUI_USERPKGDIR}" -maxdepth 1 \( -name "*.pkg.tar.xz" -o -name "*.pkg.tar.zst" \) ))
+    fi
 
     if [[ ${_pkglocal[@]} ]]; then
-        mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing local packages"' run
+        mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing user packages"' run
         echo "      ${_pkglocal[@]##*/}"
-        unshare --fork --pid pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
+        unshare --fork --pid unshare --fork --pid pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
     fi
 }
 

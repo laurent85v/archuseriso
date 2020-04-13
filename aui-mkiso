@@ -24,48 +24,38 @@ _help () {
         echo 'Archuseriso tool for building a custom Arch Linux Live ISO image.'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkiso <iso config> [options] [build options]'
+        echo 'aui-mkiso <desktop environment> [options]'
         echo
         echo 'Options:'
         echo '-h, --help                        Command help'
-        echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to install'
-        echo '-C, --configs-path <path>         Path to directory configs'
-        echo '                                  default: /usr/share/archiso/configs'
+        echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to incluse'
+        echo '-C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)'
+        echo '    --configs-dir <path>' 
         echo '-l, --language <language>         Default language'
         echo '                                  cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
         echo '--nvidia                          Nvidia graphics driver'
         echo '--optimus                         Optimus hardware. Nvidia graphics driver and Xorg setup'
         echo '                                  for PRIME render offload'
+        echo '--pkgdir <path>                   User directory containing user package files to include into iso build'
+        echo '-v, --verbose                     Verbose mode'
         echo
         echo 'ISO config list:'
         echo 'console, cinnamon, deepin, gnome, kde, mate, xfce'
         echo
-        echo 'Build example:'
+        echo 'Build Examples.'
+        echo 'Xfce desktop environment with default options:'
         echo 'sudo aui-mkiso xfce'
         echo
-        echo 'User customization. Duplicate an iso configurations to your working directory:'
-        echo 'cp -LrT /usr/share/archiso/configs/<config> [path/]<config> 2> /dev/null'
-        echo 'cp -rT /usr/share/archiso/aui [path/]<config>/aui'
+        echo 'Xfce desktop environment, Spanish language, Optimus hardware capability:'
+        echo 'sudo aui-mkiso xfce -l es --optimus'
         echo
-        echo 'Example, xfce config copy, user home sub-directory sources:'
-        echo 'cp -LrT /usr/share/archiso/configs/xfce ~/sources/xfce 2> /dev/null'
-        echo 'cp -rT /usr/share/archiso/aui ~/sources/xfce/aui'
-        echo
-        echo 'Edit the packages files located in ~/sources/xfce and'
-        echo '~/sources/xfce/lang'.
-        echo
-        echo 'Optionnally add your own pre-built AUR packages to ~/sources/xfce/pkglocal'
-        echo
-        echo 'To build your customized iso use the --configs-path command option:'
-        echo 'sudo aui-mkiso xfce --configs-path ~/sources'
-        echo
-        echo "Desktop configuration specific help:"
-        echo 'aui-mkiso <iso config> -h | --help'
+        echo 'Xfce desktop environment, additional packages, plus user own packages (pkg.tar.xz files):'
+        echo 'sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages'
         echo
         exit ${1}
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addpkg:,configs-path:,help,language:,nvidia,optimus' -n 'aui-mkiso' -- "$@")
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addpkg:,confdir:,configs-dir:,help,language:,nvidia,optimus,pkgdir:,verbose' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -76,7 +66,7 @@ while true; do
                 '--addpkg')
                         export AUI_ADDITIONALPKGS+="$(tr ',' ' ' <<< $2) "
                         shift 2 ;;
-                '-C'|'--configs-path')
+                '-C'|'--confdir'|'--configs-dir')
                         confdir="$2"
                         shift 2 ;;
                 '-A'|'-D'|'-L'|'-N'|'-P'|'-V'|'-c'|'-g'|'-l'|'-o'|'-w')
@@ -95,7 +85,10 @@ while true; do
                         export AUI_ADDITIONALPKGS+="nvidia nvidia-settings nvidia-prime "
                         export AUI_OPTIMUS=1
                         shift ;;
-                '-v')
+                '--pkgdir')
+                        export AUI_USERPKGDIR="$2"
+                        shift 2 ;;
+                '-v'|'verbose')
                         options+="-v "
                         shift ;;
                 '--')
@@ -113,7 +106,10 @@ if [[ $# -ne 1 ]]; then
 fi
 
 case $1 in
-        cinnamon | console | deepin | gnome | kde | mate | xfce)
+        cinnamon | deepin | gnome | kde | mate | xfce)
+                config=$1 ;;
+        console)
+                echo 'Console iso build reminder, some options may be ignored!'
                 config=$1 ;;
         *)
                 _usage 1 ;;
