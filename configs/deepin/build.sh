@@ -105,7 +105,7 @@ make_packages_local() {
     if [[ ${_pkglocal[@]} ]]; then
         mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing local packages"' run
         echo "      ${_pkglocal[@]##*/}"
-        pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
+        unshare --fork --pid pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
     fi
 }
 
