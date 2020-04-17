@@ -16,7 +16,7 @@ Highlights
 * installation tool to USB device
 * language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * packages customization
-* local packages support (packages from the AUR)
+* user packages support
 * supports Nvidia driver (disabled by default)
 
 Desktop environments
@@ -41,7 +41,7 @@ Install [archuseriso](https://aur.archlinux.org/packages/archuseriso/) available
 
 Or manual install on Arch Linux:
 
-    sudo pacman --needed -S archiso git
+    sudo pacman --needed -S archiso git syslinux
 
 Clone master repository
 

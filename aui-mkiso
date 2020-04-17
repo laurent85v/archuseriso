@@ -127,6 +127,10 @@ if [[ ! "${options}" =~ '-h' && ${EUID} -ne 0 ]]; then
         exit 1
 fi
 
+if [[ -d "work" ]]; then
+        echo \'work\'' directory exists!'
+fi
+
 # Launch the build script:
 eval "${confdir}/${config}/build.sh ${options}"
 
