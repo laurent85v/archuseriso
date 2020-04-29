@@ -25,12 +25,15 @@ _help () {
         echo 'Options:'
         echo '-h, --help                Command help'
         echo '--encrypt                 Encrypt persistent partition'
-        echo '--rawwrite                ISO image raw write to USB device (dd like mode)'
-        echo '--sizepart2 integer[g|G]  FAT partition size in GiB (Boot partition)'
-        echo '--sizepart3 integer[g|G]  Ext4 partition size in GiB (persistent partition)'
+        echo '--rawwrite                Raw ISO image write to USB device (dd like mode)'
+        echo '--sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)'
+        echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)'
         echo
-        echo 'Example:'
-        echo 'aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso'
+        echo 'Example using default options:'
+        echo 'sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso'
+        echo
+        echo 'Example with custom partitioning, unallocated space left for other usages:'
+        echo 'sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso --sizepart2 1G --sizepart3 10G'
         echo
         exit $1
 }

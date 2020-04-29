@@ -28,28 +28,30 @@ _help () {
         echo
         echo 'Options:'
         echo '-h, --help                        Command help'
-        echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to incluse'
+        echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to install'
         echo '-C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)'
         echo '    --configs-dir <path>' 
-        echo '-l, --language <language>         Default language'
+        echo '-l, --language <language>         Default language. Select one from:'
         echo '                                  cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
-        echo '--nvidia                          Nvidia graphics driver'
-        echo '--optimus                         Optimus hardware. Nvidia graphics driver and Xorg setup'
-        echo '                                  for PRIME render offload'
-        echo '--pkgdir <path>                   User directory containing user package files to include into iso build'
+        echo '--nvidia                          Installs Nvidia graphics driver'
+        echo '--optimus                         Optimus hardware setup. Intel iGPU used by default,'
+        echo '                                  Nvidia dGPU configured for PRIME render offload'
+        echo '--pkgdir <path>                   User directory containing package files to install'
         echo '-v, --verbose                     Verbose mode'
         echo
         echo 'ISO config list:'
         echo 'console, cinnamon, deepin, gnome, kde, mate, xfce'
         echo
-        echo 'Build Examples.'
+        echo 'Build Examples'
+        echo
         echo 'Xfce desktop environment with default options:'
         echo 'sudo aui-mkiso xfce'
         echo
-        echo 'Xfce desktop environment, Spanish language, Optimus hardware capability:'
-        echo 'sudo aui-mkiso xfce -l es --optimus'
+        echo 'Xfce desktop environment, Spanish language, PRIME render offload setup for Optimus hardware:'
+        echo 'sudo aui-mkiso xfce --language es --optimus'
         echo
-        echo 'Xfce desktop environment, additional packages, plus user own packages (pkg.tar.xz files):'
+        echo 'Xfce desktop environment, additional packages from official repositories, plus user package'
+        echo 'located in directory ~/mypackages, directory must contain pkg.tar.xz or pkg.tar.zst files:'
         echo 'sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages'
         echo
         exit ${1}

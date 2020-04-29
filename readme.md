@@ -1,23 +1,24 @@
 Description
 ===========
 
-Templates for building Arch Linux Live iso image. Live USB featuring Persistent Storage & Encryption.
+Templates for building Arch Linux Live ISO images. Live USB creation tool featuring Persistent Storage & Encryption.
 
 Highlights
 ----------
 
 * easy build
 * very fast images (zstd compression)
-* live USB creation tool, persistent storage support by default
+* live USB creation tool, persistent storage created by default
 * live USB full updates support
 * rEFInd boot manager
 * LUKS encryption option
 * partition size option 
-* installation tool to USB device
+* Installation tool to USB device
 * language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
-* packages customization
+* package list customization
 * user packages support
-* supports Nvidia driver (default: disabled)
+* Nvidia driver support (default: disabled)
+* Optimus hardware support (default: disabled)
 
 Desktop environments
 --------------------
@@ -62,7 +63,7 @@ Xfce desktop with default options
 
     sudo aui-mkiso xfce
 
-Kde Plasma desktop, German language plus options for Optimus hardware and some additional packages
+Kde Plasma desktop, German language plus options for Optimus hardware and additional packages
 
     sudo aui-mkiso kde --language de --optimus --addpkg byobu,base-devel
 
@@ -95,10 +96,9 @@ Live USB partition layout
     #1        Ext4 Squashfs    Image size 
     #2        FAT  Boot        Default 512 MiB
     #3        Ext4 Persistence Default free disk space 
-    Free 
+
 
 #### aui-mkiso command help
-
     Archuseriso tool for building a custom Arch Linux Live ISO image.
 
     Command synopsis:
@@ -106,19 +106,31 @@ Live USB partition layout
 
     Options:
     -h, --help                        Command help
-    --addpkg <package1,package2,...>  Comma separated list of additional package names to incluse
+    --addpkg <package1,package2,...>  Comma separated list of additional package names to install
     -C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)
         --configs-dir <path>
-    -l, --language <language>         Default language
+    -l, --language <language>         Default language. Select one from:
                                       cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
-    --nvidia                          Nvidia graphics driver
-    --optimus                         Optimus hardware. Nvidia graphics driver and Xorg setup
-                                      for PRIME render offload
-    --pkgdir <path>                   User directory containing user package files to include
+    --nvidia                          Installs Nvidia graphics driver
+    --optimus                         Optimus hardware setup. Intel iGPU used by default,
+                                      Nvidia dGPU configured for PRIME render offload
+    --pkgdir <path>                   User directory containing package files to install
     -v, --verbose                     Verbose mode
 
-    Desktop environments list:
+    ISO config list:
     console, cinnamon, deepin, gnome, kde, mate, xfce
+
+    Build Examples
+
+    Xfce desktop environment with default options:
+    sudo aui-mkiso xfce
+
+    Xfce desktop environment, Spanish language, PRIME render offload setup for Optimus hardware:
+    sudo aui-mkiso xfce --language es --optimus
+
+    Xfce desktop environment, additional packages from official repositories, plus user package
+    located in directory ~/mypackages, directory must contain pkg.tar.xz or pkg.tar.zst files:
+    sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages
 
 #### aui-mkusb command help
 
@@ -130,12 +142,15 @@ Live USB partition layout
     Options:
     -h, --help                Command help
     --encrypt                 Encrypt persistent partition
-    --rawwrite                ISO image raw write to USB device (dd like mode)
-    --sizepart2 integer[g|G]  FAT partition size in GiB (Boot partition)
-    --sizepart3 integer[g|G]  Ext4 partition size in GiB (persistent partition)
+    --rawwrite                Raw ISO image write to USB device (dd like mode)
+    --sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)
+    --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)
 
-    Example:
-    aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso
+    Example using default options:
+    sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso
+
+    Example with custom partitioning, unallocated space left for other usages:
+    sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso --sizepart2 1G --sizepart3 10G
 
 Standard installation on a USB flash drive
 ------------------------------------------
