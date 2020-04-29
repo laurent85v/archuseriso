@@ -11,7 +11,7 @@ _usage () {
         echo 'aui-mkiso, Live ISO image build.'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkiso <iso config> [options] [build options]'
+        echo 'aui-mkiso <desktop environment> [options]'
         echo
         echo 'To get help run:'
         echo 'aui-mkiso --help'

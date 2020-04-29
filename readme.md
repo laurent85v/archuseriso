@@ -1,7 +1,7 @@
 Description
 ===========
 
-Build your own Arch Linux Live iso image. Live USB featuring Persistent Storage & Encryption.
+Templates for building Arch Linux Live iso image. Live USB featuring Persistent Storage & Encryption.
 
 Highlights
 ----------
@@ -17,7 +17,7 @@ Highlights
 * language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * packages customization
 * user packages support
-* supports Nvidia driver (disabled by default)
+* supports Nvidia driver (default: disabled)
 
 Desktop environments
 --------------------
@@ -58,15 +58,19 @@ Command synopsis
 
     aui-mkiso <desktop environment> [options]
 
-Xfce desktop default options
+Xfce desktop with default options
 
     sudo aui-mkiso xfce
 
-Kde desktop iso example (Plasma), German language plus options for Optimus hardware and some additional packages
+Kde Plasma desktop, German language plus options for Optimus hardware and some additional packages
 
-    sudo aui-mkiso kde -l de --optimus --addpkg iperf,ntop
+    sudo aui-mkiso kde --language de --optimus --addpkg byobu,base-devel
 
-When done remove the `work` directory. The generated image is located in the `out` directory.
+Gnome desktop, additional packages, user packages
+
+    sudo aui-mkiso gnome --addpkg ntop,vlc --pkgdir ~/mypackages
+
+When done remove the `work` directory. ISO image is located in the `out` directory.
 
 Live USB creation
 -----------------
@@ -93,46 +97,28 @@ Live USB partition layout
     #3        Ext4 Persistence Default free disk space 
     Free 
 
-User Customization
--------------------
-Duplicate an iso configuration to your working directory:
-
-    cp -LrT /usr/share/archiso/configs/<iso config> [path/]<config> 2> /dev/null
-    cp -rT /usr/share/archiso/aui [path/]<config>/aui
-
-Example:
-
-    cp -LrT /usr/share/archiso/configs/xfce ~/sources/xfce 2> /dev/null
-    cp -rT /usr/share/archiso/aui ~/sources/xfce/aui
-
-Edit package files located in `~/sources/xfce` and `~/sources/xfce/lang`. Add your own packages to the `pkglocal` directory located in `~/sources/xfce/pkglocal`. To build the iso image run:
-
-    sudo aui-mkiso xfce --configs-path ~/sources
-
 #### aui-mkiso command help
 
     Archuseriso tool for building a custom Arch Linux Live ISO image.
 
     Command synopsis:
-    aui-mkiso <iso config> [options] [build options]
+    aui-mkiso <desktop environment> [options]
 
     Options:
     -h, --help                        Command help
-    --addpkg <package1,package2,...>  Comma separated list of additional package names to install
-    -C, --configs-path <path>         Path to directory configs
-                                      default: /usr/share/archiso/configs
+    --addpkg <package1,package2,...>  Comma separated list of additional package names to incluse
+    -C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)
+        --configs-dir <path>
     -l, --language <language>         Default language
                                       cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
     --nvidia                          Nvidia graphics driver
     --optimus                         Optimus hardware. Nvidia graphics driver and Xorg setup
                                       for PRIME render offload
+    --pkgdir <path>                   User directory containing user package files to include
+    -v, --verbose                     Verbose mode
 
-    ISO config list:
+    Desktop environments list:
     console, cinnamon, deepin, gnome, kde, mate, xfce
-
-    Build example:
-    sudo aui-mkiso xfce
-    ...
 
 #### aui-mkusb command help
 
@@ -153,7 +139,8 @@ Edit package files located in `~/sources/xfce` and `~/sources/xfce/lang`. Add yo
 
 Standard installation on a USB flash drive
 ------------------------------------------
-Hard disk like installation on a USB flash drive.
+Installation on a USB flash drive. No live image installed, no compression, works like a standard
+installation on a hard disk.
 
 Command synopsis:
 
