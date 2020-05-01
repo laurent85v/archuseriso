@@ -259,21 +259,21 @@ _partitions () {
                 _ext4size=$(( ${ext4size/[gG]} * 1024 * 1024 * 1024 / 512 ))
         fi
         # partition #1 iso data
-        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 / 4 )),20," | sfdisk "${usbdevice}" -W always; then
+        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),20," | sfdisk "${usbdevice}" -W always; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
         sleep 2
         # partition #2 boot & efi partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 / 4 )),${_fatsize},11," | sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_fatsize},11," | sfdisk "${usbdevice}" --append -W always; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
         sleep 2
         # partition #3 persistent partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 / 4 + _fatsize )),${_ext4size:-},20," | sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 + _fatsize )),${_ext4size:-},20," | sfdisk "${usbdevice}" --append -W always; then
                 echo 'Failed to create new partition layout!'
                 _unmount
                 exit 1
@@ -283,7 +283,7 @@ _partitions () {
 
 _format () {
         echo 'Formatting...'
-        if ! flock "${usbdevice}1" mkfs.ext4 "${usbdevice}1" -L "${iso_label}" -O encrypt; then
+        if ! flock "${usbdevice}1" mkfs.ext4 "${usbdevice}1" -L "${iso_label}" -O encrypt -m 0; then
                echo 'Partition format failed!'
                 _unmount
                exit 1
