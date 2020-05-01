@@ -244,8 +244,9 @@ _partitions () {
         local _fatsize=$(( ESP * 1024 * 1024 / 512 ))
         flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
         partprobe "${usbdevice}"
+        sleep 2
         echo 'Creating partitions...'
-        if ! echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -W always; then
+        if ! echo 'label: gpt' | sfdisk "${usbdevice}" -W always; then
                 echo 'Failed to create new gpt partition table!'
                 _unmount
                 exit 1
@@ -258,26 +259,26 @@ _partitions () {
                 _ext4size=$(( ${ext4size/[gG]} * 1024 * 1024 * 1024 / 512 ))
         fi
         # partition #1 iso data
-        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 / 4 )),20," | flock "${usbdevice}" sfdisk "${usbdevice}" -W always; then
+        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 / 4 )),20," | sfdisk "${usbdevice}" -W always; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
         sleep 2
         # partition #2 boot & efi partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 / 4 )),${_fatsize},11," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 / 4 )),${_fatsize},11," | sfdisk "${usbdevice}" --append -W always; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
         sleep 2
         # partition #3 persistent partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 / 4 + _fatsize )),${_ext4size:-},20," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 / 4 + _fatsize )),${_ext4size:-},20," | sfdisk "${usbdevice}" --append -W always; then
                 echo 'Failed to create new partition layout!'
                 _unmount
                 exit 1
         fi
-        sleep 1
+        sleep 2
 }
 
 _format () {
