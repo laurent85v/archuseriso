@@ -25,6 +25,7 @@ _help () {
         echo 'Options:'
         echo '-h, --help                Command help'
         echo '--encrypt                 Encrypt persistent partition'
+        echo '--ext4journal             Enable ext4 journal (disabled by default for minimizing disk writes)'
         echo '--rawwrite                Raw ISO image write to USB device (dd like mode)'
         echo '--sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)'
         echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)'
@@ -286,7 +287,7 @@ _partitions () {
 
 _format () {
         echo 'Formatting...'
-        if ! flock "${usbdevice}1" mkfs.ext4 "${usbdevice}1" -L "${iso_label}" -O encrypt -m 0; then
+        if ! flock "${usbdevice}1" mkfs.ext4 "${usbdevice}1" -L "${iso_label}" -O encrypt,'^has_journal' -m 0; then
                echo 'Partition format failed!'
                 _unmount
                exit 1
@@ -300,10 +301,15 @@ _format () {
         if [[ -n "${encryption:-}" ]]; then
                _encrypt_mkluks
         fi
-        if ! flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt; then
+        if ! flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt,'^has_journal'; then
                echo 'Partition format failed!'
                 _unmount
                exit 1
+        fi
+        # enable ext4 journal
+        if [[ -n "${ext4journal:-}" ]]; then
+                tune2fs -O 'has_journal' "${usbdevice}1"
+                tune2fs -O 'has_journal' "${cowdevice}"
         fi
 }
 
@@ -362,7 +368,7 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,sizepart2:,sizepart3:,rawwrite,help' -n 'aui-mkusb' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,rawwrite,sizepart2:,sizepart3:,help' -n 'aui-mkusb' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -375,15 +381,18 @@ while true; do
                 '--encrypt')
                         encryption=yes
                         shift ;;
+                '--ext4journal')
+                        ext4journal=yes
+                        shift ;;
+                '--rawwrite')
+                        rawwrite=yes
+                        shift ;;
                 '--sizepart2')
                         fatsize=$2
                         shift 2;;
                 '--sizepart3')
                         ext4size=$2
                         shift 2;;
-                '--rawwrite')
-                        rawwrite=yes
-                        shift ;;
                 '--')
                         shift
                         break ;;

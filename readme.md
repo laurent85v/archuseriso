@@ -142,6 +142,7 @@ Live USB partition layout
     Options:
     -h, --help                Command help
     --encrypt                 Encrypt persistent partition
+    --ext4journal             Enable ext4 journal (disabled by default for minimizing disk writes)
     --rawwrite                Raw ISO image write to USB device (dd like mode)
     --sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)
     --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)

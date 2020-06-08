@@ -24,6 +24,7 @@ _help () {
         echo 'Options:'
         echo '-h, --help           command help'
         echo '--encrypt            encrypt persistent partition'
+        echo '--ext4journal        enable ext4 journal (disabled by default for minimizing disk writes)'
         echo
         echo 'Example:'
         echo 'aui-mkinstall /dev/sdc archuseriso-xfce-1231-x64.iso --encrypt'
@@ -179,9 +180,13 @@ _format () {
         if [[ -n "${encryption:-}" ]]; then
                 _encrypt_mkluks
         fi
-        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt; then
+        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt,'^has_journal'; then
                 echo 'Partition format failed!'
                 exit 1
+        fi
+        # enable ext4 journal
+        if [[ -n "${ext4journal:-}" ]]; then
+                tune2fs -O 'has_journal' "${rootdevice}"
         fi
 }
 
@@ -284,7 +289,7 @@ _finalize () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,help' -n 'aui-mkinstall' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,help' -n 'aui-mkinstall' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -296,6 +301,9 @@ while true; do
                         _help 0 ;;
                 '--encrypt')
                         encryption=yes
+                        shift ;;
+                '--ext4journal')
+                        ext4journal=yes
                         shift ;;
                 '--')
                         shift
