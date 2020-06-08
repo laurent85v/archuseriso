@@ -53,6 +53,8 @@ _encrypt_setup () {
         sed -i "s|block|& encrypt|" "${WD}/${workdir}/usb/etc/mkinitcpio.conf"
         sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                "${WD}/${workdir}/usb/boot/refind_linux.conf"
+        sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+               "${WD}/${workdir}/usb/boot/syslinux/syslinux.cfg"
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P
 }
 
@@ -164,9 +166,9 @@ _partitions () {
         sleep 1
         echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always
         sleep 1
-        echo "${SECSTART},${ESPSIZE},1," | sudo flock "${usbdevice}" sfdisk "${usbdevice}" -W always
+        echo "${SECSTART},${ESPSIZE},1," | flock "${usbdevice}" sfdisk "${usbdevice}" -W always
         sleep 1
-        echo "$(( SECSTART + ESPSIZE)),,20," | sudo flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
+        echo "$(( SECSTART + ESPSIZE)),,20," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
         sleep 1
 }
 
@@ -257,12 +259,16 @@ _install () {
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
 
         # rEFInd boot manager
-        sudo cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
-        sudo cp "${WD}/${workdir}/iso/EFI/shellx64_v1.efi" "${WD}/${workdir}/usb/boot/EFI/"
-        sudo cp "${WD}/${workdir}/iso/EFI/shellx64_v2.efi" "${WD}/${workdir}/usb/boot/EFI/"
+        cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
+        cp "${WD}/${workdir}/iso/EFI/shellx64_v1.efi" "${WD}/${workdir}/usb/boot/EFI/"
+        cp "${WD}/${workdir}/iso/EFI/shellx64_v2.efi" "${WD}/${workdir}/usb/boot/EFI/"
         cp "${WD}/${workdir}/iso/EFI/boot/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
         cp "${WD}/${workdir}/iso/aui/refind_linux.conf" "${WD}/${workdir}/usb/boot/"
         sed -i "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
+
+        # syslinux bootloader
+        cp "${WD}/${workdir}/iso/aui/syslinux.cfg" "${WD}/${workdir}/usb/boot/syslinux/"
+        cp "${WD}/${workdir}"/usb/usr/lib/syslinux/bios/*.c32 "${WD}/${workdir}/usb/boot/syslinux/"
 
         if [[ -n "${encryption:-}" ]]; then
                 _encrypt_setup
@@ -285,6 +291,21 @@ _finalize () {
                 cryptsetup close auicrypt
         else
                 true
+        fi
+}
+
+_bootloader () {
+        if ! syslinux --directory syslinux --install "${usbdevice}1"; then
+                echo 'Bootloader installation failed!'
+                exit 1
+        fi
+        if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usbdevice}" 2> /dev/null; then
+                echo 'Bootloader installation failed!'
+                exit 1
+        fi
+        if ! sfdisk --part-attrs "${usbdevice}" 1 LegacyBIOSBootable; then
+                echo 'Bootloader installation failed!'
+                exit 1
         fi
 }
 
@@ -319,6 +340,7 @@ _format
 _mount
 _install
 _finalize
+_bootloader
 
 echo 'Done!'
 echo
