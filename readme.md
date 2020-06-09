@@ -1,24 +1,24 @@
 Description
 ===========
 
-Templates for building Arch Linux Live ISO images. Live USB creation tool featuring Persistent Storage & Encryption.
+Templates for building Arch Linux Live ISO images. Tools for creating bootable USB flash drives featuring persistent storage, encryption and regular installation.
 
 Highlights
 ----------
 
 * easy build
 * very fast images (zstd compression)
-* live USB creation tool, persistent storage created by default
-* live USB full updates support
+* live USB creation tool featuring persistent storage
+* live USB update support
 * rEFInd boot manager
 * LUKS encryption option
-* partition size option 
-* Installation tool to USB device
-* language build option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
+* partition size option
+* language option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * package list customization
 * user packages support
 * Nvidia driver support (default: disabled)
 * Optimus hardware support (default: disabled)
+* regular installation onto usb device
 
 Desktop environments
 --------------------
@@ -85,7 +85,7 @@ Example
 
     sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso
 
-Persistence note: for a Live USB created with a different tool, the missing persistence feature can be turned on from the live environment (Restart needed). Note this tool only supports a subset of the standard features. Use `aui-mkusb` for full features. 
+Persistence note: for a Live USB created with a different tool the missing persistence feature can be turned on from the live usb (restart needed). The following command executed within the live desktop environment only supports a subset of the standard features, prefer using `aui-mkusb` for creating the live usb to take advantage of full features.
 
     sudo aui-addpersistence
 
@@ -128,8 +128,8 @@ Live USB partition layout
     Xfce desktop environment, Spanish language, PRIME render offload setup for Optimus hardware:
     sudo aui-mkiso xfce --language es --optimus
 
-    Xfce desktop environment, additional packages from official repositories, plus user package
-    located in directory ~/mypackages, directory must contain pkg.tar.xz or pkg.tar.zst files:
+    Xfce desktop environment, additional packages from official repositories, plus user packages
+    located in directory ~/mypackages. Directory contains pkg.tar.xz or pkg.tar.zst package files:
     sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages
 
 #### aui-mkusb command help
@@ -153,9 +153,9 @@ Live USB partition layout
     Example with custom partitioning, unallocated space left for other usages:
     sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso --sizepart2 1G --sizepart3 10G
 
-Standard installation on a USB flash drive
-------------------------------------------
-Installation on a USB flash drive. No live image installed, no compression, works like a standard
+Regular installation onto a USB flash drive
+-------------------------------------------
+Persistent installation identical to normal installation to hard disk drive. No live image installed, no compression, works like a standard
 installation on a hard disk.
 
 Command synopsis:
