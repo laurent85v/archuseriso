@@ -35,7 +35,7 @@ abiword gnumeric
 #
 amdvlk
 vulkan-intel
-vulkan-mesa-layer
+vulkan-mesa-layers
 vulkan-radeon
 vulkan-tools
 
