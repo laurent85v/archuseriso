@@ -49,7 +49,6 @@ vulkan-tools
 ### Others
 ##
 #
-byobu
 cpio
 cpupower
 dmidecode
@@ -70,4 +69,3 @@ unrar
 whois
 wireguard-tools
 zip
-zsh-autosuggestions
