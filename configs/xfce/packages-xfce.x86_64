@@ -22,7 +22,7 @@ gvfs-nfs
 gvfs-smb
 hexchat
 intel-media-driver
-jre8-openjdk
+jre-openjdk
 libcanberra-pulse
 libva-intel-driver
 libva-mesa-driver

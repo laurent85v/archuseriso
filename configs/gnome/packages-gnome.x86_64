@@ -57,7 +57,7 @@ gvfs-nfs
 gvfs-smb
 hexchat
 intel-media-driver
-jre8-openjdk
+jre-openjdk
 libva-intel-driver
 libva-mesa-driver
 libva-utils

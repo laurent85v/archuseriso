@@ -25,7 +25,7 @@ gst-libav
 gst-plugins-ugly
 gwenview
 intel-media-driver
-jre8-openjdk
+jre-openjdk
 juk
 k3b
 kaddressbook
@@ -51,6 +51,7 @@ kfloppy
 kgamma5
 kget
 khelpcenter
+khotkeys
 kinfocenter
 kleopatra
 kmag
@@ -113,6 +114,9 @@ skanlite
 spectacle
 sweeper
 system-config-printer
+telepathy-gabble
+telepathy-haze
+telepathy-idle
 telepathy-kde-approver
 telepathy-kde-auth-handler
 telepathy-kde-call-ui
@@ -120,9 +124,6 @@ telepathy-kde-contact-list
 telepathy-kde-contact-runner
 telepathy-kde-desktop-applets
 telepathy-kde-filetransfer-handler
-telepathy-gabble
-telepathy-haze
-telepathy-idle
 telepathy-kde-integration-module
 telepathy-kde-send-file
 telepathy-kde-text-ui
