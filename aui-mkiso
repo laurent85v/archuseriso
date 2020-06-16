@@ -28,6 +28,8 @@ _help () {
         echo
         echo 'Options:'
         echo '-h, --help                        Command help'
+        echo '--addi3wm                         Add i3wm to package installation list:'
+        echo '                                  option adding packages i3-gaps,feh,dmenu,i3status,wmctrl'
         echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to install'
         echo '-C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)'
         echo '    --configs-dir <path>' 
@@ -57,7 +59,7 @@ _help () {
         exit ${1}
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addpkg:,confdir:,configs-dir:,help,language:,nvidia,optimus,pkgdir:,verbose' -n 'aui-mkiso' -- "$@")
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addi3wm,addpkg:,confdir:,configs-dir:,help,language:,nvidia,optimus,pkgdir:,verbose' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -65,6 +67,9 @@ unset OPTS
 
 while true; do
         case "$1" in
+                '--addi3wm')
+                        export AUI_ADDITIONALPKGS+="i3-gaps feh dmenu i3status wmctrl "
+                        shift ;;
                 '--addpkg')
                         export AUI_ADDITIONALPKGS+="$(tr ',' ' ' <<< $2) "
                         shift 2 ;;
