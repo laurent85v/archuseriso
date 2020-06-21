@@ -3,7 +3,7 @@
 set -e -u
 
 iso_name=archuseriso-console
-iso_label=AUIC
+iso_label=AUIO
 iso_publisher=
 iso_application="Archuseriso Console Live/Rescue medium"
 iso_version=$(date +%m%d)
