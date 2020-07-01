@@ -225,8 +225,6 @@ make_efi() {
 
     mkdir -p ${work_dir}/iso/loader/entries
     cp -L ${script_path}/efiboot/loader/loader.conf ${work_dir}/iso/loader/
-    cp -L ${script_path}/efiboot/loader/entries/uefi-shell-v2-x86_64.conf ${work_dir}/iso/loader/entries/
-    cp -L ${script_path}/efiboot/loader/entries/uefi-shell-v1-x86_64.conf ${work_dir}/iso/loader/entries/
     cp ${script_path}/efiboot/loader/entries/archiso-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf ${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf
@@ -236,9 +234,8 @@ make_efi() {
             ${work_dir}/iso/loader/entries/archiso{,_2_console,_3_ram}-x86_64.conf
 
     # EFI Shell 2.0 for UEFI 2.3+
-    curl -o ${work_dir}/iso/EFI/shellx64_v2.efi https://raw.githubusercontent.com/tianocore/edk2/UDK2018/ShellBinPkg/UefiShell/X64/Shell.efi
-    # EFI Shell 1.0 for non UEFI 2.3+
-    curl -o ${work_dir}/iso/EFI/shellx64_v1.efi https://raw.githubusercontent.com/tianocore/edk2/UDK2018/EdkShellBinPkg/FullShell/X64/Shell_Full.efi
+    # shellx64.efi is picked up automatically when on /
+    cp /usr/share/edk2-shell/x64/Shell_Full.efi ${work_dir}/iso/shellx64.efi
 }
 
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode
@@ -268,8 +265,6 @@ make_efiboot() {
 
     mkdir -p ${work_dir}/efiboot/loader/entries
     cp -L ${script_path}/efiboot/loader/loader.conf ${work_dir}/efiboot/loader/
-    cp -L ${script_path}/efiboot/loader/entries/uefi-shell-v2-x86_64.conf ${work_dir}/efiboot/loader/entries/
-    cp -L ${script_path}/efiboot/loader/entries/uefi-shell-v1-x86_64.conf ${work_dir}/efiboot/loader/entries/
     cp ${script_path}/efiboot/loader/entries/archiso-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf
     cp ${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf ${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf
@@ -278,8 +273,8 @@ make_efiboot() {
             s|%INSTALL_DIR%|${install_dir}|g" \
             ${work_dir}/efiboot/loader/entries/archiso{,_2_console,_3_ram}-x86_64.conf
 
-    cp ${work_dir}/iso/EFI/shellx64_v2.efi ${work_dir}/efiboot/EFI/
-    cp ${work_dir}/iso/EFI/shellx64_v1.efi ${work_dir}/efiboot/EFI/
+    # shellx64.efi is picked up automatically when on /
+    cp ${work_dir}/iso/shellx64.efi ${work_dir}/efiboot/
 
     umount -d ${work_dir}/efiboot
 }
@@ -316,8 +311,6 @@ make_aui() {
     ln -s ../../loader "${work_dir}/iso/aui/esp/loader"
     ln -s ../../../EFI/boot "${work_dir}/iso/aui/esp/EFI/BOOT"
     ln -s ../../../EFI/live "${work_dir}/iso/aui/esp/EFI/live"
-    ln -s ../../../EFI/shellx64_v1.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v1.efi"
-    ln -s ../../../EFI/shellx64_v2.efi "${work_dir}/iso/aui/esp/EFI/shellx64_v2.efi"
 
     # duplicate /boot contents to persistent boot partition
     # mounting persistent boot partition would hide original /boot contents
