@@ -23,7 +23,6 @@ gnu-netcat
 gpm
 gptfdisk
 grml-zsh-config
-grub
 hdparm
 ipw2100-fw
 ipw2200-fw
@@ -42,12 +41,10 @@ mdadm
 mtools
 nano
 ndisc6
-netctl
 nfs-utils
 nilfs-utils
 nmap
 ntfs-3g
-ntp
 nvme-cli
 openconnect
 openssh
@@ -57,7 +54,6 @@ parted
 partimage
 ppp
 pptpclient
-refind-efi
 reiserfsprogs
 rp-pppoe
 rsync
@@ -69,7 +65,6 @@ tcpdump
 testdisk
 usb_modeswitch
 usbutils
-vi
 vim-minimal
 vpnc
 wireless-regdb
