@@ -132,7 +132,12 @@ make_setup_mkinitcpio() {
     cp -L ${script_path}/mkinitcpio.conf ${work_dir}/x86_64/airootfs/etc/mkinitcpio-archiso.conf
 
     # Copy configs airootfs
-    cp -afL --no-preserve=ownership ${script_path}/airootfs ${work_dir}/x86_64
+    # 2 stages copy
+    # 1st we dereference soft links (archuseriso template soft links). But real airootfs soft
+    # links dereference outputs copy errors.
+    # 2nd we copy missing airootfs soft links without derefencing
+    cp -afL --no-preserve=ownership ${script_path}/airootfs ${work_dir}/x86_64 2> /dev/null
+    cp -afTu --no-preserve=ownership ${script_path}/airootfs ${work_dir}/x86_64
 
     # Copy localization
     if [[ -n "${lang}" ]]; then

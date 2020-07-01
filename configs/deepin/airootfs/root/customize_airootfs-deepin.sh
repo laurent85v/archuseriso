@@ -86,3 +86,8 @@ fi
 
 # Update schemas
 glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+# disable systemd-networkd.service systemd-resolved.service
+# we have NetworkManager for managing network interfaces
+[[ -e /usr/lib/systemd/system/systemd-networkd.service ]] && systemctl disable systemd-networkd.service
+[[ -e /usr/lib/systemd/system/systemd-resolved.service ]] && systemctl disable systemd-resolved.service

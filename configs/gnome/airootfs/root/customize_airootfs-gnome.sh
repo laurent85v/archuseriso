@@ -81,3 +81,8 @@ sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
 # add live to autologin group
 groupadd -r autologin
 gpasswd -a live autologin
+
+# disable systemd-networkd.service systemd-resolved.service
+# we have NetworkManager for managing network interfaces
+[[ -e /usr/lib/systemd/system/systemd-networkd.service ]] && systemctl disable systemd-networkd.service
+[[ -e /usr/lib/systemd/system/systemd-resolved.service ]] && systemctl disable systemd-resolved.service

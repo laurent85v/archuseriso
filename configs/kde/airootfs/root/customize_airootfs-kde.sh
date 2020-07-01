@@ -55,3 +55,8 @@ ln -s /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.s
 useradd -m -G "adm,audio,floppy,log,network,rfkill,scanner,storage,optical,power,sys,video,wheel" -s /bin/zsh live
 sed -i 's/^\(live:\)!:/\1:/' /etc/shadow
 sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
+
+# disable systemd-networkd.service systemd-resolved.service
+# we have NetworkManager for managing network interfaces
+[[ -e /usr/lib/systemd/system/systemd-networkd.service ]] && systemctl disable systemd-networkd.service
+[[ -e /usr/lib/systemd/system/systemd-resolved.service ]] && systemctl disable systemd-resolved.service
