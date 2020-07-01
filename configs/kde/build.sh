@@ -94,7 +94,7 @@ make_packages() {
     if [[ -n "${lang}" ]]; then
         _lang=$(grep -Ehv '^#|^$' ${script_path}/lang/"${lang}"/packages{-extra,-kde}.x86_64)
     fi
-    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra,-kde}.x86_64) ${_lang} ${AUI_ADDITIONALPKGS:-}" install
+    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-extra,-kde}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
 }
 
 # airootfs user packages

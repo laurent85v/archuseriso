@@ -82,7 +82,7 @@ make_basefs() {
 
 # Additional packages (airootfs)
 make_packages() {
-    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-console}.x86_64)" install
+    mkarchiso ${verbose} -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' ${script_path}/packages{,-console}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')" install
 }
 
 # airootfs user packages
