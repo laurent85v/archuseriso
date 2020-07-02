@@ -1,1 +1,72 @@
-../gnome/packages-extra.x86_64
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+#chromium
+firefox
+
+### Cups
+##
+#
+cups-pdf cups-pk-helper
+
+### Nvidia
+##
+#
+#nvidia nvidia-settings bbswitch
+
+### Office
+##
+#
+abiword gnumeric
+#hunspell-en_US libreoffice-fresh
+#hunspell-en_US libreoffice-still
+
+### Virtualbox guest
+##
+#
+#virtualbox-guest-modules-arch virtualbox-guest-utils
+
+### Vulkan
+##
+#
+amdvlk
+vulkan-intel
+vulkan-mesa-layers
+vulkan-radeon
+vulkan-tools
+
+### Xorg
+## The Xorg built-in modesetting driver generally performs
+## better than Intel's driver. Use the one which works
+## the best with your hardware (default: not installed)
+#
+#xf86-video-intel
+
+### Others
+##
+#
+byobu
+cpio
+cpupower
+dmidecode
+fatresize
+git
+grsync
+hddtemp
+hwinfo
+neofetch
+net-tools
+p7zip
+pacman-contrib
+pwgen
+strace
+tree
+unrar
+whois
+wireguard-tools
+zip
+zsh-autosuggestions

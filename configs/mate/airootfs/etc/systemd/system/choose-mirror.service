@@ -1,1 +1,10 @@
-../../../../../console/airootfs/etc/systemd/system/choose-mirror.service
+[Unit]
+Description=Choose mirror from the kernel command line
+ConditionKernelCommandLine=mirror
+
+[Service]
+Type=oneshot
+ExecStart=/etc/systemd/scripts/choose-mirror
+
+[Install]
+WantedBy=multi-user.target

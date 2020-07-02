@@ -1,1 +1,1 @@
-../../../console/airootfs/root/.zlogin
+~/.automated_script.sh
