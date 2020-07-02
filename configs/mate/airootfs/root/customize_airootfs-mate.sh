@@ -76,7 +76,8 @@ gpasswd -a live autologin
 # update schemas
 glib-compile-schemas /usr/share/glib-2.0/schemas/
 
-# disable systemd-networkd.service systemd-resolved.service
+# disable systemd-networkd.service
 # we have NetworkManager for managing network interfaces
-[[ -e /usr/lib/systemd/system/systemd-networkd.service ]] && systemctl disable systemd-networkd.service
-[[ -e /usr/lib/systemd/system/systemd-resolved.service ]] && systemctl disable systemd-resolved.service
+[[ -e /etc/systemd/system/multi-user.target.wants/systemd-networkd.service ]] && rm /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+[[ -e /etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service ]] && rm /etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service
+[[ -e /etc/systemd/system/sockets.target.wants/systemd-networkd.socket ]] && rm /etc/systemd/system/sockets.target.wants/systemd-networkd.socket
