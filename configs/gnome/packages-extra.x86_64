@@ -53,8 +53,10 @@ byobu
 cpio
 cpupower
 dmidecode
+fakeroot
 fatresize
 git
+grub
 grsync
 hddtemp
 hwinfo
@@ -62,10 +64,13 @@ neofetch
 net-tools
 p7zip
 pacman-contrib
+powertop
 pwgen
+refind
 strace
 tree
 unrar
+wget
 whois
 wireguard-tools
 zip

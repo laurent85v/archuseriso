@@ -23,7 +23,6 @@ gnu-netcat
 gpm
 gptfdisk
 grml-zsh-config
-grub
 hdparm
 ipw2100-fw
 ipw2200-fw
@@ -42,12 +41,11 @@ mdadm
 mtools
 nano
 ndisc6
-netctl
 nfs-utils
 nilfs-utils
 nmap
 ntfs-3g
-ntp
+nvme-cli
 openconnect
 openssh
 openvpn
@@ -56,7 +54,6 @@ parted
 partimage
 ppp
 pptpclient
-refind-efi
 reiserfsprogs
 rp-pppoe
 reflector
@@ -65,14 +62,13 @@ sdparm
 sg3_utils
 smartmontools
 sudo
+systemd-resolvconf
 tcpdump
 testdisk
 usb_modeswitch
 usbutils
-vi
 vim-minimal
 vpnc
-wget
 wireless-regdb
 wireless_tools
 wpa_supplicant

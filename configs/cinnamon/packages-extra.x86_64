@@ -21,7 +21,8 @@ cups-pdf cups-pk-helper
 ### Office
 ##
 #
-abiword gnumeric
+#abiword
+gnumeric
 #hunspell-en_US libreoffice-fresh
 #hunspell-en_US libreoffice-still
 
@@ -53,8 +54,10 @@ byobu
 cpio
 cpupower
 dmidecode
+fakeroot
 fatresize
 git
+grub
 grsync
 hddtemp
 hwinfo
@@ -62,10 +65,13 @@ neofetch
 net-tools
 p7zip
 pacman-contrib
+powertop
 pwgen
+refind
 strace
 tree
 unrar
+wget
 whois
 wireguard-tools
 zip

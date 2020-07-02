@@ -7,6 +7,7 @@ cryfs
 dmidecode
 fakeroot
 git
+grub
 hddtemp
 hwinfo
 neofetch
@@ -15,8 +16,10 @@ os-prober
 pacman-contrib
 powertop
 pwgen
+refind
 strace
 tree
+wget
 whois
 wireguard-tools
 zsh-autosuggestions
