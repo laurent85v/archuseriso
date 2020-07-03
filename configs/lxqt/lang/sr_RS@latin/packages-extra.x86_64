@@ -1,0 +1,14 @@
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-sr
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-sr
+#libreoffice-still-sr
