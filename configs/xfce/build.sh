@@ -323,6 +323,7 @@ make_aui() {
     ln -s ../../loader "${work_dir}/iso/aui/esp/loader"
     ln -s ../../../EFI/boot "${work_dir}/iso/aui/esp/EFI/BOOT"
     ln -s ../../../EFI/live "${work_dir}/iso/aui/esp/EFI/live"
+    ln -s ../../shellx64.efi "${work_dir}/iso/aui/esp/shellx64.efi"
 
     # duplicate /boot contents to persistent boot partition
     # mounting persistent boot partition would hide original /boot contents
