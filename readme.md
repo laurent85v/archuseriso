@@ -165,7 +165,3 @@ Command synopsis:
 Example
 
     sudo aui-mkinstall /dev/sdc archuseriso-xfce-0310-x64.iso
-
-Hard disk installation
-----------------------
-Hard disk installation is not supported however the file `install_alternative.txt` in the live's `/root` directory describes in a few steps how to migrate the live filesystem to a hard disk and how to easily remove the live settings.
