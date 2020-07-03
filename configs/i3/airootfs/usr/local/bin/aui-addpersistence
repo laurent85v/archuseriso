@@ -1,0 +1,249 @@
+#!/bin/bash
+
+set -e -u
+
+_usage () {
+        echo
+        echo 'aui-addpersistence, adds the persistence feature to the boot menu options.'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-addpersistence [options]'
+        echo
+        echo 'To get help run:'
+        echo 'aui-addpersistence --help'
+        exit $1
+}
+
+_help () {
+        echo
+        echo 'Archuseriso Live USB tool for adding the persistence feature'
+        echo 'to the boot menu options.'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-addpersistence [options]'
+        echo
+        echo 'Options:'
+        echo '-h, --help           Command help'
+        echo '--encrypt            Encrypt persistent partition'
+        echo
+        echo 'Example:'
+        echo 'aui-addpersistence --encrypt'
+        echo
+        exit $1
+}
+
+_encrypt_mkluks () {
+        echo
+        echo 'Setting up encrypted partition, type in a passphrase of your choice...'
+        if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat "${usbdevice}3"; then
+               echo 'Encryption setup failed, exiting!'
+               exit 1
+        fi
+        echo
+        echo 'LUKS encryption setup done! type in your passphrase to unlock device...'
+        if ! cryptsetup open "${usbdevice}3" auicrypt; then
+               echo 'Error: Could not unlock device! Exiting.'
+               exit 1
+        fi
+        cowdevice=/dev/mapper/auicrypt
+}
+
+_encrypt_setup () {
+        echo 'Setting up encryption...'
+        mkdir "${WD}/${workdir}/"{overlay,squashfs}
+        mount /run/archiso/sfs/airootfs "${WD}/${workdir}/squashfs" -o bind
+        mkdir "${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir"
+        mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir" "${WD}/${workdir}/overlay"
+        mount "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot" -o bind
+        cp "${WD}/${workdir}/iso/aui/mkinitcpio-archiso-encryption.conf" "${WD}/${workdir}/overlay/etc/"
+        ln -sf mkinitcpio-archiso-encryption.conf "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
+        arch-chroot "${WD}/${workdir}/overlay" mkinitcpio -P
+        sed -i "s|Storage$|& Encrypted|
+                s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+                "${WD}/${workdir}/overlay/boot/loader/entries/0aui_persistence-x86_64.conf"
+        umount "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+        sleep 1
+        rmdir "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+}
+
+_checks () {
+        if [[ $# -ne 0 ]]; then
+                echo 'Error: Invalid arguments!'
+                _usage 1
+        fi
+        if [[ ${EUID} -ne 0 ]]; then
+                echo 'This script must be run as root!'
+                exit 1
+        fi
+        usbdevice=/dev/$(grep bootmnt /proc/mounts | cut -d' ' -f1 | xargs lsblk -no pkname)
+        if ! blkid "${usbdevice}2" | grep -q 'LIVEMEDIUM'; then
+                echo "Error: persistence already enabled or medium compatibility issue, can't proceed!"
+                exit 1
+        fi
+        if [[ ! $(stat -c %t "${usbdevice}" 2> /dev/null) -eq 8 ]]; then
+               echo "Error: $1 is not a block device!"
+               _usage 1
+        fi
+        if [[ ! $(lsblk -dnro rm "${usbdevice}" 2> /dev/null) -eq 1 ]]; then
+               echo "Error: $1 is not a removable block device!"
+               _usage 1
+        fi
+        if [[ ! "$(lsblk -dnro tran "${usbdevice}" 2> /dev/null)" == 'usb' ]]; then
+               echo "Error: $1 is not a usb device!"
+               _usage 1
+        fi
+}
+
+_init () {
+        devicesize=$(blockdev --getsize64 "${usbdevice}")
+        ESPSIZE=786432 # 384 MiB
+        isosize=$(blockdev --getsize64 "${usbdevice}1")
+        MINFREESPACE=1073741824 # 1 GiB
+        WD="${PWD}"
+        workdir=auiwork
+        # Check usb device capacity
+        if [[ ${devicesize} -lt $(( isosize + MINFREESPACE )) ]]; then
+               echo 'Storage capacity error!'
+               exit 1
+        fi
+}
+
+_confirm_write () {
+        # Confim write
+        read -r -n1 -p "Confirm writing new partition table to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
+        echo
+        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+               echo 'Operation canceled by user!'
+               exit 0
+        fi
+
+        # Check & prepare working directory
+        for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{2,3}; do
+                if grep -q "${mountpoint}" /proc/mounts; then
+                       echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
+                       exit 1
+                fi
+        done
+        for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{2,3}; do
+                if [[ -e "${WD}/${mountpoint}" ]]; then
+                       echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
+                       exit 1
+                fi
+        done
+        if [[ -e /dev/mapper/auicrypt ]]; then
+                echo 'Error: cryptsetup mapping /dev/mapper/auicrypt exists! cannot proceed.'
+                exit 1
+        else
+                true
+        fi
+}
+
+_partitions () {
+        # Delete iso esp
+        sfdisk --delete "${usbdevice}" 2 -w always --no-reread --no-tell-kernel --force
+        sleep 2
+        # Add ESP and persistent partitions, format ext4 partition with encryption support
+        echo 'Creating partitions...'
+        if ! echo "$(( isosize / 512 )),${ESPSIZE},ef," | sfdisk "${usbdevice}" --append -W always --no-reread --no-tell-kernel --force; then
+               echo 'Failed to create new partition layout!'
+               exit 1
+        fi
+        sleep 2
+        if ! echo "$(( isosize / 512 + ESPSIZE )),,83," | sfdisk "${usbdevice}" --append -W always --no-reread --no-tell-kernel --force; then
+                echo 'Failed to create new partition layout!'
+                exit 1
+        fi
+        sleep 2
+        set +e
+        partprobe "${usbdevice}" &> /dev/null
+        set -e
+        sleep 2
+}
+
+_format () {
+        mkdir -p "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{2,3}
+        mount /run/archiso/bootmnt "${WD}/${workdir}/iso" -o bind
+
+        if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" ]]; then
+                eval $(grep cow_label "${WD}/${workdir}/iso/aui/AUIDATA")
+                eval $(grep iso_label "${WD}/${workdir}/iso/aui/AUIDATA")
+        fi
+        echo 'Formatting...'
+        if ! mkfs.fat "${usbdevice}2" -F32 -n 'AUIESP'; then
+               echo 'Partition format failed!'
+               exit 1
+        fi
+        cowdevice="${usbdevice}3"
+        if [[ -n "${encryption:-}" ]]; then
+               _encrypt_mkluks
+        fi
+        if ! mkfs.ext4 "${cowdevice}" -L "${cow_label:-AUIPERS}" -O encrypt -F; then
+               echo 'Partition format failed!'
+               exit 1
+        fi
+}
+
+_mount () {
+        # Mount usb device
+        echo 'Mounting partitions...'
+        mount "${usbdevice}2" "${WD}/${workdir}/usb2"
+        mount "${cowdevice}" "${WD}/${workdir}/usb3"
+}
+
+_persistence () {
+        # Persistence setup
+        echo 'Setting up persistence...'
+        cp -LrT "${WD}/${workdir}/iso/aui/esp" "${WD}/${workdir}/usb2/"
+        cp -r "${WD}/${workdir}/iso/aui/loader" "${WD}/${workdir}/usb2/"
+        cp -a "${WD}/${workdir}/iso/aui/"persistent_* "${WD}/${workdir}/usb3/"
+        cp "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
+        cp "${WD}/${workdir}/iso/aui/AUIDATA" "${WD}/${workdir}/usb3/"
+        if [[ -n "${encryption:-}" ]]; then
+               _encrypt_setup
+        else
+               true
+        fi
+}
+
+_finalize () {
+        # Clean up
+        umount "${WD}/${workdir}/usb"{2,3} "${WD}/${workdir}/iso"
+        rmdir "${WD}/${workdir}/usb"{2,3} "${WD}/${workdir}/iso" "${WD}/${workdir}"
+        if [[ -n "${encryption:-}" ]]; then
+               cryptsetup close auicrypt
+        else
+               true
+        fi
+}
+
+# arguments
+OPTS=$(getopt -o 'h' --long 'encrypt,help' -n 'aui-addpersistence' -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+
+while true; do
+        case "$1" in
+                '-h'|'--help')
+                        _help 0 ;;
+                '--encrypt')
+                        encryption=yes
+                        shift ;;
+                '--')
+                        shift
+                        break ;;
+        esac
+done
+
+_checks "$@"
+_init
+_confirm_write
+_partitions
+_format
+_mount
+_persistence
+_finalize
+
+echo 'Done! Persistence menu option will be available on next boot.'
+
+# vim: set expandtab:

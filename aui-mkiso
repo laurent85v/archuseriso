@@ -42,7 +42,7 @@ _help () {
         echo '-v, --verbose                     Verbose mode'
         echo
         echo 'ISO config list:'
-        echo 'console, cinnamon, deepin, gnome, kde, mate, xfce'
+        echo 'console, cinnamon, deepin, gnome, i3, kde, mate, xfce'
         echo
         echo 'Build Examples'
         echo
@@ -113,7 +113,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 case $1 in
-        cinnamon | deepin | gnome | kde | mate | xfce)
+        cinnamon | deepin | gnome | i3 | kde | mate | xfce)
                 config=$1 ;;
         console)
                 echo 'Console iso build reminder, some options may be ignored!'
