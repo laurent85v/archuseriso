@@ -19,7 +19,7 @@ _help () {
         echo 'Archuseriso tool for installing on a USB flash drive'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkinstall <usb device> <iso image> [options]'
+        echo 'aui-mkinstall <iso image> <usb device> [options]'
         echo
         echo 'Options:'
         echo '-h, --help           command help'
@@ -27,7 +27,7 @@ _help () {
         echo '--ext4journal        enable ext4 journal (disabled by default for minimizing disk writes)'
         echo
         echo 'Example:'
-        echo 'aui-mkinstall /dev/sdc archuseriso-xfce-1231-x64.iso --encrypt'
+        echo 'aui-mkinstall archuseriso-xfce-1231-x64.iso /dev/sdc --encrypt'
         echo
         exit $1
 }
@@ -67,32 +67,37 @@ _checks () {
                 echo 'This script must be run as root!'
                 exit 1
         fi
-        if [[ $(stat -c %t "$1" 2> /dev/null) -ne 8 ]]; then
-                echo "Error: $1 is not a block device!"
+        isoname=$1
+        usbdevice=$2
+        # command arguments reverse order compatibility
+        if [[ $(file "${usbdevice}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+                isoname=$2
+                usbdevice=$1
+        fi
+        if [[ $(stat -c %t "${usbdevice}" 2> /dev/null) -ne 8 ]]; then
+                echo "Error: ${usbdevice} is not a block device!"
                 _usage 1
         fi
-        if [[ $(lsblk -dnro hotplug "$1" 2> /dev/null) -ne 1 ]]; then
-                echo "Error: $1 is not a removable block device!"
+        if [[ $(lsblk -dnro hotplug "${usbdevice}" 2> /dev/null) -ne 1 ]]; then
+                echo "Error: ${usbdevice} is not a removable block device!"
                 _usage 1
         fi
-        if [[ "$(lsblk -dnro tran "$1" 2> /dev/null)" != 'usb' ]]; then
-                echo "Error: $1 is not a usb device!"
+        if [[ "$(lsblk -dnro tran "${usbdevice}" 2> /dev/null)" != 'usb' ]]; then
+                echo "Error: ${usbdevice} is not a usb device!"
                 _usage 1
         fi
-        if grep -q "$1" /proc/mounts; then
-                echo "Error: $1 appears in active mounts, unmount device before proceeding!"
+        if grep -q "${usbdevice}" /proc/mounts; then
+                echo "Error: ${usbdevice} appears in active mounts, unmount device before proceeding!"
                 exit 1
         fi
-        if [[ ! -f "$2" ]]; then
-                echo "file $2 not found!"
+        if [[ ! -f "${isoname}" ]]; then
+                echo "file ${isoname} not found!"
                 _usage 1
         fi
-        if [[ ! $(file "$2" 2> /dev/null) =~ 'MBR boot sector' ]]; then
-                echo "Error: $2 is not an iso image!"
+        if [[ ! $(file "${isoname}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+                echo "Error: ${isoname} is not an iso image!"
                 _usage 1
         fi
-        usbdevice=$1
-        isoname=$2
 }
 
 _init () {
@@ -113,7 +118,12 @@ _init () {
 
 _confirm_write () {
         # Confim write
-        echo "Copying files to the usb device can take up to several minutes, be patient!"
+        echo
+        echo "This process might take a long time depending on the device write speed, be patient!"
+        echo
+        echo "ISO file: ${isoname}"
+        echo "USB device: ${usbdevice}"
+        echo
         read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
         echo
         if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then

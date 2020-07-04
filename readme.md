@@ -27,7 +27,9 @@ Desktop environments
 * Cinnamon
 * Deepin
 * Gnome
+* i3
 * Kde
+* LXQt
 * Mate
 * Xfce
 
@@ -79,11 +81,11 @@ The live usb is created with persistent storage support by default.
 
 Command synopsis
 
-    aui-mkusb <usb device> <iso image> [options]
+    aui-mkusb <iso image> <usb device> [options]
 
 Example
 
-    sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso
+    sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc
 
 Persistence note: for a Live USB created with a different tool the missing persistence feature can be turned on from the live usb (restart needed). The following command executed within the live desktop environment only supports a subset of the standard features, prefer using `aui-mkusb` for creating the live usb to take advantage of full features.
 
@@ -106,6 +108,8 @@ Live USB partition layout
 
     Options:
     -h, --help                        Command help
+    --addi3wm                         Add i3wm to package installation list:
+                                      option adding packages i3-gaps,feh,dmenu,i3status,wmctrl
     --addpkg <package1,package2,...>  Comma separated list of additional package names to install
     -C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)
         --configs-dir <path>
@@ -118,7 +122,7 @@ Live USB partition layout
     -v, --verbose                     Verbose mode
 
     ISO config list:
-    console, cinnamon, deepin, gnome, kde, mate, xfce
+    console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce
 
     Build Examples
 
@@ -137,7 +141,7 @@ Live USB partition layout
     Archuseriso tool for creating a Live USB with persistent storage
 
     Command synopsis:
-    aui-mkusb <usb device> <iso image> [options]
+    aui-mkusb <iso image> <usb device> [options]
 
     Options:
     -h, --help                Command help
@@ -148,20 +152,19 @@ Live USB partition layout
     --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)
 
     Example using default options:
-    sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso
+    sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc
 
     Example with custom partitioning, unallocated space left for other usages:
-    sudo aui-mkusb /dev/sdc archuseriso-xfce-0330-x64.iso --sizepart2 1G --sizepart3 10G
+    sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
 
 Regular installation onto a USB flash drive
 -------------------------------------------
-Persistent installation identical to normal installation to hard disk drive. No live image installed, no compression, works like a standard
-installation on a hard disk.
+Persistent installation identical to normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation on a usb device.
 
 Command synopsis:
 
-    aui-mkinstall <usb device> <iso image> [options]
+    aui-mkinstall <iso image> <usb device> [options]
 
 Example
 
-    sudo aui-mkinstall /dev/sdc archuseriso-xfce-0310-x64.iso
+    sudo aui-mkinstall archuseriso-xfce-0310-x64.iso /dev/sdc
