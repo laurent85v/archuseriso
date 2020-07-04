@@ -101,6 +101,7 @@ plasma-browser-integration
 plasma-desktop
 plasma-nm
 plasma-pa
+plasma-thunderbolt
 plasma-vault
 plasma-workspace-wallpapers
 powerdevil
@@ -141,8 +142,6 @@ xf86-video-amdgpu
 xf86-video-ati
 xf86-video-nouveau
 xf86-video-vesa
-xorg-fonts-100dpi
-xorg-fonts-75dpi
 xorg-mkfontscale
 xorg-server
 xorg-server-xwayland
