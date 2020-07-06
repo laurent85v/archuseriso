@@ -222,7 +222,6 @@ _install () {
         # * remove live settings except volatile journal
         # * fstab
         # * live user renamed 'archy', no password set
-        # * no mirror configured, mirrorlist needs editing right after 1st boot
         echo 'Removing live settings...'
         # kernel
         cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz" "${WD}/${workdir}/usb/boot/vmlinuz-linux"
@@ -234,10 +233,7 @@ _install () {
                "${WD}/${workdir}/usb/etc/fstab"
         # sshd, mirrorlist, logind.conf
         sed -i 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usb/etc/ssh/sshd_config"
-        curl -s -o "${WD}/${workdir}/usb/etc/pacman.d/mirrorlist" https://www.archlinux.org/mirrorlist/all/
-        sed -i 's/\(HandleSuspendKey=\)ignore/#\1suspend/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
-        sed -i 's/\(HandleHibernateKey=\)ignore/#\1hibernate/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
-        sed -i 's/#\(HandleLidSwitch=\)ignore/#\1suspend/' "${WD}/${workdir}/usb/etc/systemd/logind.conf"
+        rm -r "${WD}/${workdir}/usb/etc/systemd/logind.conf.d"
         # live services
         arch-chroot "${WD}/${workdir}/usb" systemctl disable pacman-init.service choose-mirror.service --quiet
         rm -r "${WD}/${workdir}/usb/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
@@ -270,8 +266,7 @@ _install () {
 
         # rEFInd boot manager
         cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
-        cp "${WD}/${workdir}/iso/EFI/shellx64_v1.efi" "${WD}/${workdir}/usb/boot/EFI/"
-        cp "${WD}/${workdir}/iso/EFI/shellx64_v2.efi" "${WD}/${workdir}/usb/boot/EFI/"
+        cp "${WD}/${workdir}/iso/shellx64.efi" "${WD}/${workdir}/usb/boot/EFI/"
         cp "${WD}/${workdir}/iso/EFI/boot/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
         cp "${WD}/${workdir}/iso/aui/refind_linux.conf" "${WD}/${workdir}/usb/boot/"
         sed -i "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
@@ -356,7 +351,6 @@ echo 'Done!'
 echo
 echo 'IMPORTANTS NOTES:'
 echo "Configured username is ${installuser}, no password was set!"
-echo 'No mirror was configured! You need to edit mirrorlist right after 1st boot!'
 echo
 echo 'Enjoy ;)'
 
