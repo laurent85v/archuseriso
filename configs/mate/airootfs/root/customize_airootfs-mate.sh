@@ -41,7 +41,7 @@ fi
 # * background color
 sed -i 's/^#\(autologin-user=\)$/\1live/
         s/^#\(autologin-session=\)$/\1mate/' /etc/lightdm/lightdm.conf
-sed -i 's/^#\(background=\)$/\1#2e3436/
+sed -i 's/^#\(background=\)$/\1#232627/
         s/^#\(theme-name=\)$/\1Menta/
         s/^#\(icon-theme-name=\)$/\1menta/' /etc/lightdm/lightdm-gtk-greeter.conf
 
