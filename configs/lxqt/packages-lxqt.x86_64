@@ -10,6 +10,7 @@ bluez-utils
 breeze-gtk
 breeze-icons
 cryfs
+feh
 fprintd
 gnome-keyring
 gnome-themes-extra
@@ -56,6 +57,7 @@ samba
 sddm
 system-config-printer
 ttf-droid
+ttf-hack
 vdpauinfo
 virtualgl
 vlc

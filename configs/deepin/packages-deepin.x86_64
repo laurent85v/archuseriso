@@ -11,6 +11,7 @@ bluez-utils
 cryfs
 deepin
 deepin-extra
+feh
 file-roller
 fprintd
 gnome-themes-extra
@@ -55,6 +56,7 @@ samba
 seahorse
 system-config-printer
 ttf-droid
+ttf-hack
 vdpauinfo
 virtualgl
 xdg-user-dirs-gtk

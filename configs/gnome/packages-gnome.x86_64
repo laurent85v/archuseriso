@@ -12,6 +12,7 @@ bluez-utils
 cryfs
 eog
 epiphany
+feh
 ffmpegthumbnailer
 file-roller
 fprintd
@@ -91,6 +92,7 @@ sushi
 system-config-printer
 totem
 ttf-droid
+ttf-hack
 vdpauinfo
 vino
 virtualgl

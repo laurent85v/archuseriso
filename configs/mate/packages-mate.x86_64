@@ -7,6 +7,7 @@ bash-completion
 binutils
 blueman
 cryfs
+feh
 fprintd
 gnome-themes-extra
 gparted
@@ -55,6 +56,7 @@ samba
 seahorse
 system-config-printer
 ttf-droid
+ttf-hack
 vdpauinfo
 virtualgl
 xdg-user-dirs-gtk

@@ -8,6 +8,7 @@ binutils
 blueman
 catfish
 cryfs
+feh
 fprintd
 gnome-themes-extra
 gparted
@@ -53,6 +54,7 @@ seahorse
 sound-theme-freedesktop
 system-config-printer
 ttf-droid
+ttf-hack
 vdpauinfo
 virtualgl
 xdg-user-dirs-gtk

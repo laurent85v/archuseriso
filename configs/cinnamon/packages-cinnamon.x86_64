@@ -11,6 +11,7 @@ blueberry
 cinnamon
 cinnamon-translations
 cryfs
+feh
 ffmpegthumbnailer
 file-roller
 fprintd
@@ -79,6 +80,7 @@ seahorse
 simple-scan
 system-config-printer
 ttf-droid
+ttf-hack
 vdpauinfo
 vino
 virtualgl

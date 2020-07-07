@@ -68,7 +68,7 @@ unset OPTS
 while true; do
         case "$1" in
                 '--addi3wm')
-                        export AUI_ADDITIONALPKGS+="i3-gaps feh dmenu i3status wmctrl "
+                        export AUI_ADDITIONALPKGS+="i3-gaps feh dmenu i3status wmctrl rxvt-unicode "
                         shift ;;
                 '--addpkg')
                         export AUI_ADDITIONALPKGS+="$(tr ',' ' ' <<< $2) "
