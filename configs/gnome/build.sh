@@ -100,7 +100,7 @@ make_basefs() {
 make_packages() {
     local _lang=
     if [[ -n "${lang}" ]]; then
-        _lang=$(grep -Ehv '^#|^$' "${script_path}"/lang/"${lang}"/packages{-extra,-gnome}.x86_64)
+        _lang=$(grep -Ehv '^#|^$' "${script_path}"/lang/"${lang}"/packages{-extra,-gnome}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')
     fi
     if [ -n "${verbose}" ]; then
         mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${script_path}"/packages{,-extra,-gnome}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
