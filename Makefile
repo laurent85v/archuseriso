@@ -5,9 +5,9 @@ all:
 install: install-program install-examples
 
 install-program:
-	install -D aui-mkiso $(DESTDIR)/usr/bin/aui-mkiso
-	install aui-mkusb $(DESTDIR)/usr/bin/aui-mkusb
-	install aui-mkinstall $(DESTDIR)/usr/bin/aui-mkinstall
+	install -D archuseriso/aui-mkiso $(DESTDIR)/usr/bin/aui-mkiso
+	install archuseriso/aui-mkusb $(DESTDIR)/usr/bin/aui-mkusb
+	install archuseriso/aui-mkinstall $(DESTDIR)/usr/bin/aui-mkinstall
 
 install-examples:
 	install -d $(DESTDIR)/usr/share/archiso/
