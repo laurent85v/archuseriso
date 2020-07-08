@@ -1,7 +1,7 @@
 Description
 ===========
 
-Templates for building Arch Linux Live ISO images. Tools for creating bootable USB flash drives featuring persistent storage, encryption and regular installation.
+Templates for building Arch Linux Live ISO images. Tools for creating bootable USB flash drives featuring persistent storage, encryption and regular installation on a usb drive.
 
 Highlights
 ----------
@@ -19,6 +19,7 @@ Highlights
 * Nvidia driver support (default: disabled)
 * Optimus hardware support (default: disabled)
 * regular installation onto usb device
+* samba public folder sharing
 
 Desktop environments
 --------------------
@@ -46,44 +47,48 @@ Or manual install on Arch Linux:
 
     sudo pacman --needed -S archiso git syslinux
 
-Clone master repository
+Clone master repository:
 
     git clone https://github.com/laurent85v/archuseriso.git
 
-Install
+Install:
 
     sudo make -C archuseriso install
 
 ISO image build
 ---------------
 
-Command synopsis
+Command synopsis:
 
     aui-mkiso <desktop environment> [options]
 
-Xfce desktop with default options
+Xfce desktop with default options:
 
     sudo aui-mkiso xfce
 
-Kde Plasma desktop, German language plus options for Optimus hardware and additional packages
+Kde Plasma desktop, German language plus options for Optimus hardware and additional packages:
 
     sudo aui-mkiso kde --language de --optimus --addpkg byobu,base-devel
 
-Gnome desktop, additional packages, user packages
+Gnome desktop, additional packages, user packages:
 
     sudo aui-mkiso gnome --addpkg ntop,vlc --pkgdir ~/mypackages
 
-When done remove the `work` directory. ISO image is located in the `out` directory.
+Two desktop environments, building LXQt ISO, adding i3wm to X sessions available from the display manager:
+
+    sudo aui-mkiso lxqt --addi3wm
+
+When done remove the `work` directory. The ISO image is located in the `out` directory.
 
 Live USB creation
 -----------------
 The live usb is created with persistent storage support by default.
 
-Command synopsis
+Command synopsis:
 
     aui-mkusb <iso image> <usb device> [options]
 
-Example
+Example:
 
     sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc
 
@@ -91,7 +96,7 @@ Persistence note: for a Live USB created with a different tool the missing persi
 
     sudo aui-addpersistence
 
-Live USB partition layout
+Live USB partition layout created using `aui-mkusb`:
 
     GPT
     Partition Type Usage       Size
@@ -100,7 +105,7 @@ Live USB partition layout
     #3        Ext4 Persistence Default free disk space 
 
 
-#### aui-mkiso command help
+#### aui-mkiso command line help
     Archuseriso tool for building a custom Arch Linux Live ISO image.
 
     Command synopsis:
@@ -136,7 +141,7 @@ Live USB partition layout
     located in directory ~/mypackages. Directory contains pkg.tar.xz or pkg.tar.zst package files:
     sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages
 
-#### aui-mkusb command help
+#### aui-mkusb command line help
 
     Archuseriso tool for creating a Live USB with persistent storage
 
@@ -157,9 +162,9 @@ Live USB partition layout
     Example with custom partitioning, unallocated space left for other usages:
     sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
 
-Regular installation onto a USB flash drive
--------------------------------------------
-Persistent installation identical to normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation on a usb device.
+Regular installation onto a USB drive
+-------------------------------------
+Persistent installation identical to normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation on a usb drive.
 
 Command synopsis:
 
