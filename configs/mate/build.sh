@@ -346,6 +346,9 @@ make_aui() {
                 s|%DESKTOP%|${desktop}|" \
                 "${work_dir}/iso/aui/archiso_sys.cfg"
     fi
+    if [[ -n "${AUI_EMBEDDIR:-}" && -d "${AUI_EMBEDDIR:-}" ]]; then
+        cp -aT --no-preserve=ownership "${AUI_EMBEDDIR}" "${work_dir}/iso/data"
+    fi
 }
 
 # Build airootfs filesystem image

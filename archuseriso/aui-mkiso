@@ -33,6 +33,8 @@ _help () {
         echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to install'
         echo '-C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)'
         echo '    --configs-dir <path>' 
+        echo '--embeddir <directory path>       Embed directory contents in the iso image. Directory contents'
+        echo '                                  available from the user\''s live session'
         echo '-l, --language <language>         Default language. Select one from:'
         echo '                                  cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
         echo '--nvidia                          Installs Nvidia graphics driver'
@@ -59,7 +61,8 @@ _help () {
         exit ${1}
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' --long 'addi3wm,addpkg:,confdir:,configs-dir:,help,language:,nvidia,optimus,pkgdir:,verbose' -n 'aui-mkiso' -- "$@")
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:w:v' -l 'addi3wm,addpkg:,confdir:,configs-dir:,embeddir:,help' \
+       -l 'language:,nvidia,optimus,pkgdir:,verbose' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -78,6 +81,9 @@ while true; do
                         shift 2 ;;
                 '-A'|'-D'|'-L'|'-N'|'-P'|'-V'|'-c'|'-g'|'-l'|'-o'|'-w')
                         options+="$1 $2 "
+                        shift 2 ;;
+                '--embeddir')
+                        export AUI_EMBEDDIR="$2"
                         shift 2 ;;
                 '-h'|'--help')
                         options="-h "

@@ -118,6 +118,8 @@ Live USB partition layout created using `aui-mkusb`:
     --addpkg <package1,package2,...>  Comma separated list of additional package names to install
     -C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)
         --configs-dir <path>
+    --embeddir <directory path>       Embed directory contents in the iso image. Directory contents
+                                      available from the user\s live session
     -l, --language <language>         Default language. Select one from:
                                       cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
     --nvidia                          Installs Nvidia graphics driver

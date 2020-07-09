@@ -6,7 +6,7 @@ iso_name=archuseriso-xfce
 iso_label=AUIX
 iso_publisher=""
 iso_application="Archuseriso Xfce Live/Rescue medium"
-iso_version=$(date +%m%d)
+iso_version="$(date +%m%d)"
 install_dir=arch
 work_dir=work
 out_dir=out
@@ -345,6 +345,9 @@ make_aui() {
                 s|%COW_LABEL%|${cow_label}|;
                 s|%DESKTOP%|${desktop}|" \
                 "${work_dir}/iso/aui/archiso_sys.cfg"
+    fi
+    if [[ -n "${AUI_EMBEDDIR:-}" && -d "${AUI_EMBEDDIR:-}" ]]; then
+        cp -aT --no-preserve=ownership "${AUI_EMBEDDIR}" "${work_dir}/iso/data"
     fi
 }
 
