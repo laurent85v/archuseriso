@@ -9,15 +9,14 @@ Highlights
 * easy build
 * very fast images (zstd compression)
 * live USB creation tool featuring persistent storage
-* live USB update support
+* live USB pacman updates support
 * rEFInd boot manager
 * LUKS encryption option
-* partition size option
 * language option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * package list customization
 * user packages support
-* Nvidia driver support (default: disabled)
-* Optimus hardware support (default: disabled)
+* Nvidia driver support option
+* Optimus hardware support option
 * regular installation onto usb device
 * samba public folder sharing
 
@@ -34,7 +33,7 @@ Desktop environments
 * Mate
 * Xfce
 
-`console`: english only, no persistence.
+'console template': english only, no persistence, options related to Xorg ignored.
 
 Hint for gr, rs, ru and ua with two keyboard layouts: press both `Shift keys` together for keyboard layout switch. 
 
@@ -90,7 +89,7 @@ Command synopsis:
 
 Example:
 
-    sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc
+    sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
 
 Persistence note: for a Live USB created with a different tool the missing persistence feature can be turned on from the live usb (restart needed). The following command executed within the live desktop environment only supports a subset of the standard features, prefer using `aui-mkusb` for creating the live usb to take advantage of full features.
 
@@ -128,7 +127,7 @@ Live USB partition layout created using `aui-mkusb`:
     --pkgdir <path>                   User directory containing package files to install
     -v, --verbose                     Verbose mode
 
-    ISO config list:
+    ISO template configs list:
     console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce
 
     Build Examples
@@ -159,10 +158,10 @@ Live USB partition layout created using `aui-mkusb`:
     --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)
 
     Example using default options:
-    sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc
+    sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
 
     Example with custom partitioning, unallocated space left for other usages:
-    sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
+    sudo aui-mkusb aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
 
 Regular installation onto a USB drive
 -------------------------------------
@@ -174,4 +173,4 @@ Command synopsis:
 
 Example
 
-    sudo aui-mkinstall archuseriso-xfce-0310-x64.iso /dev/sdc
+    sudo aui-mkinstall aui-xfce-linux_5_7_10-0724-x64.iso /dev/sdc

@@ -31,10 +31,10 @@ _help () {
         echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)'
         echo
         echo 'Example using default options:'
-        echo 'sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc'
+        echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc'
         echo
         echo 'Example with custom partitioning, unallocated space left for other usages:'
-        echo 'sudo aui-mkusb archuseriso-xfce-0330-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G'
+        echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G'
         echo
         exit $1
 }

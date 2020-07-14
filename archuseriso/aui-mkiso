@@ -72,6 +72,7 @@ while true; do
         case "$1" in
                 '--addi3wm')
                         export AUI_ADDITIONALPKGS+="i3-gaps feh dmenu i3status wmctrl rxvt-unicode "
+                        AUI_ISONAME+=(i3)
                         shift ;;
                 '--addpkg')
                         export AUI_ADDITIONALPKGS+="$(tr ',' ' ' <<< $2) "
@@ -93,10 +94,12 @@ while true; do
                         shift 2 ;;
                 '--nvidia')
                         export AUI_ADDITIONALPKGS+="nvidia nvidia-settings bbswitch "
+                        AUI_ISONAME+=(nvidia)
                         shift ;;
                 '--optimus')
                         export AUI_ADDITIONALPKGS+="nvidia nvidia-settings nvidia-prime "
                         export AUI_OPTIMUS=1
+                        AUI_ISONAME+=(optimus)
                         shift ;;
                 '--pkgdir')
                         export AUI_USERPKGDIR="$2"
@@ -109,6 +112,24 @@ while true; do
                         break ;;
         esac
 done
+
+if [[ -n "${AUI_ISONAME[@]:-}" ]]; then
+        AUI_ISONAMEOPTION="$(sed 's/\s/\n/g' <<< "${AUI_ISONAME[@]}" | sort | sed ':a;N;$!ba;s/\n/-/g')"
+        if [[ "console" = "${1}" ]]; then
+                if grep -q zfs <<< "${AUI_ISONAMEOPTION}"; then
+                        AUI_ISONAMEOPTION="zfs"
+                else
+                        AUI_ISONAMEOPTION=""
+                fi
+        fi
+        if grep -q optimus <<< "${AUI_ISONAMEOPTION}"; then
+                AUI_ISONAMEOPTION="$(sed 's/-nvidia//' <<< "${AUI_ISONAMEOPTION}")"
+        fi
+        if [[ -n "${AUI_ISONAMEOPTION}" ]]; then
+                export AUI_ISONAMEOPTION
+        fi
+fi
+
 
 if [[ $# -eq 0 && "${options}" =~ '-h' ]]; then
        _help 0

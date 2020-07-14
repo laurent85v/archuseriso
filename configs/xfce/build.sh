@@ -2,11 +2,11 @@
 
 set -e -u
 
-iso_name=archuseriso-xfce
+iso_name=aui-xfce
 iso_label=AUIX
 iso_publisher=""
 iso_application="Archuseriso Xfce Live/Rescue medium"
-iso_version="$(date +%m%d)"
+iso_version=""
 install_dir=arch
 work_dir=work
 out_dir=out
@@ -107,6 +107,7 @@ make_packages() {
     else
         mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${script_path}"/packages{,-extra,-xfce}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
     fi
+    iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -S --print-format %v linux | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
 }
 
 # airootfs install user provided packages
@@ -368,14 +369,14 @@ make_prepare() {
 # Build ISO
 make_iso() {
     if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso"
+        mkarchiso -v -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
     else
-         mkarchiso -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso"
+         mkarchiso -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
     fi
     cd "${out_dir}"
-    sha512sum -b "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso" > "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso.sha512"
+    sha512sum -b "${iso_name}-${iso_version}-x64.iso" > "${iso_name}-${iso_version}-x64.iso.sha512"
     if [[ "${gpg_key}" ]]; then
-        gpg --detach-sign --default-key "${gpg_key}" "${iso_name}-${iso_version}${lang:+-$lang}-x64.iso"
+        gpg --detach-sign --default-key "${gpg_key}" "${iso_name}-${iso_version}-x64.iso"
     fi
     cd ~-
 }
