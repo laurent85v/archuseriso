@@ -12,6 +12,7 @@ Highlights
 * live USB pacman updates support
 * rEFInd boot manager
 * LUKS encryption option
+* ZFS support option
 * language option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
 * package list customization
 * user packages support
@@ -126,6 +127,8 @@ Live USB partition layout created using `aui-mkusb`:
                                       Nvidia dGPU configured for PRIME render offload
     --pkgdir <path>                   User directory containing package files to install
     -v, --verbose                     Verbose mode
+    --zfssupport                      Build userspace utilities and kernel modules packages for the
+                                      Zettabyte File System. Then build the iso image with zfs support.
 
     ISO template configs list:
     console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce
@@ -161,7 +164,7 @@ Live USB partition layout created using `aui-mkusb`:
     sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
 
     Example with custom partitioning, unallocated space left for other usages:
-    sudo aui-mkusb aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
+    sudo aui-mkusb aui-xfce-linux_5_7_10-i3-zfs-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
 
 Regular installation onto a USB drive
 -------------------------------------
