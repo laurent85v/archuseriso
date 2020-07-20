@@ -1,5 +1,6 @@
 arch-install-scripts
 b43-fwcutter
+bind-tools
 broadcom-wl
 btrfs-progs
 clonezilla
@@ -12,7 +13,6 @@ dialog
 diffutils
 dmraid
 dnsmasq
-dnsutils
 dosfstools
 edk2-shell
 elinks
@@ -57,9 +57,9 @@ parted
 partimage
 ppp
 pptpclient
+reflector
 reiserfsprogs
 rp-pppoe
-reflector
 rsync
 rxvt-unicode-terminfo
 sdparm
@@ -73,7 +73,7 @@ termite-terminfo
 testdisk
 usb_modeswitch
 usbutils
-vim-minimal
+vim
 vpnc
 wireless-regdb
 wireless_tools
