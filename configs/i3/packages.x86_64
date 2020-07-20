@@ -33,6 +33,7 @@ iwd
 jfsutils
 kitty-terminfo
 lftp
+linux
 linux-atm
 linux-firmware
 lsscsi
@@ -44,6 +45,7 @@ mc
 mdadm
 mkinitcpio-archiso
 memtest86+
+mkinitcpio
 mkinitcpio-nfs-utils
 mtools
 nano
