@@ -75,20 +75,16 @@ make_pacman_conf() {
         "${script_path}/pacman.conf" > "${work_dir}/pacman.conf"
 }
 
-# Base installation, plus needed packages (airootfs)
+# Base installation (airootfs)
 make_basefs() {
     if [ -n "${verbose}" ]; then
         mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" init
-        mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" \
-            -p "haveged intel-ucode amd-ucode memtest86+ mkinitcpio-nfs-utils nbd zsh" install
     else
         mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" init
-        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" \
-            -p "haveged intel-ucode amd-ucode memtest86+ mkinitcpio-nfs-utils nbd zsh" install
     fi
 }
 
-# Additional packages (airootfs)
+# Packages (airootfs)
 make_packages() {
     if [ -n "${verbose}" ]; then
         mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${script_path}"/packages{,-console}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')" install
@@ -143,8 +139,6 @@ make_setup_mkinitcpio() {
 make_customize_airootfs() {
     cp "${script_path}/pacman.conf" "${work_dir}/x86_64/airootfs/etc"
 
-    lynx -dump -nolist 'https://wiki.archlinux.org/index.php/Installation_Guide?action=render' >> "${work_dir}/x86_64/airootfs/root/install.txt"
-
     if [ -n "${verbose}" ]; then
         mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
     else
@@ -164,12 +158,21 @@ make_boot() {
 
 # Add other aditional/extra files to ${install_dir}/boot/
 make_boot_extra() {
-    cp "${work_dir}/x86_64/airootfs/boot/memtest86+/memtest.bin" "${work_dir}/iso/${install_dir}/boot/memtest"
-    cp "${work_dir}/x86_64/airootfs/usr/share/licenses/common/GPL2/license.txt" "${work_dir}/iso/${install_dir}/boot/memtest.COPYING"
-    cp "${work_dir}/x86_64/airootfs/boot/intel-ucode.img" "${work_dir}/iso/${install_dir}/boot/intel_ucode.img"
-    cp "${work_dir}/x86_64/airootfs/usr/share/licenses/intel-ucode/LICENSE" "${work_dir}/iso/${install_dir}/boot/intel_ucode.LICENSE"
-    cp "${work_dir}/x86_64/airootfs/boot/amd-ucode.img" "${work_dir}/iso/${install_dir}/boot/amd_ucode.img"
-    cp "${work_dir}/x86_64/airootfs/usr/share/licenses/amd-ucode/LICENSE.amd-ucode" "${work_dir}/iso/${install_dir}/boot/amd_ucode.LICENSE"
+    if [[ -e "${work_dir}/x86_64/airootfs/boot/memtest86+/memtest.bin" ]]; then
+        cp "${work_dir}/x86_64/airootfs/boot/memtest86+/memtest.bin" "${work_dir}/iso/${install_dir}/boot/memtest"
+        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/common/GPL2/license.txt" \
+            "${work_dir}/iso/${install_dir}/boot/memtest.COPYING"
+    fi
+    if [[ -e "${work_dir}/x86_64/airootfs/boot/intel-ucode.img" ]]; then
+        cp "${work_dir}/x86_64/airootfs/boot/intel-ucode.img" "${work_dir}/iso/${install_dir}/boot/intel_ucode.img"
+        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/intel-ucode/LICENSE" \
+            "${work_dir}/iso/${install_dir}/boot/intel_ucode.LICENSE"
+    fi
+    if [[ -e "${work_dir}/x86_64/airootfs/boot/amd-ucode.img" ]]; then
+        cp "${work_dir}/x86_64/airootfs/boot/amd-ucode.img" "${work_dir}/iso/${install_dir}/boot/amd_ucode.img"
+        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/amd-ucode/LICENSE.amd-ucode" \
+            "${work_dir}/iso/${install_dir}/boot/amd_ucode.LICENSE"
+    fi
 }
 
 # Prepare /${install_dir}/boot/syslinux
