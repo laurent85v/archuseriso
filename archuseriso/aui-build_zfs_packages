@@ -1,0 +1,132 @@
+#!/usr/bin/env bash
+
+set -e -u
+
+AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
+confdir=/usr/share/archiso/configs
+config=console
+script_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )"
+SCRIPTUSER="${SUDO_USER:-}"
+WD="$(pwd)"
+# https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
+# Tony Hutter public key
+ZFSPUBKEY="6AD860EED4598027"
+KEYSERVER="ha.pool.sks-keyservers.net"
+
+_build_zfs_packages () {
+        local _auiwork="${WD}"/auiwork$(openssl rand -hex 4)
+        local _ar64="${_auiwork}/archroot64"
+        local _linuxversion _zfspackages _zfssha256sum _zfssources _zfsversion
+        mkdir -p "${_ar64}"
+        mkdir -p "${WD}/work/pkgdir"
+        if ! pacman -Q devtools &> /dev/null; then
+                echo 'devtools package not installed, aborting!'
+                exit 0
+        fi
+        if ! pacman -Q pacman-contrib &> /dev/null; then
+                echo 'pacman-contrib package not installed, aborting!'
+                exit 0
+        fi
+        _zfssources=($(curl --silent --retry 3 --retry-connrefused --fail \
+                       https://api.github.com/repos/openzfs/zfs/releases/latest | \
+                       grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
+        _zfsversion="${_zfssources[0]%/zfs-*}"
+        _zfsversion="${_zfsversion#*-}"
+        for _zfslink in "${_zfssources[@]}"; do
+                if [[ "${_zfslink}" =~ 'sha256.asc' ]]; then
+                       _zfssha256sum=$(eval curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" | \
+                         grep '\.tar\.gz$' | cut -d' ' -f1)
+                       break
+                fi
+        done
+        if [[ -z "${_zfsversion}" || -z "${_zfssha256sum}" ]]; then
+                echo 'Retrieving ZFS data failed, aborting!'
+                exit 0
+        fi
+        if [[ ! -e "${confdir}/${config}/aui/zfsonlinux" ]]; then
+                if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${_auiwork}/archuseriso-master.tar.gz"; then
+                        tar --directory "${_auiwork}" -xf "${_auiwork}/archuseriso-master.tar.gz"
+                        confdir="${_auiwork}/archuseriso-master/configs"
+                else
+                        echo 'Retrieving archuseriso sources failed, aborting!'
+                        exit 1
+                fi
+        fi
+        LC_ALL=C mkarchroot -c /var/cache/pacman/pkg "${_ar64}"/root base linux linux-headers base-devel
+        _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
+        cp -arT "${confdir}/${config}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
+        sed -i "s/%ZFSVERSION%/${_zfsversion}/
+                s/%LINUXVERSION%/${_linuxversion}/
+                s/%SHA256SUM%/${_zfssha256sum}/" \
+                "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
+                "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
+        cd "${_auiwork}/zfsonlinux/zfs-utils/"
+        for _zfslink in "${_zfssources[@]}"; do
+                if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
+                       curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" -O
+                       curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}".asc -O
+                       break
+                fi
+        done
+        cp -a zfs-*.tar.gz{,.asc} ../zfs-linux
+        chown -R "${SCRIPTUSER}": "${_auiwork}/zfsonlinux"
+        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
+        sudo --user "${SCRIPTUSER}" updpkgsums
+        cd "${_auiwork}/zfsonlinux/zfs-linux/"
+        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
+        sudo --user "${SCRIPTUSER}" updpkgsums
+        cd "${_auiwork}/zfsonlinux/zfs-utils/"
+        LC_ALL=C sudo --user "${SCRIPTUSER}" \
+        makechrootpkg -r "${_ar64}" -u -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
+        cd "${_auiwork}/zfsonlinux/zfs-linux/"
+        LC_ALL=C sudo --user "${SCRIPTUSER}" \
+        makechrootpkg -r "${_ar64}" -u -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
+        cp "${_zfspackages[@]}" "${WD}/work/pkgdir"
+        rm -r "${_auiwork}"
+}
+
+if [[ ${EUID} -ne 0 ]]; then
+        echo "This script must be run as root."
+        exit 1
+fi
+
+if [[ -d "work" ]]; then
+        echo \'work\'' directory exists, aborting!'
+        exit 0
+fi
+
+if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
+        echo
+        echo 'The script must be run from a _user session_ using sudo!'
+        echo 'Aborting...'
+        exit 0
+fi
+
+if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/null; then
+        echo 
+        read -r -n1 -p 'Retreive missing ZFS on Linux public key (N/y)? '
+        echo
+        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+               echo 'Operation canceled by user!'
+               exit 0
+        fi
+        if ! sudo --user "${SCRIPTUSER}" gpg --keyserver "${KEYSERVER}" --recv "${ZFSPUBKEY}"; then
+                echo
+                echo "Retreiving ZFS public key ${ZFSPUBKEY} failed, aborting!"
+                echo
+        fi
+fi
+
+_build_zfs_packages
+
+cd "${WD}"
+
+echo 'Done!'
+echo 'ZFS packaged stored in directory '\'work/pkgdir\'
+echo
+find "${WD}/work/pkgdir" -type f
+echo
+
+# vim: set expandtab:

@@ -8,6 +8,7 @@ install-program:
 	install -D archuseriso/aui-mkiso $(DESTDIR)/usr/bin/aui-mkiso
 	install archuseriso/aui-mkusb $(DESTDIR)/usr/bin/aui-mkusb
 	install archuseriso/aui-mkinstall $(DESTDIR)/usr/bin/aui-mkinstall
+	install archuseriso/aui-build_zfs_packages $(DESTDIR)/usr/bin/aui-build_zfs_packages
 
 install-examples:
 	install -d $(DESTDIR)/usr/share/archiso/
