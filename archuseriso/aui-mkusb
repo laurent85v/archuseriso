@@ -256,6 +256,10 @@ _usb_prepare () {
 
 _partitions () {
         local _fatsize=$(( ESP * 1024 * 1024 / 512 ))
+        # GPT Partition type : Linux Filesystem
+        local _ptlinux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+        # GPT Partition type : Microsoft basic data
+        local _ptmsft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
         flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
         partprobe "${usbdevice}"
         sleep 2
@@ -273,21 +277,21 @@ _partitions () {
                 _ext4size=$(( ${ext4size/[gG]} * 1024 * 1024 * 1024 / 512 ))
         fi
         # partition #1 iso data
-        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),20," | sfdisk "${usbdevice}" -W always; then
+        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_ptlinux}," | sfdisk "${usbdevice}" -W always; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
         sleep 2
         # partition #2 boot & efi partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_fatsize},11," | sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_fatsize},${_ptmsft}," | sfdisk "${usbdevice}" --append -W always; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
         sleep 2
         # partition #3 persistent partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 + _fatsize )),${_ext4size:-},20," | sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 + _fatsize )),${_ext4size:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always; then
                 echo 'Failed to create new partition layout!'
                 _unmount
                 exit 1
