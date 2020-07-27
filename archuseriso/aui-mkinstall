@@ -103,7 +103,7 @@ _checks () {
 _init () {
         devicesize=$(blockdev --getsize64 "${usbdevice}")
         ESPSIZE=786432 # 384 MiB
-        installuser='archy'
+        installuser='archie'
         isosize=$(stat -c %s "${isoname}")
         MINCAPACITY=16000000000 # 16 GB
         SECSTART=2048 # 1st sector
@@ -221,7 +221,7 @@ _install () {
         # System settings
         # * remove live settings except volatile journal
         # * fstab
-        # * live user renamed 'archy', no password set
+        # * live user renamed 'archie', no password set
         echo 'Removing live settings...'
         # kernel
         cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz" "${WD}/${workdir}/usb/boot/vmlinuz-linux"
