@@ -176,9 +176,9 @@ _partitions () {
         sleep 1
         echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always
         sleep 1
-        echo "${SECSTART},${ESPSIZE},1," | flock "${usbdevice}" sfdisk "${usbdevice}" -W always
+        echo "${SECSTART},${ESPSIZE},U," | flock "${usbdevice}" sfdisk "${usbdevice}" -W always
         sleep 1
-        echo "$(( SECSTART + ESPSIZE)),,20," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
+        echo "$(( SECSTART + ESPSIZE)),,L," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
         sleep 1
 }
 
