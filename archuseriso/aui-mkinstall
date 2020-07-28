@@ -224,9 +224,9 @@ _install () {
         # * live user renamed 'archie', no password set
         echo 'Removing live settings...'
         # kernel
-        cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz" "${WD}/${workdir}/usb/boot/vmlinuz-linux"
-        cp "${WD}/${workdir}/iso/arch/boot/intel_ucode.img" "${WD}/${workdir}/usb/boot/intel-ucode.img"
-        cp "${WD}/${workdir}/iso/arch/boot/amd_ucode.img" "${WD}/${workdir}/usb/boot/amd-ucode.img"
+        cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz-linux" "${WD}/${workdir}/usb/boot/"
+        cp "${WD}/${workdir}/iso/arch/boot/intel-ucode.img" "${WD}/${workdir}/usb/boot/"
+        cp "${WD}/${workdir}/iso/arch/boot/amd-ucode.img" "${WD}/${workdir}/usb/boot/"
         # fstab
         sed -i "s|%AUIROOT%|${label_root}|;
                 s|%AUIBOOT%|${label_boot}|" \

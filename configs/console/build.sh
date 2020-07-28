@@ -86,7 +86,7 @@ make_custom_airootfs() {
 
         [[ -e "${_airootfs}/etc/shadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/shadow"
         [[ -e "${_airootfs}/etc/gshadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/gshadow"
-        
+
         # Set up user home directories and permissions
         if [[ -e "${_airootfs}/etc/passwd" ]]; then
             while IFS=':' read -a passwd -r; do
@@ -177,46 +177,51 @@ make_customize_airootfs() {
 # Prepare kernel/initramfs ${install_dir}/boot/
 make_boot() {
     mkdir -p "${work_dir}/iso/${install_dir}/boot/x86_64"
-    cp "${work_dir}/x86_64/airootfs/boot/archiso.img" "${work_dir}/iso/${install_dir}/boot/x86_64/archiso.img"
-    cp "${work_dir}/x86_64/airootfs/boot/vmlinuz-linux" "${work_dir}/iso/${install_dir}/boot/x86_64/vmlinuz"
+    cp "${work_dir}/x86_64/airootfs/boot/archiso.img" "${work_dir}/iso/${install_dir}/boot/x86_64/"
+    cp "${work_dir}/x86_64/airootfs/boot/vmlinuz-linux" "${work_dir}/iso/${install_dir}/boot/x86_64/"
 }
 
 # Add other aditional/extra files to ${install_dir}/boot/
 make_boot_extra() {
     if [[ -e "${work_dir}/x86_64/airootfs/boot/memtest86+/memtest.bin" ]]; then
+        # rename for PXE: https://wiki.archlinux.org/index.php/Syslinux#Using_memtest
         cp "${work_dir}/x86_64/airootfs/boot/memtest86+/memtest.bin" "${work_dir}/iso/${install_dir}/boot/memtest"
+        mkdir -p "${work_dir}/iso/${install_dir}/boot/licenses/memtest86+/"
         cp "${work_dir}/x86_64/airootfs/usr/share/licenses/common/GPL2/license.txt" \
-            "${work_dir}/iso/${install_dir}/boot/memtest.COPYING"
+            "${work_dir}/iso/${install_dir}/boot/licenses/memtest86+/"
     fi
     if [[ -e "${work_dir}/x86_64/airootfs/boot/intel-ucode.img" ]]; then
-        cp "${work_dir}/x86_64/airootfs/boot/intel-ucode.img" "${work_dir}/iso/${install_dir}/boot/intel_ucode.img"
-        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/intel-ucode/LICENSE" \
-            "${work_dir}/iso/${install_dir}/boot/intel_ucode.LICENSE"
+        cp "${work_dir}/x86_64/airootfs/boot/intel-ucode.img" "${work_dir}/iso/${install_dir}/boot/"
+        mkdir -p "${work_dir}/iso/${install_dir}/boot/licenses/intel-ucode/"
+        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/intel-ucode/"* \
+            "${work_dir}/iso/${install_dir}/boot/licenses/intel-ucode/"
     fi
     if [[ -e "${work_dir}/x86_64/airootfs/boot/amd-ucode.img" ]]; then
-        cp "${work_dir}/x86_64/airootfs/boot/amd-ucode.img" "${work_dir}/iso/${install_dir}/boot/amd_ucode.img"
-        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/amd-ucode/LICENSE.amd-ucode" \
-            "${work_dir}/iso/${install_dir}/boot/amd_ucode.LICENSE"
+        cp "${work_dir}/x86_64/airootfs/boot/amd-ucode.img" "${work_dir}/iso/${install_dir}/boot/"
+        mkdir -p "${work_dir}/iso/${install_dir}/boot/licenses/amd-ucode/"
+        cp "${work_dir}/x86_64/airootfs/usr/share/licenses/amd-ucode/"* \
+            "${work_dir}/iso/${install_dir}/boot/licenses/amd-ucode/"
     fi
 }
 
 # Prepare /${install_dir}/boot/syslinux
 make_syslinux() {
-    _uname_r=$(file -b "${work_dir}/x86_64/airootfs/boot/vmlinuz-linux" | awk 'f{print;f=0} /version/{f=1}' RS=' ')
+    _uname_r=$(file -b "${work_dir}/x86_64/airootfs/boot/vmlinuz-linux"| awk 'f{print;f=0} /version/{f=1}' RS=' ')
     mkdir -p "${work_dir}/iso/${install_dir}/boot/syslinux"
-    for _cfg in "${script_path}"/syslinux/*.cfg; do
+    for _cfg in "${script_path}/syslinux/"*.cfg; do
         sed "s|%ARCHISO_LABEL%|${iso_label}|g;
              s|%INSTALL_DIR%|${install_dir}|g" "${_cfg}" > "${work_dir}/iso/${install_dir}/boot/syslinux/${_cfg##*/}"
     done
-    cp "${script_path}/syslinux/splash.png" "${work_dir}/iso/${install_dir}/boot/syslinux"
-    cp "${work_dir}"/x86_64/airootfs/usr/lib/syslinux/bios/*.c32 "${work_dir}/iso/${install_dir}/boot/syslinux"
-    cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${work_dir}/iso/${install_dir}/boot/syslinux"
-    cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${work_dir}/iso/${install_dir}/boot/syslinux"
+    cp "${script_path}/syslinux/splash.png" "${work_dir}/iso/${install_dir}/boot/syslinux/"
+    cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/"*.c32 "${work_dir}/iso/${install_dir}/boot/syslinux/"
+    cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${work_dir}/iso/${install_dir}/boot/syslinux/"
+    cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${work_dir}/iso/${install_dir}/boot/syslinux/"
     mkdir -p "${work_dir}/iso/${install_dir}/boot/syslinux/hdt"
-    gzip -c -9 "${work_dir}/x86_64/airootfs/usr/share/hwdata/pci.ids" > "${work_dir}/iso/${install_dir}/boot/syslinux/hdt/pciids.gz"
-    gzip -c -9 "${work_dir}/x86_64/airootfs/usr/lib/modules/${_uname_r}/modules.alias" > "${work_dir}/iso/${install_dir}/boot/syslinux/hdt/modalias.gz"
+    gzip -c -9 "${work_dir}/x86_64/airootfs/usr/share/hwdata/pci.ids" > \
+        "${work_dir}/iso/${install_dir}/boot/syslinux/hdt/pciids.gz"
+    gzip -c -9 "${work_dir}/x86_64/airootfs/usr/lib/modules/${_uname_r}/modules.alias" > \
+        "${work_dir}/iso/${install_dir}/boot/syslinux/hdt/modalias.gz"
 }
-
 # Prepare /isolinux
 make_isolinux() {
     mkdir -p "${work_dir}/iso/isolinux"
@@ -261,11 +266,11 @@ make_efiboot() {
     mount "${work_dir}/iso/EFI/archiso/efiboot.img" "${work_dir}/efiboot"
 
     mkdir -p "${work_dir}/efiboot/EFI/archiso"
-    cp "${work_dir}/iso/${install_dir}/boot/x86_64/vmlinuz" "${work_dir}/efiboot/EFI/archiso/vmlinuz.efi"
-    cp "${work_dir}/iso/${install_dir}/boot/x86_64/archiso.img" "${work_dir}/efiboot/EFI/archiso/archiso.img"
+    cp "${work_dir}/iso/${install_dir}/boot/x86_64/vmlinuz-linux" "${work_dir}/efiboot/EFI/archiso/"
+    cp "${work_dir}/iso/${install_dir}/boot/x86_64/archiso.img" "${work_dir}/efiboot/EFI/archiso/"
 
-    cp "${work_dir}/iso/${install_dir}/boot/intel_ucode.img" "${work_dir}/efiboot/EFI/archiso/intel_ucode.img"
-    cp "${work_dir}/iso/${install_dir}/boot/amd_ucode.img" "${work_dir}/efiboot/EFI/archiso/amd_ucode.img"
+    cp "${work_dir}/iso/${install_dir}/boot/intel-ucode.img" "${work_dir}/efiboot/EFI/archiso/"
+    cp "${work_dir}/iso/${install_dir}/boot/amd-ucode.img" "${work_dir}/efiboot/EFI/archiso/"
 
     mkdir -p "${work_dir}/efiboot/EFI/boot" "${work_dir}/efiboot/EFI/live"
     cp "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${work_dir}/efiboot/EFI/boot/bootx64.efi"
