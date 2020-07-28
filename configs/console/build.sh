@@ -50,9 +50,10 @@ _usage ()
 _cleanup_airootfs() {
     local _cleanlist=(  "${work_dir}/x86_64/airootfs/root/.cache/"
                         "${work_dir}/x86_64/airootfs/root/.gnupg/"
-                        "${work_dir}/x86_64/airootfs/root/customize_airootfs.sh"
                         "${work_dir}/x86_64/airootfs/var/lib/systemd/catalog/database"
                      )
+
+    [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs.sh" ]] && _cleanlist+=("${work_dir}/x86_64/airootfs/root/customize_airootfs.sh")
 
     for file_or_dir in "${_cleanlist[@]}"; do
       [[ -e "${file_or_dir}" ]] && rm -r "${file_or_dir}"
@@ -75,12 +76,30 @@ make_pacman_conf() {
         "${script_path}/pacman.conf" > "${work_dir}/pacman.conf"
 }
 
-# Base installation (airootfs)
-make_basefs() {
-    if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" init
-    else
-        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" init
+# Prepare working directory and copy custom airootfs files (airootfs)
+make_custom_airootfs() {
+    local _airootfs="${work_dir}/x86_64/airootfs"
+    mkdir -p -- "${_airootfs}"
+
+    if [[ -d "${script_path}/airootfs" ]]; then
+        cp -af --no-preserve=ownership -- "${script_path}/airootfs/." "${_airootfs}"
+
+        [[ -e "${_airootfs}/etc/shadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/shadow"
+        [[ -e "${_airootfs}/etc/gshadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/gshadow"
+        
+        # Set up user home directories and permissions
+        if [[ -e "${_airootfs}/etc/passwd" ]]; then
+            while IFS=':' read -a passwd -r; do
+                [[ "${passwd[5]}" == '/' ]] && continue
+
+                if [[ -d "${_airootfs}${passwd[5]}" ]]; then
+                    chown -hR -- "${passwd[2]}:${passwd[3]}" "${_airootfs}${passwd[5]}"
+                    chmod -f 0750 -- "${_airootfs}${passwd[5]}"
+                else
+                    install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${_airootfs}${passwd[5]}"
+                fi
+             done < "${_airootfs}/etc/passwd"
+        fi
     fi
 }
 
@@ -117,9 +136,6 @@ make_setup_mkinitcpio() {
 
     cp "${script_path}/mkinitcpio.conf" "${work_dir}/x86_64/airootfs/etc/mkinitcpio-archiso.conf"
 
-    # Copy configs airootfs
-    cp -af --no-preserve=ownership "${script_path}/airootfs" "${work_dir}/x86_64" 2> /dev/null
-
     gnupg_fd=
     if [[ "${gpg_key}" ]]; then
       gpg --export "${gpg_key}" > "${work_dir}/gpgkey"
@@ -137,12 +153,12 @@ make_setup_mkinitcpio() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
-    cp "${script_path}/pacman.conf" "${work_dir}/x86_64/airootfs/etc"
-
-    if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
-    else
-        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
+    if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs.sh" ]]; then
+        if [ -n "${verbose}" ]; then
+            mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
+        else
+            mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
+        fi
     fi
 
     # airootfs extra cleanup
@@ -324,7 +340,7 @@ fi
 mkdir -p "${work_dir}"
 
 run_once make_pacman_conf
-run_once make_basefs
+run_once make_custom_airootfs
 run_once make_packages
 run_once make_packages_local
 run_once make_setup_mkinitcpio
