@@ -153,6 +153,15 @@ make_setup_mkinitcpio() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
+    if [[ -e "${script_path}/airootfs/etc/passwd" ]]; then
+        while IFS=':' read -a passwd -r; do
+            [[ "${passwd[5]}" == '/' ]] && continue
+            cp -RdT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${work_dir}/x86_64/airootfs${passwd[5]}"
+            chown -hR -- "${passwd[2]}:${passwd[3]}" "${work_dir}/x86_64/airootfs${passwd[5]}"
+
+        done < "${script_path}/airootfs/etc/passwd"
+    fi
+
     if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs.sh" ]]; then
         if [ -n "${verbose}" ]; then
             mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs.sh' run
@@ -343,8 +352,8 @@ run_once make_pacman_conf
 run_once make_custom_airootfs
 run_once make_packages
 run_once make_packages_local
-run_once make_setup_mkinitcpio
 run_once make_customize_airootfs
+run_once make_setup_mkinitcpio
 run_once make_boot
 run_once make_boot_extra
 run_once make_syslinux
