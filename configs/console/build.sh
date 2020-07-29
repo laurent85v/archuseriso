@@ -54,7 +54,7 @@ _cleanup_airootfs() {
                         "${work_dir}/x86_64/airootfs/var/lib/systemd/catalog/database"
                      )
 
-    for file_or_dir in "${cleanlist[@]}"; do
+    for file_or_dir in "${_cleanlist[@]}"; do
       [[ -e "${file_or_dir}" ]] && rm -r "${file_or_dir}"
     done
 }
