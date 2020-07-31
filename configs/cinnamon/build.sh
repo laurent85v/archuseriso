@@ -125,21 +125,11 @@ make_packages_local() {
 
 # Copy mkinitcpio archiso hooks and build initramfs (airootfs)
 make_setup_mkinitcpio() {
-    local _hook
-    mkdir -p "${work_dir}/x86_64/airootfs/etc/initcpio/hooks"
-    mkdir -p "${work_dir}/x86_64/airootfs/etc/initcpio/install"
-    for _hook in archiso archiso_shutdown archiso_pxe_common archiso_pxe_nbd archiso_pxe_http archiso_pxe_nfs archiso_loop_mnt; do
-        cp "/usr/lib/initcpio/hooks/${_hook}" "${work_dir}/x86_64/airootfs/etc/initcpio/hooks"
-        cp "/usr/lib/initcpio/install/${_hook}" "${work_dir}/x86_64/airootfs/etc/initcpio/install"
-    done
-
     # Set cow_spacesize to 50% ram size
+    cp "${work_dir}/x86_64/airootfs/usr/lib/initcpio/hooks/archiso" "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
     sed -i 's|\(cow_spacesize=\)"256M"|\1"$(( $(awk \x27/MemTotal:/ { print $2 }\x27 /proc/meminfo) / 2 / 1024 ))M"|' \
         "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
 
-    sed -i "s|/usr/lib/initcpio/|/etc/initcpio/|g" "${work_dir}/x86_64/airootfs/etc/initcpio/install/archiso_shutdown"
-    cp /usr/lib/initcpio/install/archiso_kms "${work_dir}/x86_64/airootfs/etc/initcpio/install"
-    cp /usr/lib/initcpio/archiso_shutdown "${work_dir}/x86_64/airootfs/etc/initcpio"
     cp "${script_path}/mkinitcpio.conf" "${work_dir}/x86_64/airootfs/etc/mkinitcpio-archiso.conf"
 
     # Copy configs airootfs
@@ -149,7 +139,7 @@ make_setup_mkinitcpio() {
     if [[ -n "${lang}" ]]; then
         cp -af --no-preserve=ownership "${script_path}/lang/${lang}/airootfs" "${work_dir}/x86_64"
     fi
-    
+
     gnupg_fd=
     if [[ "${gpg_key}" ]]; then
       gpg --export "${gpg_key}" > "${work_dir}/gpgkey"
