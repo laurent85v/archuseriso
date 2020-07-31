@@ -14,6 +14,7 @@ dmraid
 dnsmasq
 dnsutils
 dosfstools
+edk2-shell
 elinks
 ethtool
 exfat-utils
