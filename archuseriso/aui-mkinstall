@@ -238,8 +238,7 @@ _install () {
         arch-chroot "${WD}/${workdir}/usb" systemctl disable pacman-init.service choose-mirror.service --quiet
         rm -r "${WD}/${workdir}/usb/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
         rm "${WD}/${workdir}/usb/root/"{.automated_script.sh,.zlogin}
-        rm "${WD}/${workdir}/usb/etc/mkinitcpio-archiso.conf"
-        rm -r "${WD}/${workdir}/usb/etc/initcpio"
+        rm "${WD}/${workdir}/usb/etc/initcpio/hooks/archiso"
         # autologin
         if [[ -e "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf" ]]; then
                 sed -i 's/^\(autologin-user=\)live$/#\1/' "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf"
@@ -259,8 +258,7 @@ _install () {
         sed -i "s/live/${installuser}/g" \
                "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
                "${WD}/${workdir}/usb/etc/samba/smb.conf"
-        # default target, haveged, initramfs
-        arch-chroot "${WD}/${workdir}/usb" systemctl set-default graphical --quiet
+        # haveged, initramfs
         arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
 

@@ -113,6 +113,10 @@ make_custom_airootfs() {
              done < "${_airootfs}/etc/passwd"
         fi
     fi
+
+    # Set archiso cow_spacesize to 50% ram size
+    sed -i 's|\(cow_spacesize=\)"256M"|\1"$(( $(awk \x27/MemTotal:/ { print $2 }\x27 /proc/meminfo) / 2 / 1024 ))M"|' \
+        "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
 }
 
 # Packages (airootfs)
@@ -126,7 +130,6 @@ make_packages() {
     else
         mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${script_path}"/packages{,-extra,-mate}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
     fi
-    iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -S --print-format %v linux | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
 }
 
 # airootfs install user provided packages
@@ -141,30 +144,8 @@ make_packages_local() {
         echo "      ${_pkglocal[@]##*/}"
         unshare --fork --pid pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
     fi
-}
 
-# Copy mkinitcpio archiso hooks and build initramfs (airootfs)
-make_setup_mkinitcpio() {
-    # Set cow_spacesize to 50% ram size
-    cp "${work_dir}/x86_64/airootfs/usr/lib/initcpio/hooks/archiso" "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
-    sed -i 's|\(cow_spacesize=\)"256M"|\1"$(( $(awk \x27/MemTotal:/ { print $2 }\x27 /proc/meminfo) / 2 / 1024 ))M"|' \
-        "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
-
-    cp "${script_path}/mkinitcpio.conf" "${work_dir}/x86_64/airootfs/etc/mkinitcpio-archiso.conf"
-
-    gnupg_fd=
-    if [[ "${gpg_key}" ]]; then
-      gpg --export "${gpg_key}" > "${work_dir}/gpgkey"
-      exec 17<>"${work_dir}/gpgkey"
-    fi
-    if [ -n "${verbose}" ]; then
-        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -c /etc/mkinitcpio-archiso.conf -k /boot/vmlinuz-linux -g /boot/archiso.img' run
-    else
-        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -c /etc/mkinitcpio-archiso.conf -k /boot/vmlinuz-linux -g /boot/archiso.img' run
-    fi
-    if [[ "${gpg_key}" ]]; then
-      exec 17<&-
-    fi
+    iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -S --print-format %v linux | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
 }
 
 # Customize installation (airootfs)
@@ -188,6 +169,22 @@ make_customize_airootfs() {
 
     # airootfs extra cleanup
     _cleanup_airootfs
+}
+
+# rebuild initramfs (airootfs)
+make_setup_mkinitcpio() {
+    if [[ "${gpg_key}" ]]; then
+      gpg --export "${gpg_key}" > "${work_dir}/gpgkey"
+      exec 17<>"${work_dir}/gpgkey"
+    fi
+    if [ -n "${verbose}" ]; then
+        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
+    else
+        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
+    fi
+    if [[ "${gpg_key}" ]]; then
+      exec 17<&-
+    fi
 }
 
 # Prepare kernel/initramfs ${install_dir}/boot/

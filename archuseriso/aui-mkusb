@@ -58,7 +58,7 @@ _unmount () {
 _encrypt_mkluks () {
         echo
         echo 'Setting up encrypted partition, type in a passphrase of your choice...'
-        if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat "${usbdevice}3"; then
+        if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat "${usbdevice}3" > /dev/null; then
                echo 'Encryption setup failed, exiting!'
                _unmount
                exit 1
@@ -80,8 +80,7 @@ _encrypt_setup () {
         mkdir "${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir"
         mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir" "${WD}/${workdir}/overlay"
         mount "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot" -o bind
-        cp "${WD}/${workdir}/iso/aui/mkinitcpio-archiso-encryption.conf" "${WD}/${workdir}/overlay/etc/"
-        ln -sf mkinitcpio-archiso-encryption.conf "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
+        sed -i "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
         arch-chroot "${WD}/${workdir}/overlay" mkinitcpio -P
         sed -i "s|Storage$|& Encrypted|
                 s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
