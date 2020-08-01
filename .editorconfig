@@ -1,5 +1,7 @@
 # EditorConfig configuration for archuseriso
 # http://EditorConfig.org
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 # Top-most EditorConfig file
 root = true
