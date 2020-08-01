@@ -9,5 +9,4 @@ locale-gen
 
 cp -aT /etc/skel/ /root/
 
-sed -i 's/#\(PermitRootLogin \).\+/\1yes/' /etc/ssh/sshd_config
 sed -i "s/#Server/Server/g" /etc/pacman.d/mirrorlist
