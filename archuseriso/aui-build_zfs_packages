@@ -5,8 +5,8 @@
 set -e -u
 
 AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
-confdir=/usr/share/archiso/configs
-config=console
+confdir=/usr/share/archuseriso
+profile=console
 script_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )"
 SCRIPTUSER="${SUDO_USER:-}"
 WD="$(pwd)"
@@ -45,10 +45,10 @@ _build_zfs_packages () {
                 echo 'Retrieving ZFS data failed, aborting!'
                 exit 0
         fi
-        if [[ ! -e "${confdir}/${config}/aui/zfsonlinux" ]]; then
+        if [[ ! -e "${confdir}/profiles/${profile}/aui/zfsonlinux" ]]; then
                 if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${_auiwork}/archuseriso-master.tar.gz"; then
                         tar --directory "${_auiwork}" -xf "${_auiwork}/archuseriso-master.tar.gz"
-                        confdir="${_auiwork}/archuseriso-master/configs"
+                        confdir="${_auiwork}/archuseriso-master"
                 else
                         echo 'Retrieving archuseriso sources failed, aborting!'
                         exit 1
@@ -56,7 +56,7 @@ _build_zfs_packages () {
         fi
         LC_ALL=C mkarchroot -c /var/cache/pacman/pkg "${_ar64}"/root base linux linux-headers base-devel
         _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
-        cp -arT "${confdir}/${config}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
+        cp -arT "${confdir}/profiles/${profile}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
         sed -i "s/%ZFSVERSION%/${_zfsversion}/
                 s/%LINUXVERSION%/${_linuxversion}/
                 s/%SHA256SUM%/${_zfssha256sum}/" \

@@ -7,13 +7,13 @@ Highlights
 ----------
 
 * easy build
-* very fast images (zstd compression)
+* very fast images
 * live USB creation tool featuring persistent storage
-* live USB pacman updates support
+* pacman updates support
 * rEFInd boot manager
 * LUKS encryption option
 * ZFS support option
-* language option (cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua)
+* language build option
 * package list customization
 * user packages support
 * Nvidia driver support option
@@ -21,8 +21,8 @@ Highlights
 * regular installation onto usb device
 * samba public folder sharing
 
-Desktop environments
---------------------
+Desktop environments profiles
+-----------------------------
 
 * Console
 * Cinnamon
@@ -60,21 +60,21 @@ ISO image build
 
 Command synopsis:
 
-    aui-mkiso <desktop environment> [options]
+    aui-mkiso <profile> [options]
 
-Xfce desktop with default options:
+Xfce profile with default options:
 
     sudo aui-mkiso xfce
 
-Kde Plasma desktop, German language plus options for Optimus hardware and additional packages:
+Kde Plasma profile, German language plus options for Optimus hardware and additional packages:
 
     sudo aui-mkiso kde --language de --optimus --addpkg byobu,base-devel
 
-Gnome desktop, additional packages, user packages:
+Gnome profile, additional packages, user packages:
 
     sudo aui-mkiso gnome --addpkg ntop,vlc --pkgdir ~/mypackages
 
-Two desktop environments, building LXQt ISO, adding i3wm to X sessions available from the display manager:
+LXQt profile, adding i3wm to X sessions available from the display manager:
 
     sudo aui-mkiso lxqt --addi3wm
 
@@ -92,34 +92,32 @@ Example:
 
     sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
 
-Persistence note: for a Live USB created with a different tool the missing persistence feature can be turned on from the live usb (restart needed). The following command executed within the live desktop environment only supports a subset of the standard features, prefer using `aui-mkusb` for creating the live usb to take advantage of full features.
+Persistence note: for a Live USB created with a different tool the missing persistence feature can be turned on from the live usb (restart needed). The following command executed within the live's desktop environment only supports a subset of the standard features. Prefer using `aui-mkusb` for creating the live usb to take advantage of full features.
 
     sudo aui-addpersistence
 
-Live USB partition layout created using `aui-mkusb`:
+Live USB partition layout created by `aui-mkusb`:
 
-    GPT
-    Partition Type Usage       Size
-    #1        Ext4 Squashfs    Image size 
-    #2        FAT  Boot        Default 512 MiB
-    #3        Ext4 Persistence Default free disk space 
-
+    GPT layout
+    Partition  Type  Usage        Size
+    #1         Ext4  Squashfs     Image size 
+    #2         FAT   Boot         Default 512 MiB
+    #3         Ext4  Persistence  Default free disk space 
 
 #### aui-mkiso command line help
     Archuseriso tool for building a custom Arch Linux Live ISO image.
 
     Command synopsis:
-    aui-mkiso <desktop environment> [options]
+    aui-mkiso <profile> [options]
 
     Options:
     -h, --help                        Command help
     --addi3wm                         Add i3wm to package installation list:
                                       option adding packages i3-gaps,feh,dmenu,i3status,wmctrl
     --addpkg <package1,package2,...>  Comma separated list of additional package names to install
-    -C, --confdir <path>              Directory configs (default: /usr/share/archiso/configs)
-        --configs-dir <path>
-    --embeddir <directory path>       Embed directory contents in the iso image. Directory contents
-                                      available from the user\s live session
+    -C, --confdir <path>              Archuseriso directory path (default: /usr/share/archuseriso)
+    --embeddir <directory path>       Embed directory contents in the iso image. Data available
+                                      from the user's live session
     -l, --language <language>         Default language. Select one from:
                                       cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
     --nvidia                          Installs Nvidia graphics driver
@@ -130,29 +128,14 @@ Live USB partition layout created using `aui-mkusb`:
     --zfssupport                      Build userspace utilities and kernel modules packages for the
                                       Zettabyte File System. Then build the iso image with zfs support.
 
-    ISO profiles list:
-    console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce
-
-    Build Examples
-
-    Xfce desktop environment with default options:
-    sudo aui-mkiso xfce
-
-    Xfce desktop environment, Spanish language, PRIME render offload setup for Optimus hardware:
-    sudo aui-mkiso xfce --language es --optimus
-
-    Xfce desktop environment, additional packages from official repositories, plus user packages
-    located in directory ~/mypackages. Directory contains pkg.tar.xz or pkg.tar.zst package files:
-    sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages
-
 #### ISO image with ZFS support
 
 `aui-mkiso` has a command option '--zfssupport' for building an iso image with ZFS support. The build
 script proceeds in two stages, first stage builds the necessary zfs packages against current Arch Linux
 kernel, second stage builds the iso image.
 
-Archuseriso also provides a command line utility `aui-build_zfs_packages' for building the ZFS packages. The
-created packages can be installed on a running Arch Linux system for adding ZFS support.
+Archuseriso also provides a command line utility `aui-build_zfs_packages` for building the ZFS packages. The
+packages can be installed on any Arch Linux system for adding ZFS support.
 
 #### aui-mkusb command line help
 
@@ -177,7 +160,7 @@ created packages can be installed on a running Arch Linux system for adding ZFS 
 
 Regular installation onto a USB drive
 -------------------------------------
-Installation identical to a normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation except systemd journal is configured volatile for limiting usb writes. See command line help for available options.
+Installation identical to a normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation except journal configured in volatile mode for limiting writes to usb device. See the command line help for available options.
 
 Command synopsis:
 

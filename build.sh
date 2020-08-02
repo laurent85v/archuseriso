@@ -7,7 +7,8 @@ set -e -u
 iso_name=aui-xfce
 iso_label=AUIX
 iso_publisher=""
-iso_application="Archuseriso Xfce Live/Rescue medium"
+desktop=Xfce
+iso_application="Archuseriso ${desktop} Live/Rescue medium"
 iso_version=""
 install_dir=arch
 work_dir=work
@@ -15,10 +16,9 @@ out_dir=out
 gpg_key=""
 lang=""
 comp_type=zstd
-desktop=Xfce
+profile=xfce
 
 verbose=""
-script_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )"
 
 umask 0022
 
@@ -27,29 +27,97 @@ _usage ()
     echo "usage ${0} [options]"
     echo
     echo " General options:"
-    echo "    -N <iso_name>      Set an iso filename (prefix)"
-    echo "                        Default: ${iso_name}"
-    echo "    -V <iso_version>   Set an iso version (in filename)"
-    echo "                        Default: ${iso_version}"
-    echo "    -L <iso_label>     Set an iso label (disk label)"
-    echo "                        Default: ${iso_label}"
-    echo "    -P <publisher>     Set a publisher for the disk"
-    echo "                        Default: '${iso_publisher}'"
-    echo "    -A <application>   Set an application name for the disk"
-    echo "                        Default: '${iso_application}'"
-    echo "    -D <install_dir>   Set an install_dir (directory inside iso)"
-    echo "                        Default: ${install_dir}"
-    echo "    -w <work_dir>      Set the working directory"
-    echo "                        Default: ${work_dir}"
-    echo "    -o <out_dir>       Set the output directory"
-    echo "                        Default: ${out_dir}"
-    echo "    -l <language>      Change the default language, select one from:"
-    echo "                        cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua"
-    echo "    -c <comp_type>     Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
-    echo "                       Default: ${comp_type}"
-    echo "    -v                 Enable verbose output"
-    echo "    -h                 This help message"
+    echo "    -p, --profile <profile>          Set profile for building iso"
+    echo "                                     Default: ${profile}"
+    echo "                                     available profiles: cinnamon,console,"
+    echo "                                     deepin,gnome,i3,kde,lxqt,mate,xfce"
+    echo "    -N, --name <iso_name>            Set an iso filename (prefix)"
+    echo "                                     Default: ${iso_name}"
+    echo "    -V, --version <iso_version>      Set an iso version (in filename)"
+    echo "                                     Default: ${iso_version}"
+    echo "    -L, --label <iso_label>          Set an iso label (disk label)"
+    echo "                                     Default: ${iso_label}"
+    echo "    -P, --publisher <publisher>      Set a publisher for the disk"
+    echo "                                     Default: '${iso_publisher}'"
+    echo "    -A, --application <application>  Set an application name for the disk"
+    echo "                                     Default: '${iso_application}'"
+    echo "    -D, --installdir <install_dir>   Set an install_dir (directory inside iso)"
+    echo "                                     Default: ${install_dir}"
+    echo "    -w, --workdir <work_dir>         Set the working directory"
+    echo "                                     Default: ${work_dir}"
+    echo "    -o, --outdir <out_dir>           Set the output directory"
+    echo "                                     Default: ${out_dir}"
+    echo "    -l, --language <language>        Change the default language, select one from:"
+    echo "                                     cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua"
+    echo "    -c, --comptype <comp_type>       Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
+    echo "                                     Default: ${comp_type}"
+    echo "    -v, --verbose                    Enable verbose output"
+    echo "    -h, --help                       This help message"
     exit "${1}"
+}
+
+# set profile variables
+_profile () {
+    case "${profile}" in
+        'cinnamon')
+            iso_name=aui-cinnamon
+            iso_label=AUIC
+            desktop=Cinnamon
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=cinnamon ;;
+        'console')
+            iso_name=aui-console
+            iso_label=AUIO
+            desktop=Console
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=console ;;
+        'deepin')
+            iso_name=aui-deepin
+            iso_label=AUID
+            desktop=Deepin
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=deepin ;;
+        'gnome')
+            iso_name=aui-gnome
+            iso_label=AUIG
+            desktop=Gnome
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=gnome;;
+        'i3')
+            iso_name=aui-i3
+            iso_label=AUI3
+            desktop=i3
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=i3 ;;
+        'kde')
+            iso_name=aui-kde
+            iso_label=AUIK
+            desktop=Kde
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=kde ;;
+        'lxqt')
+            iso_name=aui-lxqt
+            iso_label=AUIL
+            desktop=LXQt
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=lxqt ;;
+        'mate')
+            iso_name=aui-mate
+            iso_label=AUIM
+            desktop=Mate
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=mate ;;
+        'xfce')
+            iso_name=aui-xfce
+            iso_label=AUIX
+            desktop=Xfce
+            iso_application="Archuseriso ${desktop} Live/Rescue medium"
+            profile=xfce ;;
+        *)
+            echo ZZZ
+            echo "The profile ${profile} does not exist!"
+            _usage 1 ;;
+    esac
 }
 
 # airootfs extra cleanup
@@ -63,7 +131,7 @@ _cleanup_airootfs() {
                      )
 
     [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs.sh" ]] && _cleanlist+=("${work_dir}/x86_64/airootfs/root/customize_airootfs.sh")
-    [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-xfce.sh" ]] && _cleanlist+=("${work_dir}/x86_64/airootfs/root/customize_airootfs-xfce.sh")
+    [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh" ]] && _cleanlist+=("${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh")
 
     for file_or_dir in "${_cleanlist[@]}"; do
       [[ -e "${file_or_dir}" ]] && rm -r "${file_or_dir}"
@@ -83,7 +151,7 @@ make_pacman_conf() {
     local _cache_dirs
     _cache_dirs=("$(pacman -v 2>&1 | grep '^Cache Dirs:' | sed 's/Cache Dirs:\s*//g')")
     sed -r "s|^#?\\s*CacheDir.+|CacheDir = $(echo -n "${_cache_dirs[@]}")|g" \
-        "${script_path}/pacman.conf" > "${work_dir}/pacman.conf"
+        "${profile_path}/pacman.conf" > "${work_dir}/pacman.conf"
 }
 
 # Prepare working directory and copy custom airootfs files (airootfs)
@@ -91,11 +159,11 @@ make_custom_airootfs() {
     local _airootfs="${work_dir}/x86_64/airootfs"
     mkdir -p -- "${_airootfs}"
 
-    if [[ -d "${script_path}/airootfs" ]]; then
-        cp -af --no-preserve=ownership -- "${script_path}/airootfs/." "${_airootfs}"
+    if [[ -d "${profile_path}/airootfs" ]]; then
+        cp -af --no-preserve=ownership -- "${profile_path}/airootfs/." "${_airootfs}"
         # airootfs localization
         if [[ -n "${lang}" ]]; then
-            cp -af --no-preserve=ownership -- "${script_path}/lang/${lang}/airootfs/." "${_airootfs}"
+            cp -af --no-preserve=ownership -- "${profile_path}/lang/${lang}/airootfs/." "${_airootfs}"
         fi
 
         [[ -e "${_airootfs}/etc/shadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/shadow"
@@ -125,12 +193,12 @@ make_custom_airootfs() {
 make_packages() {
     local _lang=
     if [[ -n "${lang}" ]]; then
-        _lang=$(grep -Ehv '^#|^$' "${script_path}"/lang/"${lang}"/packages{-extra,-xfce}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')
+        _lang=$(grep -Ehv '^#|^$' "${profile_path}"/lang/"${lang}"/packages{-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')
     fi
     if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${script_path}"/packages{,-extra,-xfce}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
+        mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${profile_path}"/packages{,-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
     else
-        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${script_path}"/packages{,-extra,-xfce}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
+        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${profile_path}"/packages{,-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
     fi
 }
 
@@ -152,20 +220,20 @@ make_packages_local() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
-    if [[ -e "${script_path}/airootfs/etc/passwd" ]]; then
+    if [[ -e "${profile_path}/airootfs/etc/passwd" ]]; then
         while IFS=':' read -a passwd -r; do
             [[ "${passwd[5]}" == '/' ]] && continue
             cp -RdT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${work_dir}/x86_64/airootfs${passwd[5]}"
             chown -hR -- "${passwd[2]}:${passwd[3]}" "${work_dir}/x86_64/airootfs${passwd[5]}"
 
-        done < "${script_path}/airootfs/etc/passwd"
+        done < "${profile_path}/airootfs/etc/passwd"
     fi
 
-    if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-xfce.sh" ]]; then
+    if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh" ]]; then
         if [ -n "${verbose}" ]; then
-            mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs-xfce.sh' run
+            mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r "/root/customize_airootfs-${profile}.sh" run
         else
-            mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r '/root/customize_airootfs-xfce.sh' run
+            mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r "/root/customize_airootfs-${profile}.sh" run
         fi
     fi
 
@@ -223,11 +291,11 @@ make_boot_extra() {
 make_syslinux() {
     _uname_r=$(file -b "${work_dir}/x86_64/airootfs/boot/vmlinuz-linux"| awk 'f{print;f=0} /version/{f=1}' RS=' ')
     mkdir -p "${work_dir}/iso/${install_dir}/boot/syslinux"
-    for _cfg in "${script_path}/syslinux/"*.cfg; do
+    for _cfg in "${profile_path}/syslinux/"*.cfg; do
         sed "s|%ARCHISO_LABEL%|${iso_label}|g;
              s|%INSTALL_DIR%|${install_dir}|g" "${_cfg}" > "${work_dir}/iso/${install_dir}/boot/syslinux/${_cfg##*/}"
     done
-    cp "${script_path}/syslinux/splash.png" "${work_dir}/iso/${install_dir}/boot/syslinux/"
+    cp "${profile_path}/syslinux/splash.png" "${work_dir}/iso/${install_dir}/boot/syslinux/"
     cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/"*.c32 "${work_dir}/iso/${install_dir}/boot/syslinux/"
     cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${work_dir}/iso/${install_dir}/boot/syslinux/"
     cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${work_dir}/iso/${install_dir}/boot/syslinux/"
@@ -241,7 +309,7 @@ make_syslinux() {
 # Prepare /isolinux
 make_isolinux() {
     mkdir -p "${work_dir}/iso/isolinux"
-    sed "s|%INSTALL_DIR%|${install_dir}|g" "${script_path}/isolinux/isolinux.cfg" > "${work_dir}/iso/isolinux/isolinux.cfg"
+    sed "s|%INSTALL_DIR%|${install_dir}|g" "${profile_path}/isolinux/isolinux.cfg" > "${work_dir}/iso/isolinux/isolinux.cfg"
     cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/isolinux.bin" "${work_dir}/iso/isolinux/"
     cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/isohdpfx.bin" "${work_dir}/iso/isolinux/"
     cp "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/ldlinux.c32" "${work_dir}/iso/isolinux/"
@@ -256,13 +324,13 @@ make_efi() {
     cp "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${work_dir}/iso/EFI/live/livedisk.efi"
     cp "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${work_dir}/iso/EFI/live/livedisk.png"
 
-    cp "${script_path}/efiboot/boot/refind-usb.conf" "${work_dir}/iso/EFI/boot/refind.conf"
+    cp "${profile_path}/efiboot/boot/refind-usb.conf" "${work_dir}/iso/EFI/boot/refind.conf"
 
     mkdir -p "${work_dir}/iso/loader/entries"
-    cp "${script_path}/efiboot/loader/loader.conf" "${work_dir}/iso/loader/"
-    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf"
+    cp "${profile_path}/efiboot/loader/loader.conf" "${work_dir}/iso/loader/"
+    cp "${profile_path}/efiboot/loader/entries/archiso-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso-x86_64.conf"
+    cp "${profile_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf"
+    cp "${profile_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf"
 
     sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
             s|%INSTALL_DIR%|${install_dir}|g" \
@@ -296,13 +364,13 @@ make_efiboot() {
     cp "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${work_dir}/efiboot/EFI/live/livedvd.efi"
     cp "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${work_dir}/efiboot/EFI/live/livedvd.png"
 
-    cp "${script_path}/efiboot/boot/refind-dvd.conf" "${work_dir}/efiboot/EFI/boot/refind.conf"
+    cp "${profile_path}/efiboot/boot/refind-dvd.conf" "${work_dir}/efiboot/EFI/boot/refind.conf"
 
     mkdir -p "${work_dir}/efiboot/loader/entries"
-    cp "${script_path}/efiboot/loader/loader.conf" "${work_dir}/efiboot/loader/"
-    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
+    cp "${profile_path}/efiboot/loader/loader.conf" "${work_dir}/efiboot/loader/"
+    cp "${profile_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso-x86_64.conf"
+    cp "${profile_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf"
+    cp "${profile_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
 
     sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
             s|%INSTALL_DIR%|${install_dir}|g" \
@@ -316,7 +384,7 @@ make_efiboot() {
 
 # Archuseriso data
 make_aui() {
-    cp -a --no-preserve=ownership "${script_path}/aui/" "${work_dir}/iso"
+    cp -a --no-preserve=ownership "${profile_path}/aui/" "${work_dir}/iso"
     mv "${work_dir}"/iso/aui/persistent{,_"${iso_label}"}
 
     ### esp
@@ -414,21 +482,49 @@ make_iso() {
     cd ~-
 }
 
-while getopts 'N:V:L:P:A:D:w:o:g:vhl:c:' arg; do
-    case "${arg}" in
-        N) iso_name="${OPTARG}" ;;
-        V) iso_version="${OPTARG}" ;;
-        L) iso_label="${OPTARG}" ;;
-        P) iso_publisher="${OPTARG}" ;;
-        A) iso_application="${OPTARG}" ;;
-        D) install_dir="${OPTARG}" ;;
-        w) work_dir="${OPTARG}" ;;
-        o) out_dir="${OPTARG}" ;;
-        g) gpg_key="${OPTARG}" ;;
-        v) verbose="-v" ;;
-        h) _usage 0 ;;
-        l)
-            case "${OPTARG}" in
+OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:p:w:v' -l 'name,version:,label:,publisher:,application:' \
+       -l 'installdir:,workdir:,outdir:,gpgkey:,verbose,language:,comptype:,profile:,help' -n 'build.sh' -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+[[ $# -eq 0 ]] && _usage 0
+
+while true; do
+    case "${1}" in
+        '-h'|'--help')
+            _usage 0 ;;
+        '-N'|'--name')
+            iso_name="${2}"
+            shift 2 ;;
+        '-V'|'--version')
+            iso_version="${2}"
+            shift 2 ;;
+        '-L'|'--label')
+            iso_label="${2}"
+            shift 2 ;;
+        '-P'|'--publisher')
+            iso_publisher="${2}"
+            shift 2 ;;
+        '-A'|'--application')
+            iso_application="${2}"
+            shift 2 ;;
+        '-D'|'--installdir')
+            install_dir="${2}"
+            shift 2 ;;
+        '-w'|'--workdir')
+            work_dir="${2}"
+            shift 2 ;;
+        '-o'|'--outdir')
+            out_dir="${2}"
+            shift 2 ;;
+        '-g'|'--gpgkey')
+            gpg_key="{2}"
+            shift 2 ;;
+        '-v'|'--verbose')
+            verbose="-v"
+            shift ;;
+        '-l'|'--language')
+            case "${2}" in
                 'cz'|'cs_CZ') lang="cs_CZ";;
                 'de'|'de_DE') lang="de_DE";;
                 'es'|'es_ES') lang="es_ES";;
@@ -445,18 +541,31 @@ while getopts 'N:V:L:P:A:D:w:o:g:vhl:c:' arg; do
                 'tr'|'tr_TR') lang="tr_TR";;
                 'ua'|'uk_UA') lang="uk_UA";;
                 *) _usage 1;;
-            esac;;
-        c) comp_type="${OPTARG}" ;;
-        *)
-           echo "Invalid argument '${arg}'"
-           _usage 1
-           ;;
+            esac
+            shift 2 ;;
+        '-c'|'--comptype')
+            comp_type="${2}"
+            shift 2 ;;
+        '-p'|'--profile')
+            profile="${2}"
+            _profile
+            shift 2 ;;
+        '--')
+            shift
+            break ;;
     esac
 done
 
 if [[ ${EUID} -ne 0 ]]; then
     echo "This script must be run as root."
     exit 1
+fi
+
+script_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )"
+profile_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )/profiles/${profile}"
+
+if [[ "${profile}" = 'console' ]]; then
+    lang=""
 fi
 
 mkdir -p "${work_dir}"
@@ -473,6 +582,10 @@ run_once make_syslinux
 run_once make_isolinux
 run_once make_efi
 run_once make_efiboot
-run_once make_aui
+if [[ ! "${profile}" = 'console' ]]; then
+  run_once make_aui
+fi
 run_once make_prepare
 run_once make_iso
+
+# vim: set expandtab:
