@@ -1,7 +1,7 @@
 Description
 ===========
 
-Templates for building Arch Linux Live ISO images. Tools for creating bootable USB flash drives featuring persistent storage, encryption and regular installation on a usb drive.
+Profiles for building Arch Linux Live ISO images. Tools for creating bootable USB flash drives featuring persistent storage, encryption and regular installation on a usb drive.
 
 Highlights
 ----------
@@ -34,7 +34,7 @@ Desktop environments
 * Mate
 * Xfce
 
-'console template': english only, no persistence, options related to Xorg ignored.
+'console profile': english only, no persistence, options related to Xorg ignored.
 
 Hint for gr, rs, ru and ua with two keyboard layouts: press both `Shift keys` together for keyboard layout switch. 
 
@@ -130,7 +130,7 @@ Live USB partition layout created using `aui-mkusb`:
     --zfssupport                      Build userspace utilities and kernel modules packages for the
                                       Zettabyte File System. Then build the iso image with zfs support.
 
-    ISO template configs list:
+    ISO profiles list:
     console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce
 
     Build Examples
@@ -144,6 +144,15 @@ Live USB partition layout created using `aui-mkusb`:
     Xfce desktop environment, additional packages from official repositories, plus user packages
     located in directory ~/mypackages. Directory contains pkg.tar.xz or pkg.tar.zst package files:
     sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages
+
+#### ISO image with ZFS support
+
+`aui-mkiso` has a command option '--zfssupport' for building an iso image with ZFS support. The build
+script proceeds in two stages, first stage builds the necessary zfs packages against current Arch Linux
+kernel, second stage builds the iso image.
+
+Archuseriso also provides a command line utility `aui-build_zfs_packages' for building the ZFS packages. The
+created packages can be installed on a running Arch Linux system for adding ZFS support.
 
 #### aui-mkusb command line help
 
@@ -168,7 +177,7 @@ Live USB partition layout created using `aui-mkusb`:
 
 Regular installation onto a USB drive
 -------------------------------------
-Persistent installation identical to normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation on a usb drive.
+Installation identical to a normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation except systemd journal is configured volatile for limiting usb writes. See command line help for available options.
 
 Command synopsis:
 
