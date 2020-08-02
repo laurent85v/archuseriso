@@ -4,6 +4,8 @@
 
 set -e -u
 
+username=archie
+
 _usage () {
         echo
         echo 'aui-mkinstall, performs a standard installation on a USB flash drive.'
@@ -27,6 +29,7 @@ _help () {
         echo '-h, --help           command help'
         echo '--encrypt            encrypt persistent partition'
         echo '--ext4journal        enable ext4 journal (disabled by default for minimizing disk writes)'
+        echo "--username <user>    set a configured username, default username is 'archie'"
         echo
         echo 'Example:'
         echo 'aui-mkinstall archuseriso-xfce-1231-x64.iso /dev/sdc --encrypt'
@@ -104,8 +107,7 @@ _checks () {
 
 _init () {
         devicesize=$(blockdev --getsize64 "${usbdevice}")
-        ESPSIZE=786432 # 384 MiB
-        installuser='archie'
+        ESPSIZE=1048576 # 512 MiB
         isosize=$(stat -c %s "${isoname}")
         MINCAPACITY=16000000000 # 16 GB
         SECSTART=2048 # 1st sector
@@ -125,6 +127,7 @@ _confirm_write () {
         echo
         echo "ISO file: ${isoname}"
         echo "USB device: ${usbdevice}"
+        echo "Configured username: ${username}"
         echo
         read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
         echo
@@ -256,8 +259,8 @@ _install () {
         sed -i 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usb/etc/sudoers"
         sed -i 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usb/etc/sudoers"
         # username
-        mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${installuser}"
-        sed -i "s/live/${installuser}/g" \
+        mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${username}"
+        sed -i "s/live/${username}/g" \
                "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
                "${WD}/${workdir}/usb/etc/samba/smb.conf"
         # haveged, initramfs
@@ -285,7 +288,7 @@ _install () {
 _finalize () {
         # Unmount & remove temp dirs
         echo 'Unmounting USB device, might take up to a few minutes, be patient!'
-        echo '. .. ...Waiting for USB device to complete copy'
+        echo '. .. ...Waiting for the USB device to complete copy'
         umount "${usbdevice}1" "${rootdevice}"
         umount "${WD}/${workdir}/squashfs"
         sleep 1
@@ -315,7 +318,7 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,help' -n 'aui-mkinstall' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,help,username:' -n 'aui-mkinstall' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -331,6 +334,9 @@ while true; do
                 '--ext4journal')
                         ext4journal=yes
                         shift ;;
+                '--username')
+                        username="${2}"
+                        shift 2 ;;
                 '--')
                         shift
                         break ;;
@@ -350,7 +356,7 @@ _bootloader
 echo 'Done!'
 echo
 echo 'IMPORTANTS NOTES:'
-echo "Configured username is ${installuser}, no password was set!"
+echo "Configured username is ${username}, no password was set!"
 echo
 echo 'Enjoy ;)'
 
