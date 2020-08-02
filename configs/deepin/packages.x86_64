@@ -18,6 +18,7 @@ dmraid
 dnsmasq
 dosfstools
 edk2-shell
+efibootmgr
 ethtool
 exfat-utils
 f2fs-tools
@@ -46,9 +47,9 @@ man-db
 man-pages
 mc
 mdadm
-mkinitcpio-archiso
 memtest86+
 mkinitcpio
+mkinitcpio-archiso
 mkinitcpio-nfs-utils
 mtools
 nano

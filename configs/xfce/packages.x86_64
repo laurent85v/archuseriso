@@ -4,7 +4,6 @@ amd-ucode
 arch-install-scripts
 b43-fwcutter
 base
-base
 bind-tools
 broadcom-wl
 btrfs-progs
@@ -19,6 +18,7 @@ dmraid
 dnsmasq
 dosfstools
 edk2-shell
+efibootmgr
 ethtool
 exfat-utils
 f2fs-tools
@@ -47,9 +47,9 @@ man-db
 man-pages
 mc
 mdadm
-mkinitcpio-archiso
 memtest86+
 mkinitcpio
+mkinitcpio-archiso
 mkinitcpio-nfs-utils
 mtools
 nano
@@ -77,7 +77,6 @@ sdparm
 sg3_utils
 smartmontools
 sudo
-syslinux
 syslinux
 systemd-resolvconf
 tcpdump
