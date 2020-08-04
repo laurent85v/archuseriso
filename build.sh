@@ -163,7 +163,10 @@ make_custom_airootfs() {
         cp -af --no-preserve=ownership -- "${profile_path}/airootfs/." "${_airootfs}"
         # airootfs localization
         if [[ -n "${lang}" ]]; then
-            cp -af --no-preserve=ownership -- "${profile_path}/lang/${lang}/airootfs/." "${_airootfs}"
+            cp -af --no-preserve=ownership -- "${script_path}/lang/${lang}/airootfs/." "${_airootfs}"
+            if [[ -d "${profile_path}/lang/${lang}/airootfs" ]]; then
+                cp -af --no-preserve=ownership -- "${profile_path}/lang/${lang}/airootfs/." "${_airootfs}"
+            fi
         fi
 
         [[ -e "${_airootfs}/etc/shadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/shadow"
