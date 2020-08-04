@@ -159,8 +159,11 @@ make_custom_airootfs() {
     local _airootfs="${work_dir}/x86_64/airootfs"
     mkdir -p -- "${_airootfs}"
 
-    if [[ -d "${profile_path}/airootfs" ]]; then
-        cp -af --no-preserve=ownership -- "${profile_path}/airootfs/." "${_airootfs}"
+    if [[ -d "${script_path}/airootfs" ]]; then
+        cp -afT --no-preserve=ownership -- "${script_path}/airootfs/." "${_airootfs}"
+        if [[ -d "${profile_path}/airootfs" ]]; then
+            cp -afT --no-preserve=ownership -- "${profile_path}/airootfs/." "${_airootfs}"
+        fi
         # airootfs localization
         if [[ -n "${lang}" ]]; then
             cp -af --no-preserve=ownership -- "${script_path}/lang/${lang}/airootfs/." "${_airootfs}"
@@ -223,13 +226,13 @@ make_packages_local() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
-    if [[ -e "${profile_path}/airootfs/etc/passwd" ]]; then
+    if [[ -e "${work_dir}/x86_64/airootfs/etc/passwd" ]]; then
         while IFS=':' read -a passwd -r; do
             [[ "${passwd[5]}" == '/' ]] && continue
             cp -RdT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${work_dir}/x86_64/airootfs${passwd[5]}"
             chown -hR -- "${passwd[2]}:${passwd[3]}" "${work_dir}/x86_64/airootfs${passwd[5]}"
 
-        done < "${profile_path}/airootfs/etc/passwd"
+        done < "${work_dir}/x86_64/airootfs/etc/passwd"
     fi
 
     if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh" ]]; then
