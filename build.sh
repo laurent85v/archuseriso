@@ -324,15 +324,16 @@ make_efi() {
     cp "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${work_dir}/iso/EFI/live/livedisk.efi"
     cp "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${work_dir}/iso/EFI/live/livedisk.png"
 
-    cp "${profile_path}/efiboot/boot/refind-usb.conf" "${work_dir}/iso/EFI/boot/refind.conf"
+    cp "${script_path}/efiboot/boot/refind-usb.conf" "${work_dir}/iso/EFI/boot/refind.conf"
 
     mkdir -p "${work_dir}/iso/loader/entries"
-    cp "${profile_path}/efiboot/loader/loader.conf" "${work_dir}/iso/loader/"
-    cp "${profile_path}/efiboot/loader/entries/archiso-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso-x86_64.conf"
-    cp "${profile_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf"
-    cp "${profile_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf"
+    cp "${script_path}/efiboot/loader/loader.conf" "${work_dir}/iso/loader/"
+    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf"
 
-    sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
+    sed -i "s|%DESKTOP%|${desktop}|g;
+            s|%ARCHISO_LABEL%|${iso_label}|g;
             s|%INSTALL_DIR%|${install_dir}|g" \
             "${work_dir}"/iso/loader/entries/archiso{,_2_console,_3_ram}-x86_64.conf
 
@@ -364,15 +365,16 @@ make_efiboot() {
     cp "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${work_dir}/efiboot/EFI/live/livedvd.efi"
     cp "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${work_dir}/efiboot/EFI/live/livedvd.png"
 
-    cp "${profile_path}/efiboot/boot/refind-dvd.conf" "${work_dir}/efiboot/EFI/boot/refind.conf"
+    cp "${script_path}/efiboot/boot/refind-dvd.conf" "${work_dir}/efiboot/EFI/boot/refind.conf"
 
     mkdir -p "${work_dir}/efiboot/loader/entries"
-    cp "${profile_path}/efiboot/loader/loader.conf" "${work_dir}/efiboot/loader/"
-    cp "${profile_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso-x86_64.conf"
-    cp "${profile_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf"
-    cp "${profile_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
+    cp "${script_path}/efiboot/loader/loader.conf" "${work_dir}/efiboot/loader/"
+    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
 
-    sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
+    sed -i "s|%DESKTOP%|${desktop}|g;
+            s|%ARCHISO_LABEL%|${iso_label}|g;
             s|%INSTALL_DIR%|${install_dir}|g" \
             "${work_dir}"/efiboot/loader/entries/archiso{,_2_console,_3_ram}-x86_64.conf
 
