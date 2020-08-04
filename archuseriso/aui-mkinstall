@@ -8,28 +8,28 @@ username=archie
 
 _usage () {
         echo
-        echo 'aui-mkinstall, performs a standard installation on a USB flash drive.'
+        echo 'aui-mkinstall, performs a normal installation on a USB drive.'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkinstall <usb device> <iso image> [options]'
+        echo 'aui-mkinstall <iso image> <usb device> [options]'
         echo
-        echo 'To get help run:'
+        echo 'Get help:'
         echo 'aui-mkinstall --help'
         exit $1
 }
 
 _help () {
         echo
-        echo 'Archuseriso tool for installing on a USB flash drive'
+        echo 'Archuseriso tool for normal installation on a USB drive'
         echo
         echo 'Command synopsis:'
         echo 'aui-mkinstall <iso image> <usb device> [options]'
         echo
         echo 'Options:'
-        echo '-h, --help           command help'
+        echo '-h, --help           command line help'
         echo '--encrypt            encrypt persistent partition'
-        echo '--ext4journal        enable ext4 journal (disabled by default for minimizing disk writes)'
-        echo "--username <user>    set a configured username, default username is 'archie'"
+        echo '--ext4journal        enable ext4 journal (disabled by default for minimizing drive writes)'
+        echo "--username <user>    set a custom username, default username is 'archie'"
         echo
         echo 'Example:'
         echo 'aui-mkinstall archuseriso-xfce-1231-x64.iso /dev/sdc --encrypt'
@@ -288,7 +288,7 @@ _install () {
 _finalize () {
         # Unmount & remove temp dirs
         echo 'Unmounting USB device, might take up to a few minutes, be patient!'
-        echo '. .. ...Waiting for the USB device to complete copy'
+        echo '. .. ...Waiting for the USB drive to complete copy'
         umount "${usbdevice}1" "${rootdevice}"
         umount "${WD}/${workdir}/squashfs"
         sleep 1

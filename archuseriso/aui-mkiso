@@ -12,12 +12,12 @@ WD="$(pwd)"
 
 _usage () {
         echo
-        echo 'aui-mkiso, Live ISO image build.'
+        echo 'aui-mkiso, Live ISO image builder.'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkiso <desktop environment> [options]'
+        echo 'aui-mkiso <profile> [options]'
         echo
-        echo 'To get help run:'
+        echo 'Get help:'
         echo 'aui-mkiso --help'
         echo
         exit ${1}
@@ -31,36 +31,34 @@ _help () {
         echo 'aui-mkiso <profile> [options]'
         echo
         echo 'Options:'
-        echo '-h, --help                        Command help'
-        echo '--addi3wm                         Add i3wm to package installation list:'
-        echo '                                  option adding packages i3-gaps,feh,dmenu,i3status,wmctrl'
-        echo '--addpkg <package1,package2,...>  Comma separated list of additional package names to install'
+        echo '-h, --help                        Command line help'
+        echo '--addi3wm                         Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl'
+        echo '--addpkg <package1,package2,...>  Comma separated list of additional packages'
         echo '-C, --confdir <path>              Archuseriso directory path (default: /usr/share/archuseriso)'
-        echo '--embeddir <directory path>       Embed directory contents in the iso image. Data available'
+        echo '--embeddir <directory path>       Embed directory in the iso image. Data will be available'
         echo '                                  from the user'\''s live session'
-        echo '-l, --language <language>         Default language. Select one from:'
+        echo '-l, --language <language>         Set default language:'
         echo '                                  cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
-        echo '--nvidia                          Installs Nvidia graphics driver'
-        echo '--optimus                         Optimus hardware setup. Intel iGPU used by default,'
-        echo '                                  Nvidia dGPU configured for PRIME render offload'
-        echo '--pkgdir <path>                   User directory containing package files to install'
+        echo '--nvidia                          Add Nvidia graphics driver'
+        echo '--optimus                         For Optimus hardware. Set Intel iGPU default, Nvidia dGPU'
+        echo '                                  configured for PRIME render offload (prime-run <application>)'
+        echo '--pkgdir <path>                   User directory containing package files for installation'
         echo '-v, --verbose                     Verbose mode'
-        echo '--zfssupport                      Build userspace utilities and kernel modules packages for the'
-        echo '                                  Zettabyte File System. Then build the iso image with zfs support.'
+        echo '--zfssupport                      Add ZFS support. Dynamically builds the ZFS packages before'
+        echo '                                  building the iso image'
         echo
         echo 'ISO profiles:'
         echo 'console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce'
         echo
         echo 'Build Examples'
         echo
-        echo 'Xfce profile with default options:'
+        echo 'Xfce iso with default options:'
         echo 'sudo aui-mkiso xfce'
         echo
-        echo 'Xfce profile, Spanish language, PRIME render offload setup for Optimus hardware:'
+        echo 'Xfce, Spanish language, Optimus option:'
         echo 'sudo aui-mkiso xfce --language es --optimus'
         echo
-        echo 'Xfce profile, additional packages from official repositories, plus user package'
-        echo 'located in directory ~/mypackages, directory must contain pkg.tar.xz or pkg.tar.zst files:'
+        echo 'Xfce, additional packages, plus user packages (directory containing *.pkg.tar.xz|zst files)'
         echo 'sudo aui-mkiso xfce --addpkg byobu,base-devel --pkgdir ~/mypackages'
         echo
         exit ${1}

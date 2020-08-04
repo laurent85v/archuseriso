@@ -1,7 +1,7 @@
 Description
 ===========
 
-Profiles for building Arch Linux Live ISO images. Tools for creating bootable USB flash drives featuring persistent storage, encryption and regular installation on a usb drive.
+Profiles for building Arch Linux Live ISO images. Tools for creating bootable USB drives featuring persistent storage, encryption and normal installation on a usb drive.
 
 Highlights
 ----------
@@ -18,7 +18,7 @@ Highlights
 * user packages support
 * Nvidia driver support option
 * Optimus hardware support option
-* regular installation onto usb device
+* installation on usb device
 * samba public folder sharing
 
 Desktop environments profiles
@@ -105,28 +105,28 @@ Live USB partition layout created by `aui-mkusb`:
     #3         Ext4  Persistence  Default free disk space 
 
 #### aui-mkiso command line help
+
     Archuseriso tool for building a custom Arch Linux Live ISO image.
 
     Command synopsis:
     aui-mkiso <profile> [options]
 
     Options:
-    -h, --help                        Command help
-    --addi3wm                         Add i3wm to package installation list:
-                                      option adding packages i3-gaps,feh,dmenu,i3status,wmctrl
-    --addpkg <package1,package2,...>  Comma separated list of additional package names to install
+    -h, --help                        Command line help
+    --addi3wm                         Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl
+    --addpkg <package1,package2,...>  Comma separated list of additional packages
     -C, --confdir <path>              Archuseriso directory path (default: /usr/share/archuseriso)
-    --embeddir <directory path>       Embed directory contents in the iso image. Data available
+    --embeddir <directory path>       Embed directory in the iso image. Data will be available
                                       from the user's live session
-    -l, --language <language>         Default language. Select one from:
+    -l, --language <language>         Set default language:
                                       cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
-    --nvidia                          Installs Nvidia graphics driver
-    --optimus                         Optimus hardware setup. Intel iGPU used by default,
-                                      Nvidia dGPU configured for PRIME render offload
-    --pkgdir <path>                   User directory containing package files to install
+    --nvidia                          Add Nvidia graphics driver
+    --optimus                         For Optimus hardware. Set Intel iGPU default, Nvidia dGPU
+                                      configured for PRIME render offload (prime-run <application>)
+    --pkgdir <path>                   User directory containing package files for installation
     -v, --verbose                     Verbose mode
-    --zfssupport                      Build userspace utilities and kernel modules packages for the
-                                      Zettabyte File System. Then build the iso image with zfs support.
+    --zfssupport                      Add ZFS support. Dynamically builds the ZFS packages before
+                                      building the iso image
 
 #### ISO image with ZFS support
 
@@ -142,25 +142,19 @@ packages can be installed on any Arch Linux system for adding ZFS support.
     Archuseriso tool for creating a Live USB with persistent storage
 
     Command synopsis:
-    aui-mkusb <iso image> <usb device> [options]
+    aui-mkusb <usb device> <iso image> [options]
 
     Options:
-    -h, --help                Command help
+    -h, --help                Command line help
     --encrypt                 Encrypt persistent partition
-    --ext4journal             Enable ext4 journal (disabled by default for minimizing disk writes)
-    --rawwrite                Raw ISO image write to USB device (dd like mode)
+    --ext4journal             Enable ext4 journal (disabled by default for minimizing drive writes)
+    --rawwrite                Raw ISO image write to USB drive (dd like mode)
     --sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)
     --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)
 
-    Example using default options:
-    sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
-
-    Example with custom partitioning, unallocated space left for other usages:
-    sudo aui-mkusb aui-xfce-linux_5_7_10-i3-zfs-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G
-
-Regular installation onto a USB drive
+Normal installation onto a USB drive
 -------------------------------------
-Installation identical to a normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation except journal configured in volatile mode for limiting writes to usb device. See the command line help for available options.
+Installation identical to a normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation except journal configured in volatile mode for limiting writes to usb drive. See the command line help for available options.
 
 Command synopsis:
 

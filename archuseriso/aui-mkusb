@@ -12,7 +12,7 @@ _usage () {
         echo 'Command synopsis:'
         echo 'aui-mkusb <iso image> <usb device> [options]'
         echo
-        echo 'To get help run:'
+        echo 'Get help:'
         echo 'aui-mkusb --help'
         exit $1
 }
@@ -25,17 +25,17 @@ _help () {
         echo 'aui-mkusb <usb device> <iso image> [options]'
         echo
         echo 'Options:'
-        echo '-h, --help                Command help'
+        echo '-h, --help                Command line help'
         echo '--encrypt                 Encrypt persistent partition'
-        echo '--ext4journal             Enable ext4 journal (disabled by default for minimizing disk writes)'
-        echo '--rawwrite                Raw ISO image write to USB device (dd like mode)'
+        echo '--ext4journal             Enable ext4 journal (disabled by default for minimizing drive writes)'
+        echo '--rawwrite                Raw ISO image write to USB drive (dd like mode)'
         echo '--sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)'
         echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)'
         echo
-        echo 'Example using default options:'
+        echo 'Example:'
         echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc'
         echo
-        echo 'Example with custom partitioning, unallocated space left for other usages:'
+        echo 'Example with custom partitioning, unallocated drive space left for other usages:'
         echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G'
         echo
         exit $1
@@ -66,9 +66,9 @@ _encrypt_mkluks () {
                exit 1
         fi
         echo
-        echo 'LUKS encryption setup done! type in your passphrase to unlock device...'
+        echo 'LUKS encryption setup done! type in your passphrase to unlock partition...'
         if ! cryptsetup open "${usbdevice}3" auicrypt; then
-               echo 'Error: Could not unlock device! Exiting.'
+               echo 'Error: Could not unlock partition! Exiting.'
                _unmount
                exit 1
         fi
@@ -125,7 +125,7 @@ _checks () {
                 _usage 1
         fi
         if grep -q "${usbdevice}" /proc/mounts; then
-                echo "Error: ${usbdevice} appears in active mounts, unmount device before proceeding!"
+                echo "Error: ${usbdevice} appears in active mounts, unmount drive before proceeding!"
                 exit 1
         fi
         if [[ ! -f "${isoname}" ]]; then
@@ -170,7 +170,7 @@ _init () {
                 ESP=0
                 FREE=0
         fi
-        # Check usb device capacity
+        # Check usb drive capacity
         if [[ ! ${devicesize} -gt $(( isosize + FREE * 1024 * 1024 )) ]]; then
                echo 'Storage capacity error!'
                exit 1
@@ -188,7 +188,7 @@ _init () {
         fi
         # check partition size
         if [[ ! ${devicesize} -gt $(( isosize + _fatsize + _ext4size )) ]]; then
-                echo "Size settings error: exceeds device storage capacity (GiB)!"
+                echo "Size settings error: exceeds drive storage capacity (GiB)!"
                 exit 1
         fi
 }
@@ -330,7 +330,7 @@ _format () {
 
 _mount () {
         # Mount usb device
-        echo 'Mounting usb device...'
+        echo 'Mounting usb drive...'
         mount "${usbdevice}1" "${WD}/${workdir}/usb1"
         mount "${usbdevice}2" "${WD}/${workdir}/usb2"
         mount "${cowdevice}" "${WD}/${workdir}/usb3"
@@ -338,7 +338,7 @@ _mount () {
 
 _copy () {
         # Copy iso data to partition #1
-        echo 'Copying data to usb device...'
+        echo 'Copying data to usb drive...'
         cp -rT "${WD}/${workdir}/iso" "${WD}/${workdir}/usb1"
 }
 
