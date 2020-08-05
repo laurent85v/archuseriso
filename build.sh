@@ -221,7 +221,7 @@ make_packages_local() {
         unshare --fork --pid pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
     fi
 
-    iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -S --print-format %v linux | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
+    iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux | cut -d' ' -f2 | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
 }
 
 # Customize installation (airootfs)
