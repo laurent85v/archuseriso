@@ -6,7 +6,6 @@ set -e -u
 
 AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
 confdir=/usr/share/archuseriso
-profile=console
 script_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )"
 SCRIPTUSER="${SUDO_USER:-}"
 WD="$(pwd)"
@@ -18,7 +17,7 @@ KEYSERVER="ha.pool.sks-keyservers.net"
 _build_zfs_packages () {
         local _auiwork="${WD}"/auiwork$(openssl rand -hex 4)
         local _ar64="${_auiwork}/archroot64"
-        local _linuxversion _zfspackages _zfssha256sum _zfssources _zfsversion
+        local _linuxversion _modulesversion _zfspackages _zfssha256sum _zfssources _zfsversion
         mkdir -p "${_ar64}"
         mkdir -p "${WD}/work/pkgdir"
         if ! pacman -Q devtools &> /dev/null; then
@@ -45,7 +44,7 @@ _build_zfs_packages () {
                 echo 'Retrieving ZFS data failed, aborting!'
                 exit 0
         fi
-        if [[ ! -e "${confdir}/profiles/${profile}/aui/zfsonlinux" ]]; then
+        if [[ ! -e "${confdir}/aui/zfsonlinux" ]]; then
                 if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${_auiwork}/archuseriso-master.tar.gz"; then
                         tar --directory "${_auiwork}" -xf "${_auiwork}/archuseriso-master.tar.gz"
                         confdir="${_auiwork}/archuseriso-master"
@@ -56,9 +55,15 @@ _build_zfs_packages () {
         fi
         LC_ALL=C mkarchroot -c /var/cache/pacman/pkg "${_ar64}"/root base linux linux-headers base-devel
         _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
-        cp -arT "${confdir}/profiles/${profile}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
+        if [[ "$(cut -d'.' -f3 <<< "${_linuxversion}")" =~ 'arch' ]]; then
+                _modulesversion="${_linuxversion%.arch*}.0-${_linuxversion##*.}"
+        else
+                _modulesversion="${_linuxversion%.arch*}-${_linuxversion##*.}"
+        fi
+        cp -arT "${confdir}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
         sed -i "s/%ZFSVERSION%/${_zfsversion}/
                 s/%LINUXVERSION%/${_linuxversion}/
+                s/%MODULESVERSION%/${_modulesversion}/
                 s/%SHA256SUM%/${_zfssha256sum}/" \
                 "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
                 "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
@@ -107,7 +112,7 @@ if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
 fi
 
 if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/null; then
-        echo 
+        echo
         read -r -n1 -p 'Retreive missing ZFS on Linux public key (N/y)? '
         echo
         if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
