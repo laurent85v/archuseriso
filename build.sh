@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-set -e -u
+set -e -u -x
 
 iso_name=aui-xfce
 iso_label=AUIX
@@ -27,32 +27,33 @@ _usage ()
     echo "usage ${0} [options]"
     echo
     echo " General options:"
+    echo "    -A, --application <application>  Set an application name for the disk"
+    echo "                                     Default: '${iso_application}'"
+    echo "    -c, --comptype <comp_type>       Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
+    echo "                                     Default: ${comp_type}"
+    echo "    -D, --installdir <install_dir>   Set an install_dir (directory inside iso)"
+    echo "                                     Default: ${install_dir}"
+    echo "    -h, --help                       This help message"
+    echo "    -L, --label <iso_label>          Set an iso label (disk label)"
+    echo "                                     Default: ${iso_label}"
+    echo "    -l, --language <language>        Change the default language, select one from:"
+    echo "                                     cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua"
+    echo "    -N, --name <iso_name>            Set an iso filename (prefix)"
+    echo "                                     Default: ${iso_name}"
+    echo "    -o, --outdir <out_dir>           Set the output directory"
+    echo "                                     Default: ${out_dir}"
+    echo "    -P, --publisher <publisher>      Set a publisher for the disk"
+    echo "                                     Default: '${iso_publisher}'"
     echo "    -p, --profile <profile>          Set profile for building iso"
     echo "                                     Default: ${profile}"
     echo "                                     available profiles: cinnamon,console,"
     echo "                                     deepin,gnome,i3,kde,lxqt,mate,xfce"
-    echo "    -N, --name <iso_name>            Set an iso filename (prefix)"
-    echo "                                     Default: ${iso_name}"
+    echo "    --testing                        install linux package in testing"
     echo "    -V, --version <iso_version>      Set an iso version (in filename)"
     echo "                                     Default: ${iso_version}"
-    echo "    -L, --label <iso_label>          Set an iso label (disk label)"
-    echo "                                     Default: ${iso_label}"
-    echo "    -P, --publisher <publisher>      Set a publisher for the disk"
-    echo "                                     Default: '${iso_publisher}'"
-    echo "    -A, --application <application>  Set an application name for the disk"
-    echo "                                     Default: '${iso_application}'"
-    echo "    -D, --installdir <install_dir>   Set an install_dir (directory inside iso)"
-    echo "                                     Default: ${install_dir}"
+    echo "    -v, --verbose                    Enable verbose output"
     echo "    -w, --workdir <work_dir>         Set the working directory"
     echo "                                     Default: ${work_dir}"
-    echo "    -o, --outdir <out_dir>           Set the output directory"
-    echo "                                     Default: ${out_dir}"
-    echo "    -l, --language <language>        Change the default language, select one from:"
-    echo "                                     cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua"
-    echo "    -c, --comptype <comp_type>       Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)"
-    echo "                                     Default: ${comp_type}"
-    echo "    -v, --verbose                    Enable verbose output"
-    echo "    -h, --help                       This help message"
     exit "${1}"
 }
 
@@ -208,6 +209,29 @@ make_packages() {
     fi
 }
 
+# Packages in testing (airootfs)
+make_packages_testing () {
+    local _testingpackages
+    if [[ -n "${testing:-}" ]]; then
+            unshare --fork --pid pacman --config "${script_path}/pacman-testing.conf" --root "${work_dir}/x86_64/airootfs" -Sy
+            if pacman --config "${script_path}/pacman-testing.conf" --root "${work_dir}/x86_64/airootfs" -Si testing/linux; then
+                    _testingpackages="linux "
+                    if [[ "${AUI_ADDITIONALPKGS:-}" =~ 'nvidia' ]]; then
+                            _testingpackages+="nvidia "
+                            if [[ "${AUI_ADDITIONALPKGS:-}" =~ 'bbswitch' ]]; then
+                                    _testingpackages+="bbswitch"
+                            fi
+                    fi
+                    unshare --fork --pid pacstrap -C "${script_path}/pacman-testing.conf" -c -G -M "${work_dir}/x86_64/airootfs" ${_testingpackages}
+            else
+                    echo
+                    echo 'No linux package in testing currently, aborting!'
+                    echo
+                    exit 1
+            fi
+    fi
+}
+
 # airootfs install user provided packages
 make_packages_local() {
     local _pkglocal
@@ -218,7 +242,7 @@ make_packages_local() {
     if [[ ${_pkglocal[@]} ]]; then
         mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing user packages"' run
         echo "      ${_pkglocal[@]##*/}"
-        unshare --fork --pid pacman -r "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
+        unshare --fork --pid pacman --root "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
     fi
 
     iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux | cut -d' ' -f2 | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
@@ -491,8 +515,9 @@ make_iso() {
     cd ~-
 }
 
-OPTS=$(getopt -o 'A:C:D:L:N:P:V:c:g:hl:o:p:w:v' -l 'name,version:,label:,publisher:,application:' \
-       -l 'installdir:,workdir:,outdir:,gpgkey:,verbose,language:,comptype:,profile:,help' -n 'build.sh' -- "$@")
+OPTS=$(getopt -o 'A:c:D:g:hL:l:N:o:P:p:V:vw:' -l 'name,version:,label:,publisher:,application:' \
+       -l 'installdir:,workdir:,outdir:,gpgkey:,verbose,language:,comptype:' \
+       -l 'profile:,testing,help' -n 'build.sh' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -500,38 +525,23 @@ unset OPTS
 
 while true; do
     case "${1}" in
-        '-h'|'--help')
-            _usage 0 ;;
-        '-N'|'--name')
-            iso_name="${2}"
-            shift 2 ;;
-        '-V'|'--version')
-            iso_version="${2}"
-            shift 2 ;;
-        '-L'|'--label')
-            iso_label="${2}"
-            shift 2 ;;
-        '-P'|'--publisher')
-            iso_publisher="${2}"
-            shift 2 ;;
         '-A'|'--application')
             iso_application="${2}"
+            shift 2 ;;
+        '-c'|'--comptype')
+            comp_type="${2}"
             shift 2 ;;
         '-D'|'--installdir')
             install_dir="${2}"
             shift 2 ;;
-        '-w'|'--workdir')
-            work_dir="${2}"
-            shift 2 ;;
-        '-o'|'--outdir')
-            out_dir="${2}"
-            shift 2 ;;
         '-g'|'--gpgkey')
             gpg_key="{2}"
             shift 2 ;;
-        '-v'|'--verbose')
-            verbose="-v"
-            shift ;;
+        '-h'|'--help')
+            _usage 0 ;;
+        '-L'|'--label')
+            iso_label="${2}"
+            shift 2 ;;
         '-l'|'--language')
             case "${2}" in
                 'cz'|'cs_CZ') lang="cs_CZ";;
@@ -552,12 +562,30 @@ while true; do
                 *) _usage 1;;
             esac
             shift 2 ;;
-        '-c'|'--comptype')
-            comp_type="${2}"
+        '-N'|'--name')
+            iso_name="${2}"
+            shift 2 ;;
+        '-o'|'--outdir')
+            out_dir="${2}"
+            shift 2 ;;
+        '-P'|'--publisher')
+            iso_publisher="${2}"
             shift 2 ;;
         '-p'|'--profile')
             profile="${2}"
             _profile
+            shift 2 ;;
+        '--testing')
+            testing="yes"
+            shift ;;
+        '-V'|'--version')
+            iso_version="${2}"
+            shift 2 ;;
+        '-v'|'--verbose')
+            verbose="-v"
+            shift ;;
+        '-w'|'--workdir')
+            work_dir="${2}"
             shift 2 ;;
         '--')
             shift
@@ -582,6 +610,7 @@ mkdir -p "${work_dir}"
 run_once make_pacman_conf
 run_once make_custom_airootfs
 run_once make_packages
+run_once make_packages_testing
 run_once make_packages_local
 run_once make_customize_airootfs
 run_once make_setup_mkinitcpio

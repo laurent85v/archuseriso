@@ -114,6 +114,18 @@ _build_zfs_packages () {
                 exit 0
         fi
         LC_ALL=C mkarchroot -c /var/cache/pacman/pkg "${_ar64}"/root base linux linux-headers base-devel
+        if [[ -n "${testing:-}" ]]; then
+                unshare --fork --pid pacman --config "${confdir}/pacman-testing.conf" --root "${_ar64}/root" -Sy
+                if pacman --config "${confdir}/pacman-testing.conf" --root "${_ar64}/root" -Si testing/linux; then
+                        unshare --fork --pid pacstrap -C "${confdir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers
+                else
+                        echo
+                        echo 'No linux package in testing currently, aborting!'
+                        echo
+                        rm -r "${_auiwork}"
+                        exit 1
+                fi
+        fi
         _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
         if [[ "$(cut -d'.' -f3 <<< "${_linuxversion}")" =~ 'arch' ]]; then
                 _modulesversion="${_linuxversion%.arch*}.0-${_linuxversion##*.}"
@@ -135,7 +147,7 @@ _build_zfs_packages () {
                        break
                 fi
         done
-        cp -a zfs-*.tar.gz{,.asc} ../zfs-linux 
+        cp -a zfs-*.tar.gz{,.asc} ../zfs-linux
         chown -R "${SCRIPTUSER}": "${_auiwork}/zfsonlinux"
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
         sudo --user "${SCRIPTUSER}" updpkgsums
@@ -144,11 +156,11 @@ _build_zfs_packages () {
         sudo --user "${SCRIPTUSER}" updpkgsums
         cd "${_auiwork}/zfsonlinux/zfs-utils/"
         LC_ALL=C sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -u -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        makechrootpkg -r "${_ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
         _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
         cd "${_auiwork}/zfsonlinux/zfs-linux/"
         LC_ALL=C sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -u -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        makechrootpkg -r "${_ar64}" -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
         _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
         if [[ -n "${AUI_USERPKGDIR:-}" ]]; then
                 cp "${_zfspackages[@]}" "${AUI_USERPKGDIR}"
@@ -160,7 +172,7 @@ _build_zfs_packages () {
 }
 
 OPTS=$(getopt -o 'C:hl:v' -l 'addi3wm,addpkg:,confdir:,embeddir:,help' \
-       -l 'language:,nvidia,optimus,pkgdir:,verbose,zfssupport' -n 'aui-mkiso' -- "$@")
+       -l 'language:,nvidia,optimus,pkgdir:,testing,verbose,zfssupport' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -199,6 +211,10 @@ while true; do
                 '--pkgdir')
                         export AUI_USERPKGDIR="${2}"
                         shift 2 ;;
+                '--testing')
+                        testing="yes"
+                        options+="--testing "
+                        shift ;;
                 '-v'|'verbose')
                         options+="-v "
                         shift ;;

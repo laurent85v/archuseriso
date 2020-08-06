@@ -6,20 +6,51 @@ set -e -u
 
 AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
 confdir=/usr/share/archuseriso
-script_path="$( cd -P "$( dirname "$(readlink -f "$0")" )" && pwd )"
 SCRIPTUSER="${SUDO_USER:-}"
 WD="$(pwd)"
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
 # Tony Hutter public key
 ZFSPUBKEY="6AD860EED4598027"
 KEYSERVER="ha.pool.sks-keyservers.net"
+auiwork="${WD}"/auiwork$(openssl rand -hex 4)
+ar64="${auiwork}/archroot64"
+linuxversion=""
+modulesversion=""
+declare -a zfspackages
+zfssha256sum=""
+declare -a zfssources
+zfsversion=""
 
-_build_zfs_packages () {
-        local _auiwork="${WD}"/auiwork$(openssl rand -hex 4)
-        local _ar64="${_auiwork}/archroot64"
-        local _linuxversion _modulesversion _zfspackages _zfssha256sum _zfssources _zfsversion
-        mkdir -p "${_ar64}"
-        mkdir -p "${WD}/work/pkgdir"
+_usage () {
+        echo
+        echo 'aui-build_zfs_packages, command for building the ZFS packages.'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-build_zfs_packages [options]'
+        echo
+        echo 'Get help:'
+        echo 'aui-build_zfs_packages --help'
+        echo
+        exit "${1}"
+}
+
+_help () {
+        echo
+        echo 'Archuseriso tool for building the ZFS packages against the Arch Linux kernel.'
+        echo
+        echo 'Command synopsis:'
+        echo 'aui-build_zfs_packages [options]'
+        echo
+        echo 'Options:'
+        echo '-h, --help              Command line help'
+        echo '-C, --confdir <path>    Archuseriso directory path (default: /usr/share/archuseriso)'
+        echo '--linuxtesting          Build packages against the linux kernel in testing repository'
+        echo
+        exit "${1}"
+}
+_init () {
+        mkdir -p "${ar64}"
+        mkdir -p "${WD}/out"
         if ! pacman -Q devtools &> /dev/null; then
                 echo 'devtools package not installed, aborting!'
                 exit 0
@@ -28,47 +59,65 @@ _build_zfs_packages () {
                 echo 'pacman-contrib package not installed, aborting!'
                 exit 0
         fi
-        _zfssources=($(curl --silent --retry 3 --retry-connrefused --fail \
+        zfssources=($(curl --silent --retry 3 --retry-connrefused --fail \
                        https://api.github.com/repos/openzfs/zfs/releases/latest | \
                        grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
-        _zfsversion="${_zfssources[0]%/zfs-*}"
-        _zfsversion="${_zfsversion#*-}"
-        for _zfslink in "${_zfssources[@]}"; do
+        zfsversion="${zfssources[0]%/zfs-*}"
+        zfsversion="${zfsversion#*-}"
+        for _zfslink in "${zfssources[@]}"; do
                 if [[ "${_zfslink}" =~ 'sha256.asc' ]]; then
-                       _zfssha256sum=$(eval curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" | \
+                       zfssha256sum=$(eval curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" | \
                          grep '\.tar\.gz$' | cut -d' ' -f1)
                        break
                 fi
         done
-        if [[ -z "${_zfsversion}" || -z "${_zfssha256sum}" ]]; then
+        if [[ -z "${zfsversion}" || -z "${zfssha256sum}" ]]; then
                 echo 'Retrieving ZFS data failed, aborting!'
                 exit 0
         fi
         if [[ ! -e "${confdir}/aui/zfsonlinux" ]]; then
-                if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${_auiwork}/archuseriso-master.tar.gz"; then
-                        tar --directory "${_auiwork}" -xf "${_auiwork}/archuseriso-master.tar.gz"
-                        confdir="${_auiwork}/archuseriso-master"
+                if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${auiwork}/archuseriso-master.tar.gz"; then
+                        tar --directory "${auiwork}" -xf "${auiwork}/archuseriso-master.tar.gz"
+                        confdir="${auiwork}/archuseriso-master"
                 else
                         echo 'Retrieving archuseriso sources failed, aborting!'
                         exit 1
                 fi
         fi
-        LC_ALL=C mkarchroot -c /var/cache/pacman/pkg "${_ar64}"/root base linux linux-headers base-devel
-        _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
-        if [[ "$(cut -d'.' -f3 <<< "${_linuxversion}")" =~ 'arch' ]]; then
-                _modulesversion="${_linuxversion%.arch*}.0-${_linuxversion##*.}"
-        else
-                _modulesversion="${_linuxversion%.arch*}-${_linuxversion##*.}"
+}
+
+_create_archroot64 () {
+        LC_ALL=C mkarchroot -C "${confdir}/pacman.conf" -c /var/cache/pacman/pkg "${ar64}/root" base linux linux-headers base-devel
+        if [[ -n "${linuxtesting:-}" ]]; then
+                unshare --fork --pid pacman --config "${confdir}/pacman-testing.conf" --root "${ar64}/root" -Sy
+                if unshare --fork --pid pacman --config "${confdir}/pacman-testing.conf" --root "${ar64}/root" -Si testing/linux; then
+                        pacstrap -C "${confdir}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers
+                else
+                        echo
+                        echo 'No linux package in testing currently, aborting!'
+                        echo
+                        rm -r "${auiwork}"
+                        exit 1
+                fi
         fi
-        cp -arT "${confdir}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
-        sed -i "s/%ZFSVERSION%/${_zfsversion}/
-                s/%LINUXVERSION%/${_linuxversion}/
-                s/%MODULESVERSION%/${_modulesversion}/
-                s/%SHA256SUM%/${_zfssha256sum}/" \
-                "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
-                "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
-        cd "${_auiwork}/zfsonlinux/zfs-utils/"
-        for _zfslink in "${_zfssources[@]}"; do
+}
+
+_build_zfs_packages () {
+        linuxversion=$(pacman --sysroot "${ar64}/root" -Q linux | cut -d' ' -f2)
+        if [[ "$(cut -d'.' -f3 <<< "${linuxversion}")" =~ 'arch' ]]; then
+                modulesversion="${linuxversion%.arch*}.0-${linuxversion##*.}"
+        else
+                modulesversion="${linuxversion%.arch*}-${linuxversion##*.}"
+        fi
+        cp -arT "${confdir}/aui/zfsonlinux" "${auiwork}/zfsonlinux"
+        sed -i "s/%ZFSVERSION%/${zfsversion}/
+                s/%LINUXVERSION%/${linuxversion}/
+                s/%MODULESVERSION%/${modulesversion}/
+                s/%SHA256SUM%/${zfssha256sum}/" \
+                "${auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
+                "${auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
+        cd "${auiwork}/zfsonlinux/zfs-utils/"
+        for _zfslink in "${zfssources[@]}"; do
                 if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
                        curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" -O
                        curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}".asc -O
@@ -76,32 +125,56 @@ _build_zfs_packages () {
                 fi
         done
         cp -a zfs-*.tar.gz{,.asc} ../zfs-linux
-        chown -R "${SCRIPTUSER}": "${_auiwork}/zfsonlinux"
+        chown -R "${SCRIPTUSER}": "${auiwork}/zfsonlinux"
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
         sudo --user "${SCRIPTUSER}" updpkgsums
-        cd "${_auiwork}/zfsonlinux/zfs-linux/"
+        cd "${auiwork}/zfsonlinux/zfs-linux/"
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
         sudo --user "${SCRIPTUSER}" updpkgsums
-        cd "${_auiwork}/zfsonlinux/zfs-utils/"
+        cd "${auiwork}/zfsonlinux/zfs-utils/"
         LC_ALL=C sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -u -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-        _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
-        cd "${_auiwork}/zfsonlinux/zfs-linux/"
+        makechrootpkg -r "${ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        zfspackages=($(find "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
+        cd "${auiwork}/zfsonlinux/zfs-linux/"
         LC_ALL=C sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -u -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-        _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
-        cp "${_zfspackages[@]}" "${WD}/work/pkgdir"
-        rm -r "${_auiwork}"
+        makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        zfspackages=($(find "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
+        cp "${zfspackages[@]}" "${WD}/out"
+        rm -r "${auiwork}"
 }
+
+OPTS=$(getopt -o 'C:,h' -l 'confdir:,help,linuxtesting' -n 'aui-build_zfs_packages' -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+
+while true; do
+        case "${1}" in
+                '--confdir')
+                        confdir="${2}"
+                        shift 2 ;;
+                '-h'|'--help')
+                        help="yes"
+                        shift ;;
+                '--linuxtesting')
+                        linuxtesting="yes"
+                        shift ;;
+                '--')
+                        shift
+                        break ;;
+        esac
+done
+
+if [[ -n "${help:-}" ]]; then
+       _help 0
+fi
 
 if [[ ${EUID} -ne 0 ]]; then
         echo "This script must be run as root."
+        echo
+        echo "Get help:"
+        echo "aui-build_zfs_packages --help"
         exit 1
-fi
-
-if [[ -d "work" ]]; then
-        echo \'work\'' directory exists, aborting!'
-        exit 0
 fi
 
 if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
@@ -126,14 +199,16 @@ if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/n
         fi
 fi
 
+_init
+_create_archroot64
 _build_zfs_packages
 
 cd "${WD}"
 
 echo 'Done!'
-echo 'ZFS packaged stored in directory '\'work/pkgdir\'
+echo 'ZFS packaged stored in directory '\''out'
 echo
-find "${WD}/work/pkgdir" -type f
+find "${WD}/out" -type f -name "*.pkg.tar.*"
 echo
 
 # vim: set expandtab:
