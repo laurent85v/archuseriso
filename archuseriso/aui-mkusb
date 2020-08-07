@@ -250,6 +250,12 @@ _usb_prepare () {
                 eval $(grep install_dir "${WD}/${workdir}/iso/aui/AUIDATA")
         else
                 echo "Error: ${isoname} is not a compatible image!"
+                echo
+                echo 'For the console iso image which does not support'
+                echo 'persitence use the '\''--rawwrite'\'' command option'
+                echo 'this way:'
+                echo
+                echo "sudo aui-mkusb ${isoname} ${usbdevice} --rawwrite"
                 _unmount
                 _usage 1
         fi
