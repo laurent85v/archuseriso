@@ -31,21 +31,23 @@ _help () {
         echo 'aui-mkiso <profile> [options]'
         echo
         echo 'Options:'
-        echo '-h, --help                        Command line help'
-        echo '--addi3wm                         Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl'
-        echo '--addpkg <package1,package2,...>  Comma separated list of additional packages'
-        echo '-C, --confdir <path>              Archuseriso directory path (default: /usr/share/archuseriso)'
-        echo '--embeddir <directory path>       Embed directory in the iso image. Data will be available'
-        echo '                                  from the user'\''s live session'
-        echo '-l, --language <language>         Set default language:'
-        echo '                                  cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
-        echo '--nvidia                          Add Nvidia graphics driver'
-        echo '--optimus                         For Optimus hardware. Set Intel iGPU default, Nvidia dGPU'
-        echo '                                  configured for PRIME render offload (prime-run <application>)'
-        echo '--pkgdir <path>                   User directory containing package files for installation'
-        echo '-v, --verbose                     Verbose mode'
-        echo '--zfssupport                      Add ZFS support. Dynamically builds the ZFS packages before'
-        echo '                                  building the iso image'
+        echo '-h, --help                          Command line help'
+        echo '--addi3wm                           Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl'
+        echo '--addpkg <package1,package2,...>    Comma separated list of additional packages'
+        echo '-C, --confdir <path>                Archuseriso directory path (default: /usr/share/archuseriso)'
+        echo '--embeddir <directory path>         Embed directory in the iso image. Data will be available'
+        echo '                                    from the user'\''s live session'
+        echo '-l, --language <language>           Set default language:'
+        echo '                                    cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua'
+        echo '--nvidia                            Add Nvidia graphics driver'
+        echo '--optimus                           For Optimus hardware. Set Intel iGPU default, Nvidia dGPU'
+        echo '                                    configured for PRIME render offload (prime-run <application>)'
+        echo '--pkgdir <path>                     User directory containing package files for installation'
+        echo '--testing  <package1,package2,...>  Comma separated list of additional packages from testing'
+        echo '                                    and community-testing repositories'
+        echo '-v, --verbose                       Verbose mode'
+        echo '--zfs                               Add ZFS support. Dynamically builds the ZFS packages before'
+        echo '                                    building the iso image'
         echo
         echo 'ISO profiles:'
         echo 'console, cinnamon, deepin, gnome, i3, kde, lxqt, mate, xfce'
@@ -114,17 +116,14 @@ _build_zfs_packages () {
                 exit 0
         fi
         LC_ALL=C mkarchroot -c /var/cache/pacman/pkg "${_ar64}"/root base linux linux-headers base-devel
-        if [[ -n "${testing:-}" ]]; then
-                unshare --fork --pid pacman --config "${confdir}/pacman-testing.conf" --root "${_ar64}/root" -Sy
-                if pacman --config "${confdir}/pacman-testing.conf" --root "${_ar64}/root" -Si testing/linux; then
-                        unshare --fork --pid pacstrap -C "${confdir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers
-                else
-                        echo
-                        echo 'No linux package in testing currently, aborting!'
-                        echo
-                        rm -r "${_auiwork}"
-                        exit 1
-                fi
+        if [[ -n "${testingpackages:-}" ]]; then
+                unshare --fork --pid pacman --config "${confdir}/pacman-testing.conf" --root "${_ar64}/root" -Sy > /dev/null 2>&1
+                for _package in ${testingpackages}; do
+                        if [[ "${_package}" = 'linux' ]]; then
+                                pacstrap -C "${confdir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers
+                        break
+                        fi
+                done
         fi
         _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
         if [[ "$(cut -d'.' -f3 <<< "${_linuxversion}")" =~ 'arch' ]]; then
@@ -172,7 +171,7 @@ _build_zfs_packages () {
 }
 
 OPTS=$(getopt -o 'C:hl:v' -l 'addi3wm,addpkg:,confdir:,embeddir:,help' \
-       -l 'language:,nvidia,optimus,pkgdir:,testing,verbose,zfssupport' -n 'aui-mkiso' -- "$@")
+       -l 'language:,nvidia,optimus,pkgdir:,testing:,verbose,zfs' -n 'aui-mkiso' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -212,13 +211,13 @@ while true; do
                         export AUI_USERPKGDIR="${2}"
                         shift 2 ;;
                 '--testing')
-                        testing="yes"
-                        options+="--testing "
-                        shift ;;
+                        testingpackages="$(tr ',' ' ' <<< ${2})"
+                        options+="--testing ${2}"
+                        shift 2 ;;
                 '-v'|'verbose')
                         options+="-v "
                         shift ;;
-                '--zfssupport')
+                '--zfs')
                         AUI_ZFSSUPPORT="yes"
                         AUI_ISONAME+=(zfs)
                         shift ;;

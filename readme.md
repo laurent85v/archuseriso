@@ -112,27 +112,29 @@ Live USB partition layout created by `aui-mkusb`:
     aui-mkiso <profile> [options]
 
     Options:
-    -h, --help                        Command line help
-    --addi3wm                         Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl
-    --addpkg <package1,package2,...>  Comma separated list of additional packages
-    -C, --confdir <path>              Archuseriso directory path (default: /usr/share/archuseriso)
-    --embeddir <directory path>       Embed directory in the iso image. Data will be available
-                                      from the user's live session
-    -l, --language <language>         Set default language:
-                                      cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
-    --nvidia                          Add Nvidia graphics driver
-    --optimus                         For Optimus hardware. Set Intel iGPU default, Nvidia dGPU
-                                      configured for PRIME render offload (prime-run <application>)
-    --pkgdir <path>                   User directory containing package files for installation
-    -v, --verbose                     Verbose mode
-    --zfssupport                      Add ZFS support. Dynamically builds the ZFS packages before
-                                      building the iso image
+    -h, --help                          Command line help
+    --addi3wm                           Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl
+    --addpkg <package1,package2,...>    Comma separated list of additional packages
+    -C, --confdir <path>                Archuseriso directory path (default: /usr/share/archuseriso)
+    --embeddir <directory path>         Embed directory in the iso image. Data will be available
+                                        from the user's live session
+    -l, --language <language>           Set default language:
+                                        cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
+    --nvidia                            Add Nvidia graphics driver
+    --optimus                           For Optimus hardware. Set Intel iGPU default, Nvidia dGPU
+                                        configured for PRIME render offload (prime-run <application>)
+    --pkgdir <path>                     User directory containing package files for installation
+    --testing  <package1,package2,...>  Comma separated list of additional packages from testing
+                                        and community-testing repositories
+    -v, --verbose                       Verbose mode
+    --zfs                               Add ZFS support. Dynamically builds the ZFS packages before
+                                        building the iso image
 
 #### ISO image with ZFS support
 
-`aui-mkiso` has a command option '--zfssupport' for building an iso image with ZFS support. The build
-script proceeds in two stages, first stage builds the necessary zfs packages against current Arch Linux
-kernel, second stage builds the iso image.
+`aui-mkiso` has a command option '--zfs' for building an iso image with ZFS support. The build script
+proceeds in two stages, first stage builds the necessary zfs packages against current Arch Linux kernel,
+second stage builds the iso image.
 
 Archuseriso also provides a command line utility `aui-build_zfs_packages` for building the ZFS packages. The
 packages can be installed on any Arch Linux system for adding ZFS support.

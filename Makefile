@@ -18,6 +18,8 @@ install:
 	cp -a --no-preserve=ownership efiboot $(DESTDIR)/usr/share/archuseriso/
 	cp -a --no-preserve=ownership isolinux $(DESTDIR)/usr/share/archuseriso/
 	cp -a --no-preserve=ownership lang $(DESTDIR)/usr/share/archuseriso/
+	install pacman.conf $(DESTDIR)/usr/share/archuseriso/
+	install pacman-testing.conf $(DESTDIR)/usr/share/archuseriso/
 	cp -a --no-preserve=ownership profiles $(DESTDIR)/usr/share/archuseriso/
 	install readme.md $(DESTDIR)/usr/share/archuseriso/
 	cp -a --no-preserve=ownership syslinux $(DESTDIR)/usr/share/archuseriso/
