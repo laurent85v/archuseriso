@@ -89,6 +89,9 @@ fi
 # Update schemas
 glib-compile-schemas /usr/share/glib-2.0/schemas/
 
+# Default background fix
+ln -s /usr/share/backgrounds/deepin/desktop.jpg /usr/share/backgrounds/default_background.jpg
+
 # disable systemd-networkd.service
 # we have NetworkManager for managing network interfaces
 [[ -e /etc/systemd/system/multi-user.target.wants/systemd-networkd.service ]] && rm /etc/systemd/system/multi-user.target.wants/systemd-networkd.service
