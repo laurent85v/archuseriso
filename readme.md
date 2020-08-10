@@ -1,24 +1,24 @@
 Description
 ===========
 
-Profiles for building Arch Linux Live ISO images. Tools for creating bootable USB drives featuring persistent storage, encryption and normal installation on a usb drive.
+Profiles for building Arch Linux Live ISO images. Bootable USB drives creation tools featuring persistent storage and encryption.
 
 Highlights
 ----------
 
 * easy build
-* very fast images
-* live USB creation tool featuring persistent storage
+* very fast live images
+* live usb drive creation tool
+* persistence support
 * pacman updates support
 * rEFInd boot manager
 * LUKS encryption option
 * ZFS support option
-* language build option
+* language option
 * package list customization
 * user packages support
-* Nvidia driver support option
-* Optimus hardware support option
-* installation on usb device
+* Nvidia graphics driver option
+* Optimus hardware option
 * samba public folder sharing
 
 Desktop environments profiles
@@ -55,8 +55,8 @@ Install:
 
     sudo make -C archuseriso install
 
-ISO image build
----------------
+ISO image building
+------------------
 
 Command synopsis:
 
@@ -154,9 +154,9 @@ packages can be installed on any Arch Linux system for adding ZFS support.
     --sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)
     --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)
 
-Normal installation onto a USB drive
+Normal installation on a USB drive
 -------------------------------------
-Installation identical to a normal installation on a hard disk drive. No live image installed, no compression, hard disk like installation except journal configured in volatile mode for limiting writes to usb drive. See the command line help for available options.
+No live image installed, no compression, hard disk like installation except systemd logs configured in volatile mode for limiting writes to usb drive. See the command line help for available options.
 
 Command synopsis:
 
