@@ -206,9 +206,27 @@ make_packages() {
         _lang=$(grep -Ehv '^#|^$' "${profile_path}"/lang/"${lang}"/packages{-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')
     fi
     if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${profile_path}"/packages{,-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
+        mkarchiso \
+            -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" \
+            -p "$(grep -Ehv '^#|^$' \
+               "${script_path}"/packages.x86_64 \
+               "${profile_path}"/packages-extra.x86_64 \
+               "${profile_path}"/packages-${profile}.x86_64 | \
+               sed ':a;N;$!ba;s/\n/ /g') \
+               ${_lang} \
+               ${AUI_ADDITIONALPKGS:-}" \
+            install
     else
-        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(grep -Ehv '^#|^$' "${profile_path}"/packages{,-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g') ${_lang} ${AUI_ADDITIONALPKGS:-}" install
+        mkarchiso \
+            -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" \
+            -p "$(grep -Ehv '^#|^$' \
+               "${script_path}"/packages.x86_64 \
+               "${profile_path}"/packages-extra.x86_64 \
+               "${profile_path}"/packages-${profile}.x86_64 | \
+               sed ':a;N;$!ba;s/\n/ /g') \
+               ${_lang} \
+               ${AUI_ADDITIONALPKGS:-}" \
+            install
     fi
 }
 
@@ -246,7 +264,6 @@ make_packages_local() {
     if [[ ${_pkglocal[@]} ]]; then
         mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing user packages"' run
         echo "      ${_pkglocal[@]##*/}"
-        # unshare --fork --pid pacman --root "${work_dir}/x86_64/airootfs" -U --noconfirm "${_pkglocal[@]}" > /dev/null 2>&1
         pacstrap -c -G -M -U "${work_dir}/x86_64/airootfs" ${_pkglocal[@]} > /dev/null 2>&1
     fi
 
