@@ -89,8 +89,6 @@ _build_zfs_packages () {
                 fi
         fi
 
-        mkdir -p "${WD}/work/pkgdir"
-        mkdir -p "${_ar64}"
         if ! pacman -Q devtools &> /dev/null; then
                 echo 'devtools package not installed, aborting!'
                 exit 0
@@ -99,6 +97,8 @@ _build_zfs_packages () {
                 echo 'pacman-contrib package not installed, aborting!'
                 exit 0
         fi
+        mkdir -p "${WD}/work/pkgdir"
+        mkdir -p "${_ar64}"
         _zfssources=($(curl --silent --retry 3 --retry-connrefused --fail \
                        https://api.github.com/repos/openzfs/zfs/releases/latest | \
                        grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
@@ -258,7 +258,7 @@ case "${1}" in
                 profile="${1}" ;;
         console)
                 echo
-                echo 'Console iso build reminder, some options may be ignored!'
+                echo 'Console iso building: some options may be ignored!'
                 sleep 3
                 profile="${1}" ;;
         *)

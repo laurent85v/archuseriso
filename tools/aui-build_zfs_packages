@@ -49,8 +49,6 @@ _help () {
         exit "${1}"
 }
 _init () {
-        mkdir -p "${ar64}"
-        mkdir -p "${WD}/out"
         if ! pacman -Q devtools &> /dev/null; then
                 echo 'devtools package not installed, aborting!'
                 exit 0
@@ -59,6 +57,8 @@ _init () {
                 echo 'pacman-contrib package not installed, aborting!'
                 exit 0
         fi
+        mkdir -p "${ar64}"
+        mkdir -p "${WD}/out"
         zfssources=($(curl --silent --retry 3 --retry-connrefused --fail \
                        https://api.github.com/repos/openzfs/zfs/releases/latest | \
                        grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
