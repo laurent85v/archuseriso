@@ -78,7 +78,7 @@ _init () {
         if [[ ! -e "${confdir}/aui/zfsonlinux" ]]; then
                 if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${auiwork}/archuseriso-master.tar.gz"; then
                         tar --directory "${auiwork}" -xf "${auiwork}/archuseriso-master.tar.gz"
-                        confdir="${auiwork}/archuseriso-master"
+                        confdir="${auiwork}/archuseriso-master/archuseriso"
                 else
                         echo 'Retrieving archuseriso sources failed, aborting!'
                         exit 1
