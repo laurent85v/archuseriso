@@ -272,13 +272,16 @@ make_packages_local() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
-    if [[ -e "${work_dir}/x86_64/airootfs/etc/passwd" ]]; then
+    if [[ -e "${script_path}/airootfs/etc/passwd" ]]; then
         while IFS=':' read -a passwd -r; do
             [[ "${passwd[5]}" == '/' ]] && continue
             cp -RdT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${work_dir}/x86_64/airootfs${passwd[5]}"
             chown -hR -- "${passwd[2]}:${passwd[3]}" "${work_dir}/x86_64/airootfs${passwd[5]}"
 
-        done < "${work_dir}/x86_64/airootfs/etc/passwd"
+            if [[ -d "${work_dir}/x86_64/airootfs${passwd[5]}" ]]; then
+                chmod -f 0750 -- "${work_dir}/x86_64/airootfs${passwd[5]}"
+            fi
+        done < "${script_path}/airootfs/etc/passwd"
     fi
 
     if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh" ]]; then
