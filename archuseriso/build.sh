@@ -116,7 +116,6 @@ _profile () {
             iso_application="Archuseriso ${desktop} Live/Rescue medium"
             profile=xfce ;;
         *)
-            echo ZZZ
             echo "The profile ${profile} does not exist!"
             _usage 1 ;;
     esac
@@ -179,19 +178,6 @@ make_custom_airootfs() {
         [[ -e "${_airootfs}/etc/shadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/shadow"
         [[ -e "${_airootfs}/etc/gshadow" ]] && chmod -f 0400 -- "${_airootfs}/etc/gshadow"
 
-        # Set up user home directories and permissions
-        if [[ -e "${_airootfs}/etc/passwd" ]]; then
-            while IFS=':' read -a passwd -r; do
-                [[ "${passwd[5]}" == '/' ]] && continue
-
-                if [[ -d "${_airootfs}${passwd[5]}" ]]; then
-                    chown -hR -- "${passwd[2]}:${passwd[3]}" "${_airootfs}${passwd[5]}"
-                    chmod -f 0750 -- "${_airootfs}${passwd[5]}"
-                else
-                    install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${_airootfs}${passwd[5]}"
-                fi
-             done < "${_airootfs}/etc/passwd"
-        fi
     fi
 
     # Set archiso cow_spacesize to 50% ram size
@@ -272,17 +258,21 @@ make_packages_local() {
 
 # Customize installation (airootfs)
 make_customize_airootfs() {
-    if [[ -e "${script_path}/airootfs/etc/passwd" ]]; then
-        while IFS=':' read -a passwd -r; do
-            [[ "${passwd[5]}" == '/' ]] && continue
-            cp -RdT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${work_dir}/x86_64/airootfs${passwd[5]}"
-            chown -hR -- "${passwd[2]}:${passwd[3]}" "${work_dir}/x86_64/airootfs${passwd[5]}"
-
-            if [[ -d "${work_dir}/x86_64/airootfs${passwd[5]}" ]]; then
-                chmod -f 0750 -- "${work_dir}/x86_64/airootfs${passwd[5]}"
-            fi
-        done < "${script_path}/airootfs/etc/passwd"
-    fi
+    # Set up user home directories and permissions
+    for _passwdfile in "${script_path}/airootfs/etc/passwd" "${profile_path}/airootfs/etc/passwd"; do
+        if [[ -e "${_passwdfile}" ]]; then
+            while IFS=':' read -a passwd -r; do
+                [[ "${passwd[5]}" == '/' ]] && continue
+                if [[ -d "${work_dir}/x86_64/airootfs${passwd[5]}" ]]; then
+                    cp -RdT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${work_dir}/x86_64/airootfs${passwd[5]}"
+                    chown -hR -- "${passwd[2]}:${passwd[3]}" "${work_dir}/x86_64/airootfs${passwd[5]}"
+                    chmod -f 0750 -- "${work_dir}/x86_64/airootfs${passwd[5]}"
+                else
+                    install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${work_dir}/x86_64/airootfs${passwd[5]}"
+                fi
+            done < "${_passwdfile}"
+        fi
+    done
 
     if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh" ]]; then
         if [ -n "${verbose}" ]; then
