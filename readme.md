@@ -45,7 +45,7 @@ Install [archuseriso](https://aur.archlinux.org/packages/archuseriso/) available
 
 Or manual install on Arch Linux:
 
-    sudo pacman --needed -S archiso git make syslinux
+    sudo pacman --needed -S git make syslinux
 
 Clone master repository:
 
