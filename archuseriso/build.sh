@@ -192,7 +192,7 @@ make_packages() {
         _lang=$(grep -Ehv '^#|^$' "${profile_path}"/lang/"${lang}"/packages{-extra,-${profile}}.x86_64 | sed ':a;N;$!ba;s/\n/ /g')
     fi
     if [ -n "${verbose}" ]; then
-        mkarchiso \
+        mkaui \
             -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" \
             -p "$(grep -Ehv '^#|^$' \
                "${script_path}"/packages.x86_64 \
@@ -203,7 +203,7 @@ make_packages() {
                ${AUI_ADDITIONALPKGS:-}" \
             install
     else
-        mkarchiso \
+        mkaui \
             -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" \
             -p "$(grep -Ehv '^#|^$' \
                "${script_path}"/packages.x86_64 \
@@ -233,9 +233,9 @@ make_packages_testing () {
             fi
         done
         if [ -n "${verbose}" ]; then
-            mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman-testing.conf" -D "${install_dir}" -p "${testingpackages} ${_testingpackages}" install
+            mkaui -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman-testing.conf" -D "${install_dir}" -p "${testingpackages} ${_testingpackages}" install
         else
-            mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman-testing.conf" -D "${install_dir}" -p "${testingpackages} ${_testingpackages}" install
+            mkaui -w "${work_dir}/x86_64" -C "${work_dir}/pacman-testing.conf" -D "${install_dir}" -p "${testingpackages} ${_testingpackages}" install
         fi
     fi
 }
@@ -248,9 +248,11 @@ make_packages_local() {
     fi
 
     if [[ ${_pkglocal[@]} ]]; then
-        mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'echo "Installing user packages"' run
-        echo "      ${_pkglocal[@]##*/}"
-        pacstrap -c -G -M -U "${work_dir}/x86_64/airootfs" ${_pkglocal[@]} > /dev/null 2>&1
+        if [ -n "${verbose}" ]; then
+            mkaui -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(sed ':a;N;$!ba;s/\n/ /g' <<< "${_pkglocal[@]}")" upgrade
+        else
+            mkaui -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -p "$(sed ':a;N;$!ba;s/\n/ /g' <<< "${_pkglocal[@]}")" upgrade
+        fi
     fi
 
     iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux | cut -d' ' -f2 | sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${AUI_ISONAMEOPTION:+-$AUI_ISONAMEOPTION}${lang:+-$lang}-$(date +%m%d)"
@@ -276,9 +278,9 @@ make_customize_airootfs() {
 
     if [[ -e "${work_dir}/x86_64/airootfs/root/customize_airootfs-${profile}.sh" ]]; then
         if [ -n "${verbose}" ]; then
-            mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r "/root/customize_airootfs-${profile}.sh" run
+            mkaui -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r "/root/customize_airootfs-${profile}.sh" run
         else
-            mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r "/root/customize_airootfs-${profile}.sh" run
+            mkaui -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r "/root/customize_airootfs-${profile}.sh" run
         fi
     fi
 
@@ -293,9 +295,9 @@ make_setup_mkinitcpio() {
       exec 17<>"${work_dir}/gpgkey"
     fi
     if [ -n "${verbose}" ]; then
-        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkarchiso -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
+        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkaui -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
     else
-        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkarchiso -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
+        ARCHISO_GNUPG_FD="${gpg_key:+17}" mkaui -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
     fi
     if [[ "${gpg_key}" ]]; then
       exec 17<&-
@@ -392,7 +394,7 @@ make_efi() {
 make_efiboot() {
     mkdir -p "${work_dir}/iso/EFI/archiso"
     truncate -s 96M "${work_dir}/iso/EFI/archiso/efiboot.img"
-    mkfs.fat -n LIVEMEDIUM "${work_dir}/iso/EFI/archiso/efiboot.img"
+    mkfs.fat -n LIVEMEDIUM "${work_dir}/iso/EFI/archiso/efiboot.img" > /dev/null
 
     mkdir -p "${work_dir}/efiboot"
     mount "${work_dir}/iso/EFI/archiso/efiboot.img" "${work_dir}/efiboot"
@@ -505,11 +507,11 @@ make_aui() {
 make_prepare() {
     cp -a -l -f "${work_dir}/x86_64/airootfs" "${work_dir}"
     if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}" -D "${install_dir}" pkglist
-        mkarchiso -v -w "${work_dir}" -D "${install_dir}" -c "${comp_type}" ${gpg_key:+-g ${gpg_key}} prepare
+        mkaui -v -w "${work_dir}" -D "${install_dir}" pkglist
+        mkaui -v -w "${work_dir}" -D "${install_dir}" -c "${comp_type}" ${gpg_key:+-g ${gpg_key}} prepare
     else
-        mkarchiso -w "${work_dir}" -D "${install_dir}" pkglist
-        mkarchiso -w "${work_dir}" -D "${install_dir}" -c "${comp_type}" ${gpg_key:+-g ${gpg_key}} prepare
+        mkaui -w "${work_dir}" -D "${install_dir}" pkglist
+        mkaui -w "${work_dir}" -D "${install_dir}" -c "${comp_type}" ${gpg_key:+-g ${gpg_key}} prepare
     fi
     rm -rf "${work_dir}/airootfs"
     # rm -rf "${work_dir}/x86_64/airootfs" (if low space, this helps)
@@ -518,9 +520,9 @@ make_prepare() {
 # Build ISO
 make_iso() {
     if [ -n "${verbose}" ]; then
-        mkarchiso -v -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
+        mkaui -v -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
     else
-         mkarchiso -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
+         mkaui -w "${work_dir}" -D "${install_dir}" -L "${iso_label}" -P "${iso_publisher}" -A "${iso_application}" -o "${out_dir}" iso "${iso_name}-${iso_version}-x64.iso"
     fi
     cd "${out_dir}"
     sha512sum -b "${iso_name}-${iso_version}-x64.iso" > "${iso_name}-${iso_version}-x64.iso.sha512"
