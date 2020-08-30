@@ -34,5 +34,6 @@
 *.color7:  #fcfcfc
 *.color15: #fdf6e3
 
+URxvt.background: rgb:23/26/27
 URxvt.scrollBar: false
 URxvt.font: xft:hack:size=9
