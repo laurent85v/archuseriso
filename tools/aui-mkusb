@@ -28,9 +28,10 @@ _help () {
         echo '-h, --help                Command line help'
         echo '--encrypt                 Encrypt persistent partition'
         echo '--ext4journal             Enable ext4 journal (disabled by default for minimizing drive writes)'
+        echo '--f2fs                    Use the F2FS file system for the persistent partition (Default Ext4)' 
         echo '--rawwrite                Raw ISO image write to USB drive (dd like mode)'
         echo '--sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)'
-        echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)'
+        echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4/F2FS)'
         echo
         echo 'Example:'
         echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc'
@@ -140,7 +141,7 @@ _checks () {
         if [[ -n "${rawwrite:-}" ]]; then
                 echo
                 echo 'rawwrite option set. Ignoring other options!'
-                unset -v encrypt ext4size fatsize
+                unset -v encrypt cowsize fatsize
         fi
         if [[ -n "${fatsize:-}" ]]; then
                 if ! [[ "${fatsize/[gG]}" =~ ^[1-9][0-9]?+$ ]]; then
@@ -148,16 +149,22 @@ _checks () {
                         _usage 1
                 fi
         fi
-        if [[ -n "${ext4size:-}" ]]; then
-                if ! [[ "${ext4size/[gG]}" =~ ^[1-9][0-9]?+$ ]]; then
-                        echo "Ext4 partition size error: Invalid --ext4-size argument (GiB): ${ext4size}"
+        if [[ -n "${cowsize:-}" ]]; then
+                if ! [[ "${cowsize/[gG]}" =~ ^[1-9][0-9]?+$ ]]; then
+                        echo "Ext4/F2FS partition size error: Invalid size argument (GiB): ${cowsize}"
                         _usage 1
+                fi
+        fi
+        if [[ -n "${f2fs:-}" ]]; then
+                if ! pacman -Q f2fs-tools &> /dev/null; then
+                        echo 'f2fs-tools package not installed, aborting!'
+                        exit 0
                 fi
         fi
 }
 
 _init () {
-        local _ext4size
+        local _cowsize
         local _fatsize
         devicesize=$(blockdev --getsize64 "${usbdevice}")
         ESP=512 # 512 MiB
@@ -181,13 +188,13 @@ _init () {
         else
                 _fatsize=$(( ESP * 1024 * 1024 ))
         fi
-        if [[ -n "${ext4size:-}" ]]; then
-                _ext4size=$(( ${ext4size/[gG]} * 1024 * 1024 * 1024 ))
+        if [[ -n "${cowsize:-}" ]]; then
+                _cowsize=$(( ${cowsize/[gG]} * 1024 * 1024 * 1024 ))
         else
-                _ext4size=0
+                _cowsize=0
         fi
         # check partition size
-        if [[ ! ${devicesize} -gt $(( isosize + _fatsize + _ext4size )) ]]; then
+        if [[ ! ${devicesize} -gt $(( isosize + _fatsize + _cowsize )) ]]; then
                 echo "Size settings error: exceeds drive storage capacity (GiB)!"
                 exit 1
         fi
@@ -280,8 +287,8 @@ _partitions () {
         if [[ -n "${fatsize:-}" ]]; then
                 _fatsize=$(( ${fatsize/[gG]} * 1024 * 1024 * 1024 / 512 ))
         fi
-        if [[ -n "${ext4size:-}" ]]; then
-                _ext4size=$(( ${ext4size/[gG]} * 1024 * 1024 * 1024 / 512 ))
+        if [[ -n "${cowsize:-}" ]]; then
+                _cowsize=$(( ${cowsize/[gG]} * 1024 * 1024 * 1024 / 512 ))
         fi
         # partition #1 iso data
         if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_ptlinux}," | sfdisk "${usbdevice}" -W always; then
@@ -298,12 +305,33 @@ _partitions () {
         fi
         sleep 2
         # partition #3 persistent partition
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 + _fatsize )),${_ext4size:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always; then
+        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 + _fatsize )),${_cowsize:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always; then
                 echo 'Failed to create new partition layout!'
                 _unmount
                 exit 1
         fi
         sleep 2
+}
+
+_format_f2fs() {
+        if ! flock "${cowdevice}" mkfs.f2fs "${cowdevice}" -l "${cow_label}" -O encrypt,extra_attr,compression; then
+               echo 'Formatting partition failed!'
+                _unmount
+               exit 1
+        fi
+}
+
+_format_ext4 () {
+        if ! flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt,'^has_journal'; then
+               echo 'Formatting partition failed!'
+                _unmount
+               exit 1
+        fi
+        # enable ext4 journal
+        if [[ -n "${ext4journal:-}" ]]; then
+                tune2fs -O 'has_journal' "${usbdevice}1"
+                tune2fs -O 'has_journal' "${cowdevice}"
+        fi
 }
 
 _format () {
@@ -322,15 +350,12 @@ _format () {
         if [[ -n "${encryption:-}" ]]; then
                _encrypt_mkluks
         fi
-        if ! flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt,'^has_journal'; then
-               echo 'Partition format failed!'
-                _unmount
-               exit 1
-        fi
-        # enable ext4 journal
-        if [[ -n "${ext4journal:-}" ]]; then
-                tune2fs -O 'has_journal' "${usbdevice}1"
-                tune2fs -O 'has_journal' "${cowdevice}"
+        # Persistent partition filesystem type
+        # Default ext4
+        if [[ -n "${f2fs:-}" ]]; then
+                _format_f2fs
+        else
+                _format_ext4
         fi
 }
 
@@ -389,7 +414,7 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,rawwrite,sizepart2:,sizepart3:,help' -n 'aui-mkusb' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,f2fs,rawwrite,sizepart2:,sizepart3:,help' -n 'aui-mkusb' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -405,6 +430,9 @@ while true; do
                 '--ext4journal')
                         ext4journal=yes
                         shift ;;
+                '--f2fs')
+                        f2fs=yes
+                        shift ;;
                 '--rawwrite')
                         rawwrite=yes
                         shift ;;
@@ -412,7 +440,7 @@ while true; do
                         fatsize=$2
                         shift 2;;
                 '--sizepart3')
-                        ext4size=$2
+                        cowsize=$2
                         shift 2;;
                 '--')
                         shift
