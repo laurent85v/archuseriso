@@ -93,22 +93,6 @@ _umount_airootfs() {
     trap - EXIT HUP INT TERM
 }
 
-_mount_efibootimg() {
-	    trap "_umount_efibootimg" EXIT HUP INT TERM
-	    install -d -m 0755 -- "${work_dir}/mnt/efiboot"
-	    _msg_info "Mounting '${isofs_dir}/EFI/archiso/efiboot.img' on '${work_dir}/mnt/efiboot'..."
-	    mount -- "${isofs_dir}/EFI/archiso/efiboot.img" "${work_dir}/mnt/efiboot"
-	    _msg_info "Done!"
-	}
-
-_umount_efibootimg() {
-	    _msg_info "Unmounting '${work_dir}/mnt/efiboot'..."
-	    umount -d -- "${work_dir}/mnt/efiboot"
-	    _msg_info "Done!"
-	    rmdir -- "${work_dir}/mnt/efiboot"
-	    trap - EXIT HUP INT TERM
-}
-
 # Show help usage, with an exit status.
 # $1: exit status number.
 _usage() {
@@ -615,14 +599,14 @@ _make_efi() {
 # Prepare kernel/initramfs on efiboot.img
 _make_boot_on_fat() {
     _msg_info "Preparing kernel and intramfs for the FAT file system..."
-	install -d -m 0755 -- "${work_dir}/mnt/efiboot/EFI/archiso"
-	install -m 0644 -- "${airootfs_dir}/boot/vmlinuz-linux" "${work_dir}/mnt/efiboot/EFI/archiso/"
-	install -m 0644 -- "${airootfs_dir}/boot/archiso.img" "${work_dir}/mnt/efiboot/EFI/archiso/"
+    mmd -i "${isofs_dir}/EFI/archiso/efiboot.img" ::/EFI/archiso
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" "${airootfs_dir}/boot/vmlinuz-linux" \
+             "${airootfs_dir}/boot/archiso.img" ::/EFI/archiso/
     if [[ -e "${airootfs_dir}/boot/intel-ucode.img" ]]; then
-        install -m 0644 -- "${airootfs_dir}/boot/intel-ucode.img" "${work_dir}/mnt/efiboot/EFI/archiso/"
+        mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" "${airootfs_dir}/boot/intel-ucode.img" ::/EFI/archiso/
     fi
     if [[ -e "${airootfs_dir}/boot/amd-ucode.img" ]]; then
-        install -m 0644 -- "${airootfs_dir}/boot/amd-ucode.img" "${work_dir}/mnt/efiboot/EFI/archiso/"
+        mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" "${airootfs_dir}/boot/amd-ucode.img" ::/EFI/archiso/
     fi
     _msg_info "Done!"
 }
@@ -631,42 +615,58 @@ _make_boot_on_fat() {
 _make_boot_uefi-x64.systemd-boot.esp() {
     _msg_info "Setting up systemd-boot for UEFI booting..."
     install -d -m 0755 -- "${isofs_dir}/EFI/archiso"
+    # The FAT image must be created with mkfs.fat not mformat, as some
+    # systems have issues with mformat made images:
+    # https://lists.gnu.org/archive/html/grub-devel/2019-04/msg00099.html
     mkfs.fat -C -n LIVEMEDIUM "${isofs_dir}/EFI/archiso/efiboot.img" 98304
 
-    _mount_efibootimg
+    mmd -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+           ::/EFI ::/EFI/BOOT ::/EFI/BOOT/drivers_x64 ::/EFI/BOOT/icons ::/EFI/live \
+           ::/EFI/loader ::/EFI/loader/entries
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" ::/EFI/BOOT/BOOTx64.EFI
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${work_dir}"/x86_64/airootfs/usr/share/refind/drivers_x64/* ::/EFI/BOOT/drivers_x64/
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${work_dir}"/x86_64/airootfs/usr/share/refind/icons/* ::/EFI/BOOT/icons/
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::/EFI/live/livedvd.efi
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" ::/EFI/live/livedvd.png
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${base_path}/efiboot/boot/refind-dvd.conf" ::/EFI/BOOT/refind.conf
+    mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+             "${base_path}/efiboot/loader/loader.conf" ::/EFI/loader/
 
-    install -d -m 0755 -- "${work_dir}/mnt/efiboot/EFI/BOOT"
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${work_dir}/mnt/efiboot/EFI/BOOT/BOOTx64.efi"
-    cp -a "${work_dir}"/x86_64/airootfs/usr/share/refind/{drivers_x64,icons}/ "${work_dir}/mnt/efiboot/EFI/BOOT/"
+    sed "s|%DESKTOP%|${desktop}|g;
+         s|%ARCHISO_LABEL%|${iso_label}|g;
+         s|%INSTALL_DIR%|${install_dir}|g;
+         s|%ARCH%|${arch}|g" \
+         "${base_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" \
+         | mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" - ::/EFI/loader/entries/archiso-x86_64.conf
 
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${work_dir}/mnt/efiboot/EFI/live/livedvd.efi"
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${work_dir}/mnt/efiboot/EFI/live/livedvd.png"
+    sed "s|%DESKTOP%|${desktop}|g;
+         s|%ARCHISO_LABEL%|${iso_label}|g;
+         s|%INSTALL_DIR%|${install_dir}|g;
+         s|%ARCH%|${arch}|g" \
+         "${base_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" \
+         | mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" - ::/EFI/loader/entries/archiso_2_console-x86_64.conf
 
-    install -m 0644 -- "${base_path}/efiboot/boot/refind-dvd.conf" "${work_dir}/mnt/efiboot/EFI/BOOT/refind.conf"
-
-    install -d -m 0755 -- "${work_dir}/mnt/efiboot/loader/entries"
-    install -m 0644 -- "${base_path}/efiboot/loader/loader.conf" "${work_dir}/mnt/efiboot/loader/"
-    install -m 0644 -- "${base_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" "${work_dir}/mnt/efiboot/loader/entries/archiso-x86_64.conf"
-    install -m 0644 -- "${base_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" "${work_dir}/mnt/efiboot/loader/entries/archiso_2_console-x86_64.conf"
-    install -m 0644 -- "${base_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" "${work_dir}/mnt/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
-
-    sed -i "s|%DESKTOP%|${desktop}|g;
-            s|%ARCHISO_LABEL%|${iso_label}|g;
-            s|%INSTALL_DIR%|${install_dir}|g;
-            s|%ARCH%|${arch}|g" \
-            "${work_dir}"/mnt/efiboot/loader/entries/archiso-x86_64.conf \
-            "${work_dir}"/mnt/efiboot/loader/entries/archiso_2_console-x86_64.conf \
-            "${work_dir}"/mnt/efiboot/loader/entries/archiso_3_ram-x86_64.conf
+    sed "s|%DESKTOP%|${desktop}|g;
+         s|%ARCHISO_LABEL%|${iso_label}|g;
+         s|%INSTALL_DIR%|${install_dir}|g;
+         s|%ARCH%|${arch}|g" \
+         "${base_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" \
+         | mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" - ::/EFI/loader/entries/archiso_3_ram-x86_64.conf
 
     # shellx64.efi is picked up automatically when on /
     if [[ -e "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
-        install -m 0644 -- "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" "${work_dir}/mnt/efiboot/shellx64.efi"
+        mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" \
+            "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
     fi
 
     # Copy kernel and initramfs
     _run_once _make_boot_on_fat
-
-    _umount_efibootimg
 
     _msg_info "Done! systemd-boot set up for UEFI booting successfully."
 }
