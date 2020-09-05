@@ -381,6 +381,7 @@ _persistence () {
         cp "${WD}/${workdir}/iso/aui/archiso_sys.cfg" "${WD}/${workdir}/usb2/${install_dir}/boot/syslinux/"
         cp "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
         cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/"
+        cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3//persistent_${iso_label}_original"
         cp "${WD}/${workdir}/iso/aui/AUIDATA" "${WD}/${workdir}/usb3/"
         if [[ -n "${encryption:-}" ]]; then
                _encrypt_setup
