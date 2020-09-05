@@ -43,6 +43,7 @@ _help () {
 }
 
 _unmount () {
+        sync
         if mountpoint -q "${WD}/${workdir}/iso"; then
                 umount "${WD}/${workdir}/iso"
         fi
