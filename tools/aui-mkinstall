@@ -4,6 +4,7 @@
 
 set -e -u
 
+appname="${0##*/}"
 username=archie
 
 _usage () {
@@ -29,6 +30,7 @@ _help () {
         echo '-h, --help           command line help'
         echo '--encrypt            encrypt persistent partition'
         echo '--ext4journal        enable ext4 journal (disabled by default for minimizing drive writes)'
+        echo '--f2fs               use the F2FS file system for the root partition (Default Ext4)'
         echo "--username <user>    set a custom username, default username is 'archie'"
         echo
         echo 'Example:'
@@ -37,30 +39,37 @@ _help () {
         exit $1
 }
 
+_msg_info () {
+        local _msg="${1}"
+        printf '[%s] INFO: %s\n' "${appname}" "${_msg}"
+}
+
 _encrypt_mkluks () {
         echo
-        echo 'Setting up encrypted partition, type in a passphrase of your choice...'
+        _msg_info "Setting up encrypted partition, type in a passphrase of your choice"
         if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat "${usbdevice}2"; then
                 echo 'Encryption setup failed, exiting!'
                 exit 1
         fi
         echo
-        echo 'LUKS encryption setup done! type in your passphrase to unlock device...'
+        _msg_info "LUKS encryption setup done! type in your passphrase to unlock device"
         if ! cryptsetup open "${usbdevice}2" auicrypt; then
                 echo 'Error: Could not unlock device! Exiting.'
                 exit 1
         fi
+        echo
         rootdevice=/dev/mapper/auicrypt
 }
 
 _encrypt_setup () {
-        echo 'Finalizing encryption...'
+        _msg_info "Finalizing encryption settings"
         sed -i "s|block|& encrypt|" "${WD}/${workdir}/usb/etc/mkinitcpio.conf"
         sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                "${WD}/${workdir}/usb/boot/refind_linux.conf"
         sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                "${WD}/${workdir}/usb/boot/syslinux/syslinux.cfg"
-        arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P
+        _msg_info "initramfs update"
+        arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
 }
 
 _checks () {
@@ -103,6 +112,12 @@ _checks () {
                 echo "Error: ${isoname} is not an iso image!"
                 _usage 1
         fi
+        if [[ -n "${f2fs:-}" ]]; then
+                if ! pacman -Q f2fs-tools &> /dev/null; then
+                        echo 'f2fs-tools package not installed, aborting!'
+                        exit 0
+                fi
+        fi
 }
 
 _init () {
@@ -123,11 +138,11 @@ _init () {
 _confirm_write () {
         # Confim write
         echo
-        echo "This process might take a long time depending on the device write speed, be patient!"
-        echo
-        echo "ISO file: ${isoname}"
-        echo "USB device: ${usbdevice}"
-        echo "Configured username: ${username}"
+        _msg_info "This process may take a long time depending on the device write speed, be patient!"
+        _msg_info ""
+        _msg_info "ISO file:   ${isoname}"
+        _msg_info "USB device: ${usbdevice}"
+        _msg_info "Configured username: ${username}"
         echo
         read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
         echo
@@ -156,8 +171,10 @@ _confirm_write () {
         mkdir -p "${WD}/${workdir}/"{iso,squashfs,usb}
 
         # Mount iso & live filesystem
-        echo 'Mounting iso & live filesystem...'
+        echo
+        _msg_info "Mounting iso: mountpoint ${WD}/${workdir}/iso"
         mount "${isoname}" "${WD}/${workdir}/iso" -o ro
+        _msg_info "Mounting live image: mountpoint ${WD}/${workdir}/squashfs"
         mount "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs" -o ro
 
         # check iso
@@ -176,19 +193,45 @@ _confirm_write () {
 
 _partitions () {
         # Create usb device partition table & partitions
-        echo 'Creating partitions...'
+        echo
         flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
         sleep 1
-        echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always
+        _msg_info "Creating partitions: new gpt label"
+        echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always > /dev/null
         sleep 1
-        echo "${SECSTART},${ESPSIZE},U," | flock "${usbdevice}" sfdisk "${usbdevice}" -W always
+        _msg_info "partition #1: boot partition: $(( ESPSIZE / 1024 / 2)) MiB"
+        echo "${SECSTART},${ESPSIZE},U," | flock "${usbdevice}" sfdisk "${usbdevice}" -W always > /dev/null 
         sleep 1
-        echo "$(( SECSTART + ESPSIZE)),,L," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always
+        _msg_info "partition #2: root partition: free space"
+        echo "$(( SECSTART + ESPSIZE)),,L," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always > /dev/null
         sleep 1
 }
 
+_format_f2fs() {
+        _msg_info "partition #2: type F2FS, label ${label_root:-AUIROOT}"
+        if ! flock "${rootdevice}" mkfs.f2fs "${rootdevice}" -l "${label_root:=AUIROOT}" -O encrypt,extra_attr,compression > /dev/null; then
+                echo 'Formatting partition failed!'
+                exit 1
+        fi
+}
+
+_format_ext4 () {
+        _msg_info "partition #2: type Ext4, label ${label_root:-AUIROOT}"
+        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt,'^has_journal' -q; then
+                echo 'Formatting partition failed!'
+                exit 1
+        fi
+        # enable ext4 journal
+        if [[ -n "${ext4journal:-}" ]]; then
+                _msg_info "Ext4 partition: enabling file system journalisation"
+                tune2fs -O 'has_journal' "${rootdevice}"
+        fi
+}
+
 _format () {
-        echo 'Formatting...'
+        echo
+        _msg_info "Formatting paritions"
+        _msg_info "partition #1: type FAT, label ${label_boot:-AUIBOOT}"
         if ! flock "${usbdevice}1" mkfs.fat "${usbdevice}1" -F32 -n "${label_boot:=AUIBOOT}"; then
                 echo 'Partition format failed!'
                 exit 1
@@ -197,29 +240,32 @@ _format () {
         if [[ -n "${encryption:-}" ]]; then
                 _encrypt_mkluks
         fi
-        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt,'^has_journal'; then
-                echo 'Partition format failed!'
-                exit 1
-        fi
-        # enable ext4 journal
-        if [[ -n "${ext4journal:-}" ]]; then
-                tune2fs -O 'has_journal' "${rootdevice}"
+        # Root partition, filesystem type
+        # Default ext4
+        if [[ -n "${f2fs:-}" ]]; then
+                _format_f2fs
+        else
+                _format_ext4
         fi
 }
 
 _mount () {
         # Mount usb device
-        echo 'Mounting usb device...'
+        echo
+        _msg_info "Mounting partitions"
+        _msg_info "device: ${rootdevice}, mountpoint: ${WD}/${workdir}/usb"
         mount "${rootdevice}" "${WD}/${workdir}/usb"
         mkdir "${WD}/${workdir}/usb/boot"
+        _msg_info "device: ${usbdevice}1, mountpoint: ${WD}/${workdir}/boot"
         mount "${usbdevice}1" "${WD}/${workdir}/usb/boot"
         mkdir -p "${WD}/${workdir}/usb/boot/EFI/BOOT"
 }
 
 _install () {
         # Copy livesystem to usb device
-        echo 'Copying...'
-        cp -aTv "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usb"
+        echo
+        _msg_info "Copying data to ${WD}/${workdir}/usb, may take some time"
+        cp -aT "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usb"
         # Copy aui install tree
         cp -aT "${WD}/${workdir}/iso/aui/install" "${WD}/${workdir}/usb"
 
@@ -227,7 +273,7 @@ _install () {
         # * remove live settings except volatile journal
         # * fstab
         # * live user renamed 'archie', no password set
-        echo 'Removing live settings...'
+        _msg_info "Removing live settings"
         # kernel
         cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz-linux" "${WD}/${workdir}/usb/boot/"
         cp "${WD}/${workdir}/iso/arch/boot/intel-ucode.img" "${WD}/${workdir}/usb/boot/"
@@ -252,22 +298,26 @@ _install () {
         if [[ -e "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf" ]]; then
                 rm "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf"
         fi
-        # Arch keyring
-        arch-chroot "${WD}/${workdir}/usb" pacman-key --init &> /dev/null
-        arch-chroot "${WD}/${workdir}/usb" pacman-key --populate archlinux &> /dev/null
         # sudo
         sed -i 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usb/etc/sudoers"
         sed -i 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usb/etc/sudoers"
+        # Arch keyring
+        _msg_info "Initialising pacman keys"
+        arch-chroot "${WD}/${workdir}/usb" pacman-key --init &> /dev/null
+        arch-chroot "${WD}/${workdir}/usb" pacman-key --populate archlinux &> /dev/null
         # username
+        _msg_info "Configuring user ${username}"
         mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${username}"
         sed -i "s/live/${username}/g" \
                "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
                "${WD}/${workdir}/usb/etc/samba/smb.conf"
         # haveged, initramfs
         arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
+        _msg_info "initramfs update"
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
 
         # rEFInd boot manager
+        _msg_info "Setting up boot loader"
         cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
         cp "${WD}/${workdir}/iso/shellx64.efi" "${WD}/${workdir}/usb/boot/EFI/"
         cp "${WD}/${workdir}/iso/EFI/boot/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
@@ -275,6 +325,7 @@ _install () {
         sed -i "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
 
         # syslinux bootloader
+        mkdir -p "${WD}/${workdir}/usb/boot/syslinux/"
         cp "${WD}/${workdir}/iso/aui/syslinux.cfg" "${WD}/${workdir}/usb/boot/syslinux/"
         cp "${WD}/${workdir}"/usb/usr/lib/syslinux/bios/*.c32 "${WD}/${workdir}/usb/boot/syslinux/"
 
@@ -287,8 +338,8 @@ _install () {
 
 _finalize () {
         # Unmount & remove temp dirs
-        echo 'Unmounting USB device, might take up to a few minutes, be patient!'
-        echo '. .. ...Waiting for the USB drive to complete copy'
+        echo
+        _msg_info 'Unmounting work directories, may take some time, be patient!'
         umount "${usbdevice}1" "${rootdevice}"
         umount "${WD}/${workdir}/squashfs"
         sleep 1
@@ -303,7 +354,9 @@ _finalize () {
 }
 
 _bootloader () {
-        if ! syslinux --directory syslinux --install "${usbdevice}1"; then
+        echo
+        _msg_info "Installing boot loader"
+        if ! syslinux --directory syslinux --install "${usbdevice}1" > /dev/null; then
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
@@ -311,14 +364,14 @@ _bootloader () {
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
-        if ! sfdisk --part-attrs "${usbdevice}" 1 LegacyBIOSBootable; then
+        if ! sfdisk --part-attrs "${usbdevice}" 1 LegacyBIOSBootable > /dev/null; then
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,help,username:' -n 'aui-mkinstall' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,f2fs,help,username:' -n 'aui-mkinstall' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -333,6 +386,9 @@ while true; do
                         shift ;;
                 '--ext4journal')
                         ext4journal=yes
+                        shift ;;
+                '--f2fs')
+                        f2fs=yes
                         shift ;;
                 '--username')
                         username="${2}"
@@ -353,11 +409,11 @@ _install
 _finalize
 _bootloader
 
-echo 'Done!'
+_msg_info "Done!"
 echo
-echo 'IMPORTANTS NOTES:'
+echo "IMPORTANTS NOTES:"
 echo "Configured username is ${username}, no password was set!"
 echo
-echo 'Enjoy ;)'
+echo "Enjoy ;)"
 
 # vim: set expandtab:
