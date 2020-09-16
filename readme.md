@@ -45,7 +45,7 @@ Install [archuseriso](https://aur.archlinux.org/packages/archuseriso/) available
 
 Or manual install on Arch Linux:
 
-    sudo pacman --needed -S git make syslinux
+    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs libisoburn make squashfs-tools syslinux
 
 Clone master repository:
 
@@ -150,6 +150,7 @@ packages can be installed on any Arch Linux system for adding ZFS support.
     -h, --help                Command line help
     --encrypt                 Encrypt persistent partition
     --ext4journal             Enable ext4 journal (disabled by default for minimizing drive writes)
+    --f2fs                    Use the F2FS file system for the persistent partition (Default Ext4)
     --rawwrite                Raw ISO image write to USB drive (dd like mode)
     --sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)
     --sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4)
