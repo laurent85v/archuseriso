@@ -798,7 +798,6 @@ _make_iso() {
     xorriso -as mkisofs \
             -iso-level 3 \
             -full-iso9660-filenames \
-            -rational-rock \
             -joliet \
             -joliet-long \
             -volid "${iso_label}" \
