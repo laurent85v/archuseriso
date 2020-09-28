@@ -490,7 +490,7 @@ _make_bootmodes() {
 _make_boot_on_iso() {
     _msg_info "Preparing kernel and intramfs for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/${arch}"
-    install -m 0644 -- "${airootfs_dir}/boot/archiso.img" "${isofs_dir}/${install_dir}/boot/${arch}/"
+    install -m 0644 -- "${airootfs_dir}/boot/initramfs-linux.img" "${isofs_dir}/${install_dir}/boot/${arch}/"
     install -m 0644 -- "${airootfs_dir}/boot/vmlinuz-linux" "${isofs_dir}/${install_dir}/boot/${arch}/"
     if [[ -e "${airootfs_dir}/boot/intel-ucode.img" ]]; then
         install -m 0644 -- "${airootfs_dir}/boot/intel-ucode.img" "${isofs_dir}/${install_dir}/boot/"
@@ -602,7 +602,7 @@ _make_boot_on_fat() {
     _msg_info "Preparing kernel and intramfs for the FAT file system..."
     mmd -i "${isofs_dir}/EFI/archiso/efiboot.img" ::/EFI/archiso
     mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" "${airootfs_dir}/boot/vmlinuz-linux" \
-             "${airootfs_dir}/boot/archiso.img" ::/EFI/archiso/
+             "${airootfs_dir}/boot/initramfs-linux.img" ::/EFI/archiso/
     if [[ -e "${airootfs_dir}/boot/intel-ucode.img" ]]; then
         mcopy -i "${isofs_dir}/EFI/archiso/efiboot.img" "${airootfs_dir}/boot/intel-ucode.img" ::/EFI/archiso/
     fi
@@ -701,14 +701,14 @@ _make_aui() {
     ln -s -- "../../../../${install_dir}/boot/memtest" "${isofs_dir}/aui/esp/${install_dir}/boot/"
     ln -s -- "../../../../../${install_dir}/boot/licenses/memtest86+/" "${isofs_dir}/aui/esp/${install_dir}/boot/licenses/memtest86+"
     ln -s -- "../../../../../${install_dir}/boot/x86_64/vmlinuz-linux" "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
-    ln -s -- "../../../../../${install_dir}/boot/x86_64/archiso.img" "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
+    ln -s -- "../../../../../${install_dir}/boot/x86_64/initramfs-linux.img" "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
 
     # persistent kernel & initramfs
     mkdir -p -- "${isofs_dir}/aui/esp/EFI/"
     ln -s -- "../../${install_dir}/boot/amd-ucode.img" "${isofs_dir}/aui/esp/"
     ln -s -- "../../${install_dir}/boot/intel-ucode.img" "${isofs_dir}/aui/esp/"
     ln -s -- "../../${install_dir}/boot/x86_64/vmlinuz-linux" "${isofs_dir}/aui/esp/"
-    ln -s -- "../../${install_dir}/boot/x86_64/archiso.img" "${isofs_dir}/aui/esp/initramfs-linux.img"
+    ln -s -- "../../${install_dir}/boot/x86_64/initramfs-linux.img" "${isofs_dir}/aui/esp/initramfs-linux.img"
     ln -s -- ../../loader "${isofs_dir}/aui/esp/loader"
     ln -s -- ../../../EFI/boot "${isofs_dir}/aui/esp/EFI/BOOT"
     ln -s -- ../../../EFI/live "${isofs_dir}/aui/esp/EFI/live"

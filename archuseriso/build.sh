@@ -310,7 +310,7 @@ make_setup_mkinitcpio() {
 # Prepare kernel/initramfs ${install_dir}/boot/
 make_boot() {
     mkdir -p "${work_dir}/iso/${install_dir}/boot/x86_64"
-    cp "${work_dir}/x86_64/airootfs/boot/archiso.img" "${work_dir}/iso/${install_dir}/boot/x86_64/"
+    cp "${work_dir}/x86_64/airootfs/boot/initramfs-linux.img" "${work_dir}/iso/${install_dir}/boot/x86_64/"
     cp "${work_dir}/x86_64/airootfs/boot/vmlinuz-linux" "${work_dir}/iso/${install_dir}/boot/x86_64/"
 }
 
@@ -404,7 +404,7 @@ make_efiboot() {
 
     mkdir -p "${work_dir}/efiboot/EFI/archiso"
     cp "${work_dir}/iso/${install_dir}/boot/x86_64/vmlinuz-linux" "${work_dir}/efiboot/EFI/archiso/"
-    cp "${work_dir}/iso/${install_dir}/boot/x86_64/archiso.img" "${work_dir}/efiboot/EFI/archiso/"
+    cp "${work_dir}/iso/${install_dir}/boot/x86_64/initramfs-linux.img" "${work_dir}/efiboot/EFI/archiso/"
 
     cp "${work_dir}/iso/${install_dir}/boot/intel-ucode.img" "${work_dir}/efiboot/EFI/archiso/"
     cp "${work_dir}/iso/${install_dir}/boot/amd-ucode.img" "${work_dir}/efiboot/EFI/archiso/"
@@ -457,14 +457,14 @@ make_aui() {
     ln -s "../../../../${install_dir}/boot/memtest" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
     ln -s "../../../../../${install_dir}/boot/licenses/memtest86+/" "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/memtest86+"
     ln -s "../../../../../${install_dir}/boot/x86_64/vmlinuz-linux" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
-    ln -s "../../../../../${install_dir}/boot/x86_64/archiso.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    ln -s "../../../../../${install_dir}/boot/x86_64/initramfs-linux.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
 
     # persistent kernel & initramfs
     mkdir -p "${work_dir}/iso/aui/esp/EFI/"
     ln -s "../../${install_dir}/boot/amd-ucode.img" "${work_dir}/iso/aui/esp/"
     ln -s "../../${install_dir}/boot/intel-ucode.img" "${work_dir}/iso/aui/esp/"
     ln -s "../../${install_dir}/boot/x86_64/vmlinuz-linux" "${work_dir}/iso/aui/esp/"
-    ln -s "../../${install_dir}/boot/x86_64/archiso.img" "${work_dir}/iso/aui/esp/initramfs-linux.img"
+    ln -s "../../${install_dir}/boot/x86_64/initramfs-linux.img" "${work_dir}/iso/aui/esp/initramfs-linux.img"
     ln -s ../../loader "${work_dir}/iso/aui/esp/loader"
     ln -s ../../../EFI/boot "${work_dir}/iso/aui/esp/EFI/BOOT"
     ln -s ../../../EFI/live "${work_dir}/iso/aui/esp/EFI/live"
