@@ -450,21 +450,35 @@ make_aui() {
     # live kernel & initramfs
     mkdir -p "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
     mkdir -p "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/"
-    ln -s "../../../../${install_dir}/boot/amd-ucode.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
-    ln -s "../../../../../${install_dir}/boot/licenses/amd-ucode/" "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/amd-ucode"
-    ln -s "../../../../${install_dir}/boot/intel-ucode.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
-    ln -s "../../../../../${install_dir}/boot/licenses/intel-ucode/" "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/intel-ucode"
+    for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
+            if [[ -e "../../../../${install_dir}/boot/${_ucode_image}" ]]; then
+                ln -s "../../../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/aui/esp/"
+            fi
+    done
+    for _license in "../../../../../${install_dir}/boot/licenses/"*; do
+        ln -s "../../../../../${install_dir}/boot/licenses/${_license}/" \
+              "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/${_license}"
+    done
     ln -s "../../../../${install_dir}/boot/memtest" "${work_dir}/iso/aui/esp/${install_dir}/boot/"
-    ln -s "../../../../../${install_dir}/boot/licenses/memtest86+/" "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/memtest86+"
-    ln -s "../../../../../${install_dir}/boot/x86_64/vmlinuz-linux" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
-    ln -s "../../../../../${install_dir}/boot/x86_64/initramfs-linux.img" "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    ln -s "../../../../../${install_dir}/boot/licenses/memtest86+/" \
+          "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/memtest86+"
+    for _kernel in "../../../../../${install_dir}/boot/x86_64/vmlinuz-"* \
+                   "../../../../../${install_dir}/boot/x86_64/initramfs-"*".img"; do
+            ln -s "../../../../../${install_dir}/boot/x86_64/${_kernel}" \
+                  "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    done
 
     # persistent kernel & initramfs
     mkdir -p "${work_dir}/iso/aui/esp/EFI/"
-    ln -s "../../${install_dir}/boot/amd-ucode.img" "${work_dir}/iso/aui/esp/"
-    ln -s "../../${install_dir}/boot/intel-ucode.img" "${work_dir}/iso/aui/esp/"
-    ln -s "../../${install_dir}/boot/x86_64/vmlinuz-linux" "${work_dir}/iso/aui/esp/"
-    ln -s "../../${install_dir}/boot/x86_64/initramfs-linux.img" "${work_dir}/iso/aui/esp/initramfs-linux.img"
+    for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
+            if [[ -e "../../${install_dir}/boot/${_ucode_image}" ]]; then
+                ln -s "../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/aui/esp/"
+            fi
+    done
+    for _kernel in "../../${install_dir}/boot/x86_64/vmlinuz-"* \
+                   "../../${install_dir}/boot/x86_64/initramfs-"*".img"; do
+        ln -s "../../${install_dir}/boot/x86_64/${_kernel}" "${work_dir}/iso/aui/esp/"
+    done
     ln -s ../../loader "${work_dir}/iso/aui/esp/loader"
     ln -s ../../../EFI/boot "${work_dir}/iso/aui/esp/EFI/BOOT"
     ln -s ../../../EFI/live "${work_dir}/iso/aui/esp/EFI/live"
@@ -473,8 +487,10 @@ make_aui() {
     # duplicate /boot contents to persistent boot partition
     # mounting persistent boot partition would hide original /boot contents
     mkdir -p "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
-    cp -a "${work_dir}/x86_64/airootfs/boot/memtest86+/" "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
-    cp -a "${work_dir}/x86_64/airootfs/boot/syslinux/" "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
+    cp -a "${work_dir}/x86_64/airootfs/boot/memtest86+/" \
+          "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
+    cp -a "${work_dir}/x86_64/airootfs/boot/syslinux/" \
+          "${work_dir}/iso/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
 
     if [[ -f "${work_dir}/iso/aui/AUIDATA" ]]; then
         eval $(grep cow_label "${work_dir}/iso/aui/AUIDATA")
