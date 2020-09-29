@@ -510,12 +510,12 @@ make_aui() {
                 s|%DESKTOP%|${desktop}|" \
                 "${work_dir}/iso/aui/loader/entries/0aui_persistence-x86_64.conf"
     fi
-    if [[ -f "${work_dir}/iso/aui/archiso_sys.cfg" ]]; then
+    if [[ -f "${work_dir}/iso/aui/archiso_sys-linux.cfg" ]]; then
         sed -i "s|%ARCHISO_LABEL%|${iso_label}|;
                 s|%INSTALL_DIR%|${install_dir}|;
                 s|%COW_LABEL%|${cow_label}|;
                 s|%DESKTOP%|${desktop}|" \
-                "${work_dir}/iso/aui/archiso_sys.cfg"
+                "${work_dir}/iso/aui/archiso_sys-linux.cfg"
     fi
     if [[ -n "${AUI_EMBEDDIR:-}" && -d "${AUI_EMBEDDIR:-}" ]]; then
         cp -aT --no-preserve=ownership "${AUI_EMBEDDIR}" "${work_dir}/iso/data"
