@@ -379,9 +379,9 @@ make_efi() {
 
     mkdir -p "${work_dir}/iso/loader/entries"
     cp "${script_path}/efiboot/loader/loader.conf" "${work_dir}/iso/loader/"
-    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-usb.conf" "${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-linux.conf" "${work_dir}/iso/loader/entries/archiso-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-linux.conf" "${work_dir}/iso/loader/entries/archiso_2_console-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-linux.conf" "${work_dir}/iso/loader/entries/archiso_3_ram-x86_64.conf"
 
     sed -i "s|%DESKTOP%|${desktop}|g;
             s|%ARCHISO_LABEL%|${iso_label}|g;
@@ -420,9 +420,9 @@ make_efiboot() {
 
     mkdir -p "${work_dir}/efiboot/loader/entries"
     cp "${script_path}/efiboot/loader/loader.conf" "${work_dir}/efiboot/loader/"
-    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf"
-    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-cd.conf" "${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso-x86_64-linux.conf" "${work_dir}/efiboot/loader/entries/archiso-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_2_console-x86_64-linux.conf" "${work_dir}/efiboot/loader/entries/archiso_2_console-x86_64.conf"
+    cp "${script_path}/efiboot/loader/entries/archiso_3_ram-x86_64-linux.conf" "${work_dir}/efiboot/loader/entries/archiso_3_ram-x86_64.conf"
 
     sed -i "s|%DESKTOP%|${desktop}|g;
             s|%ARCHISO_LABEL%|${iso_label}|g;
