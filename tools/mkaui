@@ -117,7 +117,7 @@ usage ${app_name} [options] <command>
      -o <out_dir>     Set the output directory
                       Default: '${out_dir}'
      -p PACKAGE(S)    Package(s) to install, can be used multiple times
-     -r <run_cmd>     Set a command to be run in chroot (only relevant for for command_run)
+     -r <run_cmd>     Set a command to be run in chroot (only relevant for legacy 'run' command)
      -s <sfs_mode>    Set SquashFS image mode (img or sfs)
                       img: prepare airootfs.sfs for dm-snapshot usage
                       sfs: prepare airootfs.sfs for overlayfs usage
@@ -127,19 +127,19 @@ usage ${app_name} [options] <command>
                       Default: '${work_dir}'
 
   command:
-    command_init
+    init
         initialize a chroot for building
-    command_install
+    install
         install packages to the chroot
-    command_upgrade
+    upgrade
         upgrade provided packages to the chroot
-    command_run
+    run
         run a command in the chroot
-    command_prepare
+    prepare
         cleanup and prepare the airootfs
-    command_pkglist
+    pkglist
         create a list of packages installed on the medium
-    command_iso
+    iso
         create the ISO
 ENDUSAGETEXT
     printf '%s' "${usagetext}"
@@ -153,6 +153,7 @@ _show_config () {
     echo
     _msg_info "${app_name} configuration settings"
     _msg_info "                  Command:   ${command_name}"
+    [[ ! -d "${command_name}" ]] && _msg_info "           Legacy Command:   ${command_name}"
     _msg_info "             Architecture:   ${arch}"
     _msg_info "        Working directory:   ${work_dir}"
     _msg_info "   Installation directory:   ${install_dir}"
