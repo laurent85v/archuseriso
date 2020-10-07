@@ -149,7 +149,8 @@ ENDUSAGETEXT
 # Shows configuration according to command mode.
 # $1: build_profile | init | install | upgrade | run | prepare | iso
 _show_config () {
-    local _mode="$1"
+    local _mode="$1" build_date
+    build_date="$(date --utc --iso-8601=seconds -d "@${SOURCE_DATE_EPOCH}")"
     echo
     _msg_info "${app_name} configuration settings"
     _msg_info "                  Command:   ${command_name}"
@@ -780,9 +781,9 @@ _make_aui() {
 # Build airootfs filesystem image
 _make_prepare() {
     if [[ "${sfs_mode}" == "sfs" ]]; then
-        _mkairootfs_sfs
+        _run_once _mkairootfs_sfs
     else
-        _mkairootfs_img
+        _run_once _mkairootfs_img
     fi
     _mkchecksum
     if [[ "${gpg_key}" ]]; then
@@ -988,12 +989,16 @@ command_build_profile() {
     isofs_dir="${work_dir}/iso"
     # Set ISO file name
     img_name="${iso_name}-${iso_version}-${arch}.iso"
-
-    _show_config "${FUNCNAME[0]#command_}"
-
     # Create working directory
     [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
+    # Write build date to file or if the file exists, read it from there
+    if [[ -e "${work_dir}/build_date" ]]; then
+        SOURCE_DATE_EPOCH="$(<"${work_dir}/build_date")"
+    else
+        printf '%s\n' "$SOURCE_DATE_EPOCH" > "${work_dir}/build_date"
+    fi
 
+    _show_config "${FUNCNAME[0]#command_}"
     _run_once _make_pacman_conf
     _run_once _export_gpg_publickey
     _run_once _make_custom_airootfs
@@ -1035,6 +1040,62 @@ while getopts 'p:r:C:L:P:A:D:w:o:s:c:g:vh?' arg; do
             _msg_error "Invalid argument '${arg}'" 0
             _usage 1
             ;;
+    esac
+done
+
+OPTS=$(getopt -o 'p:r:C:L:P:A:D:w:o:s:c:g:vh?' -n 'mkaui' -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+[[ $# -eq 0 ]] && _usage 0
+
+while true; do
+    case "${1}" in
+        'p')
+            read -r -a opt_pkg_list <<< "${2}"
+            pkg_list+=("${opt_pkg_list[@]}")
+            shift 2 ;;
+        'r')
+            run_cmd="${2}"
+            shift 2 ;;
+        'C')
+            pacman_conf="$(realpath -- "${2}")"
+            shift 2 ;;
+        'L')
+            iso_label="${2}"
+            shift 2 ;;
+        'P')
+            iso_publisher="${2}"
+            shift 2 ;;
+        'A')
+            iso_application="${2}"
+            shift 2 ;;
+        'D')
+            install_dir="${2}"
+            shift 2 ;;        
+        'w')
+            work_dir="$(realpath -- "${2}")"
+            shift 2 ;;
+        'o')
+            out_dir="$(realpath -- "${2}")"
+            shift 2 ;;
+        's')
+            sfs_mode="${2}"
+            shift 2 ;;
+        'c')
+            sfs_comp="${2}"
+            shift 2 ;;
+        'g')
+            override_gpg_key="${2}"
+            shift 2 ;;
+        'v')
+            quiet="n"
+            shift ;;
+        'h'|'?')
+            _usage 0 ;;
+        '--')
+            shift
+            break ;;
     esac
 done
 
