@@ -974,6 +974,9 @@ _read_profile() {
 
 # set overrides from mkarchiso option parameters, if present
 _set_overrides() {
+    if [[ -n "$override_iso_name" ]]; then
+        iso_name="$override_iso_name"
+    fi
     if [[ -n "$override_iso_label" ]]; then
         iso_label="$override_iso_label"
     fi
@@ -1111,92 +1114,95 @@ command_build_profile() {
     _run_once _build_iso
 }
 
-while getopts 'p:r:C:L:P:A:D:w:o:s:c:g:vh?' arg; do
-    case "${arg}" in
-        p)
-            read -r -a opt_pkg_list <<< "${OPTARG}"
-            pkg_list+=("${opt_pkg_list[@]}")
-            ;;
-        r) run_cmd="${OPTARG}" ;;
-        C) pacman_conf="$(realpath -- "${OPTARG}")" ;;
-        L) iso_label="${OPTARG}" ;;
-        P) iso_publisher="${OPTARG}" ;;
-        A) iso_application="${OPTARG}" ;;
-        D) install_dir="${OPTARG}" ;;        
-        w) work_dir="$(realpath -- "${OPTARG}")" ;;
-        o) out_dir="$(realpath -- "${OPTARG}")" ;;
-        s) sfs_mode="${OPTARG}" ;;
-        c) sfs_comp="${OPTARG}" ;;
-        g) override_gpg_key="${OPTARG}" ;;
-        v) quiet="n" ;;
-        h|?) _usage 0 ;;
-        *)
-            _msg_error "Invalid argument '${arg}'" 0
-            _usage 1
-            ;;
-    esac
-done
-
-OPTS=$(getopt -o 'p:r:C:L:P:A:D:w:o:g:vh?' -n 'mkaui' -- "$@")
+OPTS=$(getopt -o '?A:C:D:g:hL:l:N:o:P:p:r:V:vw:' \
+              -l 'name:,version:,label:,publisher:,application:' \
+              -l 'installdir:,workdir:,outdir:,gpgkey:,verbose,language:' \
+              -l 'profile:,testing:,help' \
+              -n 'mkaui' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
-[[ $# -eq 0 ]] && _usage 0
+if [[ $# -eq 0 ]]; then
+    _msg_error "No command specified" 0
+    _usage 1
+fi
 
 while true; do
     case "${1}" in
-        'p')
+        '-?'|'-h'|'--help')
+            _usage 0 ;;
+        '-A'|'--application')
+            override_iso_application="${2}"
+            shift 2 ;;
+        '-C')
+            override_pacman_conf="$(realpath -- "${2}")"
+            shift 2 ;;
+        '-D'|'--installdir')
+            override_install_dir="${2}"
+            shift 2 ;;        
+        '-g'|'--gpgkey')
+            override_gpg_key="${2}"
+            shift 2 ;;
+        '-L'|'--label')
+            override_iso_label="${2}"
+            shift 2 ;;
+        '-l'|'--language')
+            case "${2}" in
+                'cz'|'cs_CZ') lang="cs_CZ";;
+                'de'|'de_DE') lang="de_DE";;
+                'es'|'es_ES') lang="es_ES";;
+                'fr'|'fr_FR') lang="fr_FR";;
+                'gr'|'el_GR') lang="el_GR";;
+                'hu'|'hu_HU') lang="hu_HU";;
+                'it'|'it_IT') lang="it_IT";;
+                'nl'|'nl_NL') lang="nl_NL";;
+                'pl'|'pl_PL') lang="pl_PL";;
+                'pt'|'pt_PT') lang="pt_PT";;
+                'ro'|'ro_RO') lang="ro_RO";;
+                'rs'|'sr_RS@latin') lang="sr_RS@latin";;
+                'ru'|'ru_RU') lang="ru_RU";;
+                'tr'|'tr_TR') lang="tr_TR";;
+                'ua'|'uk_UA') lang="uk_UA";;
+                *) _usage 1;;
+            esac
+            shift 2 ;;
+        '-N'|'--name')
+            override_iso_name="${2}"
+            shift 2 ;;
+        '-o'|'--outdir')
+            out_dir="$(realpath -- "${2}")"
+            shift 2 ;;
+        '-P'|'--publisher')
+            override_iso_publisher="${2}"
+            shift 2 ;;
+        '-p'|'--profile')
             read -r -a opt_pkg_list <<< "${2}"
             pkg_list+=("${opt_pkg_list[@]}")
             shift 2 ;;
-        'r')
+        '-r')
             run_cmd="${2}"
             shift 2 ;;
-        'C')
-            pacman_conf="$(realpath -- "${2}")"
+        '--testing')
+            testingpackages="$(tr ',' ' ' <<< ${2})"
             shift 2 ;;
-        'L')
-            iso_label="${2}"
+        '-V'|'--version')
+            iso_version="${2}"
             shift 2 ;;
-        'P')
-            iso_publisher="${2}"
-            shift 2 ;;
-        'A')
-            iso_application="${2}"
-            shift 2 ;;
-        'D')
-            install_dir="${2}"
-            shift 2 ;;        
-        'w')
-            work_dir="$(realpath -- "${2}")"
-            shift 2 ;;
-        'o')
-            out_dir="$(realpath -- "${2}")"
-            shift 2 ;;
-        'g')
-            override_gpg_key="${2}"
-            shift 2 ;;
-        'v')
+        '-v'|'--verbose')
             quiet="n"
             shift ;;
-        'h'|'?')
-            _usage 0 ;;
+        '-w'|'--workdir')
+            work_dir="$(realpath -- "${2}")"
+            shift 2 ;;
         '--')
             shift
             break ;;
     esac
 done
 
-if (( OPTIND <= 1 )); then
-    _msg_error "No command specified" 0
-    _usage 1
-fi
-
 if (( EUID != 0 )); then
     _msg_error "${app_name} must be run as root." 1
 fi
-
-shift $((OPTIND - 1))
 
 command_name="${1}"
 
