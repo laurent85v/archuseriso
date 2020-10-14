@@ -102,6 +102,7 @@ partitionmanager
 pavucontrol-qt
 plasma-browser-integration
 plasma-desktop
+plasma-disks
 plasma-nm
 plasma-pa
 plasma-thunderbolt
@@ -131,7 +132,6 @@ telepathy-kde-integration-module
 telepathy-kde-send-file
 telepathy-kde-text-ui
 telepathy-salut
-user-manager
 vdpauinfo
 virtualgl
 xdg-desktop-portal
