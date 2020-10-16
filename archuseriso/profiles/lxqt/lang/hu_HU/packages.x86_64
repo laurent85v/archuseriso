@@ -1,0 +1,19 @@
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+aspell-hu
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-hu
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-hu hunspell-hu
+#libreoffice-still-hu hunspell-hu
