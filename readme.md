@@ -45,7 +45,7 @@ Install [archuseriso](https://aur.archlinux.org/packages/archuseriso/) available
 
 Or manual install on Arch Linux:
 
-    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs libisoburn make squashfs-tools syslinux
+    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs libisoburn make mtools squashfs-tools syslinux
 
 Clone master repository:
 
@@ -55,7 +55,7 @@ Install:
 
     sudo make -C archuseriso install
 
-ISO image building
+Building iso image
 ------------------
 
 Command synopsis:
