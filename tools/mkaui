@@ -16,8 +16,6 @@ quiet="y"
 work_dir="work"
 out_dir="out"
 img_name="${app_name}.iso"
-sfs_mode="sfs"
-sfs_comp="zstd"
 gpg_key=""
 override_gpg_key=""
 
@@ -37,6 +35,8 @@ arch="$(uname -m)"
 pacman_conf="/etc/pacman.conf"
 override_pacman_conf=""
 bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.esp' 'uefi-x64.systemd-boot.eltorito')
+airootfs_image_type="squashfs"
+airootfs_image_tool_options=('-comp' 'zstd')
 
 # Show an INFO message
 # $1: message string
@@ -110,18 +110,12 @@ usage ${app_name} [options] <command>
                       Default: '${iso_label}'
      -P <publisher>   Set the ISO publisher
                       Default: '${iso_publisher}'
-     -c <comp_type>   Set SquashFS compression type (gzip, lzma, lzo, xz, zstd)
-                      Default: '${sfs_comp}'
      -g <gpg_key>     Set the GPG key to be used for signing the sqashfs image
      -h               This message
      -o <out_dir>     Set the output directory
                       Default: '${out_dir}'
      -p PACKAGE(S)    Package(s) to install, can be used multiple times
      -r <run_cmd>     Set a command to be run in chroot (only relevant for legacy 'run' command)
-     -s <sfs_mode>    Set SquashFS image mode (img or sfs)
-                      img: prepare airootfs.sfs for dm-snapshot usage
-                      sfs: prepare airootfs.sfs for overlayfs usage
-                      Default: '${sfs_mode}'
      -v               Enable verbose output
      -w <work_dir>    Set the working directory
                       Default: '${work_dir}'
@@ -265,6 +259,23 @@ _cleanup() {
     _msg_info "Done!"
 }
 
+_mkairootfs_create_image() {
+    if (( $# < 1 )); then
+        _msg_error "Function '${FUNCNAME[0]}' requires at least one argument" 1
+    fi
+
+    image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
+    if [[ "${airootfs_image_type}" =~ .*squashfs ]] ; then
+        if [[ "${quiet}" == "y" ]]; then
+            mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress > /dev/null
+        else
+            mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}"
+        fi
+    else
+        _msg_error "Unsupported image type: '${airootfs_image_type}'" 1
+    fi
+}
+
 # Makes a ext4 filesystem inside a SquashFS from a source directory.
 _mkairootfs_img() {
     if [[ ! -e "${airootfs_dir}" ]]; then
@@ -288,13 +299,7 @@ _mkairootfs_img() {
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     echo
     _msg_info "Creating SquashFS image, this may take some time..."
-    if [[ "${quiet}" = "y" ]]; then
-        mksquashfs "${airootfs_dir}.img" "${isofs_dir}/${install_dir}/${arch}/airootfs.sfs" -noappend \
-            -comp "${sfs_comp}" -no-progress &> /dev/null
-    else
-        mksquashfs "${airootfs_dir}.img" "${isofs_dir}/${install_dir}/${arch}/airootfs.sfs" -noappend \
-            -comp "${sfs_comp}"
-    fi
+    _mkairootfs_create_image "${airootfs_dir}.img"
     _msg_info "Done!"
     rm -- "${airootfs_dir}.img"
 }
@@ -308,13 +313,7 @@ _mkairootfs_sfs() {
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     echo
     _msg_info "Creating SquashFS image, this may take some time..."
-    if [[ "${quiet}" = "y" ]]; then
-        mksquashfs "${airootfs_dir}" "${isofs_dir}/${install_dir}/${arch}/airootfs.sfs" -noappend \
-            -comp "${sfs_comp}" -no-progress &> /dev/null
-    else
-        mksquashfs "${airootfs_dir}" "${isofs_dir}/${install_dir}/${arch}/airootfs.sfs" -noappend \
-            -comp "${sfs_comp}"
-    fi
+    _mkairootfs_create_image "${airootfs_dir}"
     _msg_info "Done!"
 }
 
@@ -800,10 +799,12 @@ _make_aui() {
 
 # Build airootfs filesystem image
 _make_prepare() {
-    if [[ "${sfs_mode}" == "sfs" ]]; then
+    if [[ "${airootfs_image_type}" == "squashfs" ]]; then # prepare airootfs.sfs for overlayfs usage (default)
         _run_once _mkairootfs_sfs
-    else
+    elif [[ "${airootfs_image_type}" == "ext4+squashfs" ]]; then # prepare airootfs.sfs for dm-snapshot usage
         _run_once _mkairootfs_img
+    else
+        _msg_error "Unsupported image type: '${airootfs_image_type}'" 1
     fi
     _mkchecksum
     if [[ "${gpg_key}" ]]; then
@@ -1140,7 +1141,7 @@ while getopts 'p:r:C:L:P:A:D:w:o:s:c:g:vh?' arg; do
     esac
 done
 
-OPTS=$(getopt -o 'p:r:C:L:P:A:D:w:o:s:c:g:vh?' -n 'mkaui' -- "$@")
+OPTS=$(getopt -o 'p:r:C:L:P:A:D:w:o:g:vh?' -n 'mkaui' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -1175,12 +1176,6 @@ while true; do
             shift 2 ;;
         'o')
             out_dir="$(realpath -- "${2}")"
-            shift 2 ;;
-        's')
-            sfs_mode="${2}"
-            shift 2 ;;
-        'c')
-            sfs_comp="${2}"
             shift 2 ;;
         'g')
             override_gpg_key="${2}"
