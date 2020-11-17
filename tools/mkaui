@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -64,11 +64,6 @@ _msg_error() {
     fi
 }
 
-_chroot_init() {
-    install -d -m 0755 -o 0 -g 0 -- "${airootfs_dir}"
-    _pacman base syslinux
-}
-
 _chroot_run() {
     if [[ "${quiet}" = "y" ]]; then
         eval -- arch-chroot "${airootfs_dir}" "${run_cmd}" &> /dev/null
@@ -93,8 +88,7 @@ _umount_airootfs() {
     trap - EXIT HUP INT TERM
 }
 
-# Show help usage, with an exit status.
-# $1: exit status number.
+# Shows configuration options.
 _usage() {
     IFS='' read -r -d '' usagetext <<ENDUSAGETEXT || true
 usage ${app_name} [options] <command>
@@ -224,7 +218,7 @@ _pacman_upgrade () {
 }
 
 # Cleanup airootfs
-_cleanup() {
+_cleanup_airootfs() {
     _msg_info "Cleaning up what we can on airootfs..."
 
     # Delete all files in /boot
@@ -259,25 +253,17 @@ _cleanup() {
     _msg_info "Done!"
 }
 
-_mkairootfs_create_image() {
-    if (( $# < 1 )); then
-        _msg_error "Function '${FUNCNAME[0]}' requires at least one argument" 1
-    fi
-
-    image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
-    if [[ "${airootfs_image_type}" =~ .*squashfs ]] ; then
-        if [[ "${quiet}" == "y" ]]; then
-            mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress > /dev/null
-        else
-            mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}"
-        fi
+_run_mksquashfs() {
+    local image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
+    if [[ "${quiet}" == "y" ]]; then
+        mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress > /dev/null
     else
-        _msg_error "Unsupported image type: '${airootfs_image_type}'" 1
+        mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}"
     fi
 }
 
 # Makes a ext4 filesystem inside a SquashFS from a source directory.
-_mkairootfs_img() {
+_mkairootfs_ext4+squashfs() {
     if [[ ! -e "${airootfs_dir}" ]]; then
         _msg_error "The path '${airootfs_dir}' does not exist" 1
     fi
@@ -299,13 +285,13 @@ _mkairootfs_img() {
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     echo
     _msg_info "Creating SquashFS image, this may take some time..."
-    _mkairootfs_create_image "${airootfs_dir}.img"
+    _run_mksquashfs "${airootfs_dir}.img"
     _msg_info "Done!"
     rm -- "${airootfs_dir}.img"
 }
 
 # Makes a SquashFS filesystem from a source directory.
-_mkairootfs_sfs() {
+_mkairootfs_squashfs() {
     if [[ ! -e "${airootfs_dir}" ]]; then
         _msg_error "The path '${airootfs_dir}' does not exist" 1
     fi
@@ -313,7 +299,7 @@ _mkairootfs_sfs() {
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     echo
     _msg_info "Creating SquashFS image, this may take some time..."
-    _mkairootfs_create_image "${airootfs_dir}"
+    _run_mksquashfs "${airootfs_dir}"
     _msg_info "Done!"
 }
 
@@ -401,8 +387,10 @@ _make_custom_airootfs() {
     _msg_info "Done!"
 }
 
-# Packages (airootfs)
+# Install desired packages to airootfs
 _make_packages() {
+     _msg_info "Installing packages to '${airootfs_dir}/'..."
+
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
@@ -412,10 +400,14 @@ _make_packages() {
         exec {ARCHISO_GNUPG_FD}<&-
         unset ARCHISO_GNUPG_FD
     fi
+
+    _msg_info "Done! Packages installed successfully."
 }
 
 # Packages in testing (airootfs)
 _make_packages_testing () {
+    _msg_info "Installing packages to '${airootfs_dir}/'..."
+
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
@@ -425,10 +417,14 @@ _make_packages_testing () {
         exec {ARCHISO_GNUPG_FD}<&-
         unset ARCHISO_GNUPG_FD
     fi
+
+    _msg_info "Done! Packages installed successfully."
 }
 
 # airootfs install user provided packages
 _make_packages_upgrade() {
+    _msg_info "Installing packages to '${airootfs_dir}/'..."
+
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
@@ -438,6 +434,8 @@ _make_packages_upgrade() {
         exec {ARCHISO_GNUPG_FD}<&-
         unset ARCHISO_GNUPG_FD
     fi
+
+    _msg_info "Done! Packages installed successfully."
 }
 
 # Customize installation (airootfs)
@@ -466,8 +464,7 @@ _make_customize_airootfs() {
 
     if [[ -e "${airootfs_dir}/root/customize_airootfs-${profile}.sh" ]]; then
         _msg_info "Running customize_airootfs.sh in '${airootfs_dir}' chroot..."
-        local run_cmd="/root/customize_airootfs-${profile}.sh"
-        _chroot_run
+        eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs-${profile}.sh"
         rm -- "${airootfs_dir}/root/customize_airootfs.sh"
         _msg_info "Done! customize_airootfs.sh run successfully."
     fi
@@ -499,8 +496,8 @@ _make_setup_mkinitcpio() {
 _make_bootmodes() {
     local bootmode
     for bootmode in "${bootmodes[@]}"; do
-        if typeset -f "_make_boot_${bootmode}" &> /dev/null; then
-            _run_once "_make_boot_${bootmode}"
+        if typeset -f "_make_bootmode_${bootmode}" &> /dev/null; then
+            _run_once "_make_bootmode_${bootmode}"
         else
             _msg_error "${bootmode} is not a valid boot mode" 1
         fi
@@ -508,7 +505,7 @@ _make_bootmodes() {
 }
 
 # Prepare kernel/initramfs ${install_dir}/boot/
-_make_boot_on_iso() {
+_make_boot_on_iso9660() {
     _msg_info "Preparing kernel and intramfs for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/${arch}"
     install -m 0644 -- "${airootfs_dir}/boot/initramfs-"*".img" "${isofs_dir}/${install_dir}/boot/${arch}/"
@@ -527,7 +524,7 @@ _make_boot_on_iso() {
 }
 
 # Prepare /${install_dir}/boot/syslinux
-_make_boot_bios.syslinux.mbr() {
+_make_bootmode_bios.syslinux.mbr() {
     _msg_info "Setting up SYSLINUX for BIOS booting from a disk..."
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/syslinux"
     for _cfg in "${base_path}/syslinux/"*".cfg"; do
@@ -544,7 +541,7 @@ _make_boot_bios.syslinux.mbr() {
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${isofs_dir}/${install_dir}/boot/syslinux/"
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${isofs_dir}/${install_dir}/boot/syslinux/"
 
-    _run_once _make_boot_on_iso
+    _run_once _make_boot_on_iso9660
     if [[ -e "${isofs_dir}/${install_dir}/boot/syslinux/hdt.c32" ]]; then
         install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/syslinux/hdt"
         if [[ -e "${airootfs_dir}/usr/share/hwdata/pci.ids" ]]; then
@@ -567,7 +564,7 @@ _make_boot_bios.syslinux.mbr() {
 }
 
 # Prepare /isolinux
-_make_boot_bios.syslinux.eltorito() {
+_make_bootmode_bios.syslinux.eltorito() {
     _msg_info "Setting up SYSLINUX for BIOS booting from an optical disc..."
     install -d -m 0755 -- "${isofs_dir}/isolinux"
     for _cfg in "${base_path}/isolinux/"*".cfg"; do
@@ -581,13 +578,13 @@ _make_boot_bios.syslinux.eltorito() {
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/ldlinux.c32" "${isofs_dir}/isolinux/"
 
     # isolinux.cfg loads syslinux.cfg
-    _run_once _make_boot_bios.syslinux.mbr
+    _run_once _make_bootmode_bios.syslinux.mbr
 
     _msg_info "Done! SYSLINUX set up for BIOS booting from an optical disc successfully."
 }
 
-# Prepare /EFI
-_make_efi() {
+# Prepare /EFI on ISO-9660
+_make_efi_dir_on_iso9660() {
     _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}/EFI/BOOT"
     install -m 0644 -- cp "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.efi"
@@ -641,7 +638,7 @@ _make_boot_on_fat() {
 }
 
 # Prepare efiboot.img::/EFI for EFI boot mode
-_make_boot_uefi-x64.systemd-boot.esp() {
+_make_bootmode_uefi-x64.systemd-boot.esp() {
     local _efiboot_imgsize="0"
     _msg_info "Setting up systemd-boot for UEFI booting..."
 
@@ -704,10 +701,10 @@ _make_boot_uefi-x64.systemd-boot.esp() {
 }
 
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode
-_make_boot_uefi-x64.systemd-boot.eltorito() {
-    _run_once _make_boot_uefi-x64.systemd-boot.esp
-    # Set up /EFI on ISO-9660
-    _run_once _make_efi
+_make_bootmode_uefi-x64.systemd-boot.eltorito() {
+    _run_once _make_bootmode_uefi-x64.systemd-boot.esp
+    # Set up /EFI on ISO-9660 to allow preparing an installation medium by manually copying files
+    _run_once _make_efi_dir_on_iso9660
 }
 
 # Archuseriso data
@@ -798,14 +795,13 @@ _make_aui() {
 }
 
 # Build airootfs filesystem image
-_make_prepare() {
-    if [[ "${airootfs_image_type}" == "squashfs" ]]; then # prepare airootfs.sfs for overlayfs usage (default)
-        _run_once _mkairootfs_sfs
-    elif [[ "${airootfs_image_type}" == "ext4+squashfs" ]]; then # prepare airootfs.sfs for dm-snapshot usage
-        _run_once _mkairootfs_img
+_prepare_airootfs_image() {
+    if typeset -f "_mkairootfs_${airootfs_image_type}" &> /dev/null; then
+        _run_once "_mkairootfs_${airootfs_image_type}"
     else
         _msg_error "Unsupported image type: '${airootfs_image_type}'" 1
     fi
+
     _mkchecksum
     if [[ "${gpg_key}" ]]; then
         _mksignature
@@ -814,7 +810,7 @@ _make_prepare() {
 
 
 # Build ISO
-_make_iso() {
+_build_iso() {
     local xorrisofs_options=()
 
     [[ -d "${out_dir}" ]] || install -d -- "${out_dir}"
@@ -1000,9 +996,7 @@ _set_overrides() {
 
 
 _export_gpg_publickey() {
-    if [[ -n "${gpg_key}" ]]; then
-        gpg --batch --output "${work_dir}/pubkey.gpg" --export "${gpg_key}"
-    fi
+     gpg --batch --output "${work_dir}/pubkey.gpg" --export "${gpg_key}"
 }
 
 _make_pkglist() {
@@ -1098,7 +1092,9 @@ command_build_profile() {
 
     _show_config "${FUNCNAME[0]#command_}"
     _run_once _make_pacman_conf
-    _run_once _export_gpg_publickey
+    if [[ -n "${gpg_key}" ]]; then
+        _run_once _export_gpg_publickey
+    fi
     _run_once _make_custom_airootfs
     _run_once _make_packages
     _run_once _make_packages_testing
@@ -1107,12 +1103,12 @@ command_build_profile() {
     _run_once _make_setup_mkinitcpio
     _run_once _make_pkglist
     _make_bootmodes
-    _run_once _cleanup
+    _run_once _cleanup_airootfs
     if [[ ! "${profile}" = 'console' ]]; then
         _run_once _make_aui
     fi
-    _run_once _make_prepare
-    _run_once _make_iso
+    _run_once _make_prepare_airootfs_image
+    _run_once _build_iso
 }
 
 while getopts 'p:r:C:L:P:A:D:w:o:s:c:g:vh?' arg; do
