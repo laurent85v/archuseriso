@@ -1085,7 +1085,7 @@ _build_profile() {
     _run_once _make_pkglist
     _make_bootmodes
     _run_once _cleanup_airootfs
-    [[ ! "${profile}" = 'console' ]] && _run_once _make_aui
+    _run_once _make_aui
     _run_once _make_prepare_airootfs_image
     _run_once _build_iso
 }
