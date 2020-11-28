@@ -41,7 +41,7 @@ fi
   [[ -e /usr/lib/systemd/system/bluetooth.service            ]] && systemctl enable bluetooth.service;
   [[ -e /usr/lib/systemd/system/NetworkManager.service       ]] && systemctl enable NetworkManager.service;
   [[ -e /usr/lib/systemd/system/nmb.service                  ]] && systemctl enable nmb.service;
-  [[ -e /usr/lib/systemd/system/org.cups.cupsd.service       ]] && systemctl enable org.cups.cupsd.service;
+  [[ -e /usr/lib/systemd/system/cups.service                 ]] && systemctl enable cups.service;
   [[ -e /usr/lib/systemd/system/smb.service                  ]] && systemctl enable smb.service;
   [[ -e /usr/lib/systemd/system/systemd-timesyncd.service    ]] && systemctl enable systemd-timesyncd.service;
   [[ -e /usr/lib/systemd/system/winbind.service              ]] && systemctl enable winbind.service;
