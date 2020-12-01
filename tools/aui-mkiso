@@ -69,7 +69,7 @@ _help () {
 _build_zfs_packages () {
         local _auiwork="${WD}"/auiwork$(openssl rand -hex 4)
         local _ar64="${_auiwork}/archroot64"
-        local _linuxversion _modulesversion _zfspackages _zfssha256sum _zfssources _zfsversion
+        local _linuxversion _modulesversion _zfspackages _zfssources _zfsversion
         local _ZFSPUBKEY="6AD860EED4598027"
         local _KEYSERVER="ha.pool.sks-keyservers.net"
 
@@ -104,14 +104,7 @@ _build_zfs_packages () {
                        grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
         _zfsversion="${_zfssources[0]%/zfs-*}"
         _zfsversion="${_zfsversion#*-}"
-        for _zfslink in "${_zfssources[@]}"; do
-                if [[ "${_zfslink}" =~ 'sha256.asc' ]]; then
-                       _zfssha256sum=$(eval curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" | \
-                         grep '\.tar\.gz$' | cut -d' ' -f1)
-                       break
-                fi
-        done
-        if [[ -z "${_zfsversion}" || -z "${_zfssha256sum}" ]]; then
+        if [[ -z "${_zfsversion}" ]]; then
                 echo 'Retrieving ZFS data failed, aborting!'
                 exit 0
         fi
@@ -134,8 +127,7 @@ _build_zfs_packages () {
         cp -arT "${confdir}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
         sed -i "s/%ZFSVERSION%/${_zfsversion}/
                 s/%LINUXVERSION%/${_linuxversion}/
-                s/%MODULESVERSION%/${_modulesversion}/
-                s/%SHA256SUM%/${_zfssha256sum}/" \
+                s/%MODULESVERSION%/${_modulesversion}/" \
                 "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
                 "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
         cd "${_auiwork}/zfsonlinux/zfs-utils/"

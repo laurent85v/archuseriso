@@ -17,7 +17,6 @@ ar64="${auiwork}/archroot64"
 linuxversion=""
 modulesversion=""
 declare -a zfspackages
-zfssha256sum=""
 declare -a zfssources
 zfsversion=""
 
@@ -64,14 +63,7 @@ _init () {
                        grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
         zfsversion="${zfssources[0]%/zfs-*}"
         zfsversion="${zfsversion#*-}"
-        for _zfslink in "${zfssources[@]}"; do
-                if [[ "${_zfslink}" =~ 'sha256.asc' ]]; then
-                       zfssha256sum=$(eval curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" | \
-                         grep '\.tar\.gz$' | cut -d' ' -f1)
-                       break
-                fi
-        done
-        if [[ -z "${zfsversion}" || -z "${zfssha256sum}" ]]; then
+        if [[ -z "${zfsversion}" ]]; then
                 echo 'Retrieving ZFS data failed, aborting!'
                 exit 0
         fi
@@ -112,8 +104,7 @@ _build_zfs_packages () {
         cp -arT "${confdir}/aui/zfsonlinux" "${auiwork}/zfsonlinux"
         sed -i "s/%ZFSVERSION%/${zfsversion}/
                 s/%LINUXVERSION%/${linuxversion}/
-                s/%MODULESVERSION%/${modulesversion}/
-                s/%SHA256SUM%/${zfssha256sum}/" \
+                s/%MODULESVERSION%/${modulesversion}/" \
                 "${auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
                 "${auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
         cd "${auiwork}/zfsonlinux/zfs-utils/"
