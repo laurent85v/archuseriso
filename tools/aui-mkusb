@@ -98,10 +98,10 @@ _encrypt_setup () {
         sed -i "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
         _msg_info "initramfs update"
         arch-chroot "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
-        sed -i "s|Storage$|& Encrypted|
+        sed -i "s|storage$|& encrypted|
                 s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                 "${WD}/${workdir}/overlay/boot/loader/entries/0aui_persistence-x86_64.conf"
-        sed -i "s|Storage$|& Encrypted|
+        sed -i "s|storage$|& encrypted|
                 s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                 "${WD}/${workdir}/overlay/boot/${install_dir}/boot/syslinux/archiso_sys.cfg"
         umount "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
