@@ -183,6 +183,9 @@ _init () {
         local _cowsize
         local _fatsize
         devicesize=$(blockdev --getsize64 "${usbdevice}")
+        LOGSEC=$(lsblk --noheadings --raw --scsi --output log-sec "${usbdevice}")
+        # Drive partition #1, first sector at 1 MiB
+        SECSTART=$(( 1024 * 1024 / LOGSEC ))
         ESP=512 # 512 MiB
         FREE=1024 # 1 GiB
         isosize=$(stat -c %s "${isoname}")
@@ -289,7 +292,7 @@ _usb_prepare () {
 }
 
 _partitions () {
-        local _fatsize=$(( ESP * 1024 * 1024 / 512 ))
+        local _fatsize=$(( ESP * 1024 * 1024 / LOGSEC ))
         # GPT Partition type : Linux Filesystem
         local _ptlinux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
         # GPT Partition type : Microsoft basic data
@@ -306,14 +309,14 @@ _partitions () {
         fi
         sleep 2
         if [[ -n "${fatsize:-}" ]]; then
-                _fatsize=$(( ${fatsize/[gG]} * 1024 * 1024 * 1024 / 512 ))
+                _fatsize=$(( ${fatsize/[gG]} * 1024 * 1024 * 1024 / LOGSEC ))
         fi
         if [[ -n "${cowsize:-}" ]]; then
-                _cowsize=$(( ${cowsize/[gG]} * 1024 * 1024 * 1024 / 512 ))
+                _cowsize=$(( ${cowsize/[gG]} * 1024 * 1024 * 1024 / LOGSEC ))
         fi
         # partition #1 iso data
-        _msg_info "partition #1, live partition:  $(( (isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8) / 1024 / 2 )) MiB"
-        if ! echo "2048,$(( isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_ptlinux}," | sfdisk "${usbdevice}" -W always > /dev/null; then
+        _msg_info "partition #1, live partition:  $(( (isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8) / 1024 / 2 )) MiB"
+        if ! echo "${SECSTART},$(( isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8 )),${_ptlinux}," | sfdisk "${usbdevice}" -W always > /dev/null; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
@@ -321,7 +324,7 @@ _partitions () {
         sleep 2
         # partition #2 boot & efi partition
         _msg_info "partition #2, boot partition: $(( _fatsize / 1024 / 2 )) MiB"
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 )),${_fatsize},${_ptmsft}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
+        if ! echo "$(( SECSTART + isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8 )),${_fatsize},${_ptmsft}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
@@ -329,7 +332,7 @@ _partitions () {
         sleep 2
         # partition #3 persistent partition
         _msg_info "partition #3, persistent partition: ${cowsize:-free space}"
-        if ! echo "$(( 2048 + isosize / 512 + ESP * 1024 * 1024 / 512 * 3 / 8 + _fatsize )),${_cowsize:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
+        if ! echo "$(( SECSTART + isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8 + _fatsize )),${_cowsize:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
                 echo 'Failed to create new partition layout!'
                 _unmount
                 exit 1

@@ -126,10 +126,13 @@ _checks () {
 
 _init () {
         devicesize=$(blockdev --getsize64 "${usbdevice}")
-        ESPSIZE=1048576 # 512 MiB
+        LOGSEC=$(lsblk --noheadings --raw --scsi --output log-sec "${usbdevice}")
+        # ESP size 512 MiB
+        ESPSIZE=$(( 512 * 1024 * 1024 / LOGSEC ))
         isosize=$(stat -c %s "${isoname}")
         MINCAPACITY=16000000000 # 16 GB
-        SECSTART=2048 # 1st sector
+        # Drive partition #1, first sector at 1 MiB
+        SECSTART=$(( 1024 * 1024 / LOGSEC ))
         WD="${PWD}"
         workdir=auiwork
         # Check usb device capacity
