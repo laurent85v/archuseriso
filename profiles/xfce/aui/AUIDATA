@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 AUIDATA=v2
-comp_type=%COMP_TYPE%
+airootfs_image_tool_options=%AIROOTFS_IMAGE_TOOL_OPTIONS%
 cow_label=AUIPERS
 desktop=%DESKTOP%
 install_dir=%INSTALL_DIR%

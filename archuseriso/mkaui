@@ -12,10 +12,11 @@ export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-"$(date +%s)"}"
 # mkaui defaults
 app_name="${0##*/}"
 pkg_list=()
+pkg_testing_list=()
 quiet="y"
 work_dir="work"
 out_dir="out"
-img_name="${app_name}.iso"
+img_name=""
 gpg_key=""
 override_gpg_key=""
 
@@ -33,16 +34,25 @@ install_dir="${app_name}"
 override_install_dir=""
 arch="$(uname -m)"
 pacman_conf="/etc/pacman.conf"
+pacman_testing_conf=""
 override_pacman_conf=""
+override_pacman_testing_conf=""
 bootmodes=()
 airootfs_image_type="squashfs"
 airootfs_image_tool_options=('-comp' 'zstd')
+lang=""
+user_pkg_dir=""
+iso_version_options=()
+override_iso_name=""
+embed_dir=""
+build_zfs_packages="n"
+SCRIPTUSER="${SUDO_USER:-}"
 
 # Show an INFO message
 # $1: message string
 _msg_info() {
     local _msg="${1}"
-    [[ "${quiet}" == "y" ]] || printf '[%s] INFO: %s\n' "${app_name}" "${_msg}"
+    printf '[%s] INFO: %s\n' "${app_name}" "${_msg}"
 }
 
 # Show a WARNING message
@@ -86,27 +96,52 @@ _usage() {
     IFS='' read -r -d '' usagetext <<ENDUSAGETEXT || true
 usage: ${app_name} [options] <profile_dir>
   options:
-     -A <application> Set an application name for the ISO
-                      Default: '${iso_application}'
-     -C <file>        pacman configuration file.
-                      Default: '${pacman_conf}'
-     -D <install_dir> Set an install_dir. All files will by located here.
-                      Default: '${install_dir}'
-                      NOTE: Max 8 characters, use only [a-z0-9]
-     -L <label>       Set the ISO volume label
-                      Default: '${iso_label}'
-     -P <publisher>   Set the ISO publisher
-                      Default: '${iso_publisher}'
-     -g <gpg_key>     Set the GPG key to be used for signing the sqashfs image
-     -h               This message
-     -o <out_dir>     Set the output directory
-                      Default: '${out_dir}'
-     -p PACKAGE(S)    Package(s) to install, can be used multiple times
-     -v               Enable verbose output
-     -w <work_dir>    Set the working directory
-                      Default: '${work_dir}'
+     -A, --application  <application>   Set an application name for the ISO
+                                        Default: '${iso_application}'
+     --add-pkg, -p     PACKAGE(S)       Package(s) to install, comma seperated list
+     --add-pkg-testing PACKAGE(S)       Package(s) to install from testing repositories,
+                                        comma seperated list
+     --add-i3-wm                        Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl
+     -C <file>                          pacman configuration file.
+                                        Default: '${pacman_conf}'
+     -D, --install-dir  <install_dir>   Set an install_dir. All files will by located here.
+                                        Default: '${install_dir}'
+                                        NOTE: Max 8 characters, use only [a-z0-9]
+     --embed-dir <path>                 Embed directory contents in the iso image,
+                                        data available from the live's session.
+     -g <gpg_key>                       Set the GPG key to be used for signing the sqashfs image
+     -h                                 This message
+     -L <label>                         Set the ISO volume label
+                                        Default: '${iso_label}'
+     -l, --language <lang>              Set default language, select one from:
+                                        cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
+     --nvidia                           Nvidia graphics driver setup
+     --optimus                          For Optimus hardware, set Intel iGPU default and Nvidia dGPU
+                                        configured for PRIME render offload (prime-run <application>)
+     -o <out_dir>                       Set the output directory
+                                        Default: '${out_dir}'
+     --pacman-testing-conf <file>       pacman configuration file with testing repositories enabled.
+                                        Default: '${pacman_testing_conf}'
+     --pkg-dir <path>                   Directory containing user packages to install,
+                                        pkg.tar.xz or pkg.tar.zst package files.
+     -P <publisher>                     Set the ISO publisher
+                                        Default: '${iso_publisher}'
+     -v, --verbose                      Enable verbose output
+     -w, --work-dir <work_dir>          Set the working directory
+                                        Default: '${work_dir}'
+     --zfs                              Dynamically builds the ZFS packages against installed
+                                        kernel and install packages.
 
-  profile_dir:        Directory of the archiso profile to build
+  profile_dir:        Directory of the archuseriso profile to build. Available directory profiles
+                      under /usr/share/archuseriso/profiles
+
+  Build example:
+  sudo mkaui /usr/share/archuseriso/xfce
+
+  Customization:
+  Copy the directory profile to edit profiledef.sh and packages.x86_64
+                     
+
 ENDUSAGETEXT
     printf '%s' "${usagetext}"
     exit "${1}"
@@ -125,12 +160,15 @@ _show_config() {
     _msg_info "                  GPG key:   ${gpg_key:-None}"
     _msg_info "                  Profile:   ${profile}"
     _msg_info "Pacman configuration file:   ${pacman_conf}"
-    _msg_info "          Image file name:   ${img_name}"
+    _msg_info "Pacman testing conf. file:   ${pacman_testing_conf}"
     _msg_info "         ISO volume label:   ${iso_label}"
     _msg_info "            ISO publisher:   ${iso_publisher}"
     _msg_info "          ISO application:   ${iso_application}"
     _msg_info "               Boot modes:   ${bootmodes[*]}"
     _msg_info "                 Packages:   ${pkg_list[*]}"
+    _msg_info "    Packages from testing:   ${pkg_testing_list[*]}"
+    _msg_info "  User packages directory:   ${user_pkg_dir}"
+    echo
 }
 
 # Cleanup airootfs
@@ -160,7 +198,7 @@ _cleanup_airootfs() {
 _run_mksquashfs() {
     local image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
     if [[ "${quiet}" == "y" ]]; then
-        mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress > /dev/null
+        mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress &> /dev/null
     else
         mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}"
     fi
@@ -254,7 +292,33 @@ _make_pacman_conf() {
     sed "/\[options\]/a CacheDir = ${_cache_dirs}
         /\[options\]/a HookDir = ${airootfs_dir}/etc/pacman.d/hooks/" \
         -i "${work_dir}/pacman.conf"
-    sed -r "s|^#?\\s*CacheDir.+|CacheDir = $(echo -n "${_cache_dirs[@]}")|g" \
+}
+
+# Set up custom pacman-testing.conf with custom cache and pacman hook directories.
+_make_pacman_testing_conf() {
+    local _cache_dirs _system_cache_dirs _profile_cache_dirs
+    _system_cache_dirs="$(pacman-conf CacheDir| tr '\n' ' ')"
+    _profile_cache_dirs="$(pacman-conf --config "${pacman_testing_conf}" CacheDir| tr '\n' ' ')"
+
+    # only use the profile's CacheDir, if it is not the default and not the same as the system cache dir
+    if [[ "${_profile_cache_dirs}" != "/var/cache/pacman/pkg" ]] && \
+        [[ "${_system_cache_dirs}" != "${_profile_cache_dirs}" ]]; then
+        _cache_dirs="${_profile_cache_dirs}"
+    else
+        _cache_dirs="${_system_cache_dirs}"
+    fi
+
+    _msg_info "Copying custom pacman-testing.conf to work directory..."
+    # take the profile pacman-testing.conf and strip all settings that would break in chroot when using pacman -r
+    # see `man 8 pacman` for further info
+    pacman-conf --config "${pacman_testing_conf}" | \
+        sed '/CacheDir/d;/DBPath/d;/HookDir/d;/LogFile/d;/RootDir/d' > "${work_dir}/pacman-testing.conf"
+
+    _msg_info "Using pacman CacheDir: ${_cache_dirs}"
+    # append CacheDir and HookDir to [options] section
+    # HookDir is *always* set to the airootfs' override directory
+    sed "/\[options\]/a CacheDir = ${_cache_dirs}
+        /\[options\]/a HookDir = ${airootfs_dir}/etc/pacman.d/hooks/" \
         -i "${work_dir}/pacman-testing.conf"
 }
 
@@ -307,7 +371,7 @@ _make_packages() {
 
 # Packages in testing (airootfs)
 _make_packages_testing () {
-    _msg_info "Installing packages to '${airootfs_dir}/'..."
+    _msg_info "Installing testing packages to '${airootfs_dir}/'..."
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
@@ -315,9 +379,9 @@ _make_packages_testing () {
     fi
 
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -- "${airootfs_dir}" "${pkg_list[@]}" &> /dev/null
+        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${airootfs_dir}" "${pkg_testing_list[@]}" &> /dev/null
     else
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -- "${airootfs_dir}" "${pkg_list[@]}"
+        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${airootfs_dir}" "${pkg_testing_list[@]}"
     fi
 
     if [[ -n "${gpg_key}" ]]; then
@@ -330,13 +394,22 @@ _make_packages_testing () {
 
 # airootfs install user provided packages
 _make_packages_upgrade() {
-    _msg_info "Installing packages to '${airootfs_dir}/'..."
+    local _pkg_upgrade
+    _pkg_upgrade+=($(find "${user_pkg_dir}" -maxdepth 1 \( -name "*.pkg.tar.xz" -o -name "*.pkg.tar.zst" \) ))
+
+    _msg_info "Installing user packages to '${airootfs_dir}/'..."
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
     fi
-    _pacman_upgrade "${pkg_list[@]}"
+
+    if [[ "${quiet}" = "y" ]]; then
+        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${airootfs_dir}" "${_pkg_upgrade[@]}" &> /dev/null
+    else
+        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${airootfs_dir}" "${_pkg_upgrade[@]}"
+    fi
+
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<&-
         unset ARCHISO_GNUPG_FD
@@ -368,17 +441,26 @@ _make_customize_airootfs() {
         _msg_info "Done!"
     fi
 
-    if [[ -e "${airootfs_dir}/root/customize_airootfs-${profile}.sh" ]]; then
+    if [[ -e "${airootfs_dir}/root/customize_airootfs_lang.sh" ]]; then
+        _msg_info "Running customize_airootfs_lang.sh in '${airootfs_dir}' chroot..."
+        if [[ "${quiet}" == "y" ]]; then
+            eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs_lang.sh" &> /dev/null
+        else
+            eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs_lang.sh"
+        fi
+        rm -- "${airootfs_dir}/root/customize_airootfs_lang.sh"
+        _msg_info "Done! customize_airootfs_lang.sh run successfully."
+    fi
+    if [[ -e "${airootfs_dir}/root/customize_airootfs.sh" ]]; then
         _msg_info "Running customize_airootfs.sh in '${airootfs_dir}' chroot..."
-        eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs-${profile}.sh"
+        if [[ "${quiet}" == "y" ]]; then
+            eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs.sh" &> /dev/null
+        else
+            eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs.sh"
+        fi
         rm -- "${airootfs_dir}/root/customize_airootfs.sh"
         _msg_info "Done! customize_airootfs.sh run successfully."
     fi
-
-    # airootfs extra cleanup
-    _cleanup_airootfs
-
-    _msg_info "Done!"
 }
 
 # rebuild initramfs (airootfs)
@@ -496,7 +578,8 @@ _make_bootmode_bios.syslinux.eltorito() {
 _make_efi_dir_on_iso9660() {
     _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}/EFI/BOOT"
-    install -m 0644 -- cp "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.efi"
+    install -d -m 0755 -- "${isofs_dir}/EFI/live"
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.efi"
     cp -a -- "${work_dir}"/x86_64/airootfs/usr/share/refind/{drivers_x64,icons}/ "${isofs_dir}/EFI/BOOT/"
 
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${isofs_dir}/EFI/live/livedisk.efi"
@@ -511,11 +594,11 @@ _make_efi_dir_on_iso9660() {
     install -m 0644 -- "${profile}/efiboot/loader/entries/archiso_3_ram-x86_64-linux.conf" "${isofs_dir}/loader/entries/archiso_3_ram-x86_64.conf"
 
     for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
-        sed -i "s|%DESKTOP%|${desktop}|g;
-                s|%ARCHISO_LABEL%|${iso_label}|g;
-                s|%INSTALL_DIR%|${install_dir}|g;
-                s|%ARCH%|${arch}|g" \
-                "${_conf}" > "${isofs_dir}/loader/entries/${_conf##*/}"
+        sed "s|%DESKTOP%|${desktop}|g;
+             s|%ARCHISO_LABEL%|${iso_label}|g;
+             s|%INSTALL_DIR%|${install_dir}|g;
+             s|%ARCH%|${arch}|g" \
+             "${_conf}" > "${isofs_dir}/loader/entries/${_conf##*/}"
     done
 
     # EFI Shell 2.0 for UEFI 2.3+
@@ -559,6 +642,7 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
         "${airootfs_dir}/boot/vmlinuz-"* \
         "${airootfs_dir}/boot/initramfs-"*".img" \
         "${airootfs_dir}/boot/"{intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio} \
+        "${airootfs_dir}/usr/share/refind" \
         2>/dev/null | awk 'function ceil(x){return int(x)+(x>int(x))}
                            function byte_to_kib(x){return x/1024}
                            function mib_to_kib(x){return x*1024}
@@ -569,11 +653,15 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     # https://lists.gnu.org/archive/html/grub-devel/2019-04/msg00099.html
     [[ -e "${work_dir}/efiboot.img" ]] && rm -f -- "${work_dir}/efiboot.img"
     _msg_info "Creating FAT image of size: ${efiboot_imgsize} KiB..."
-    mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${_efiboot_imgsize}"
+    if [[ "${quiet}" == "y" ]]; then
+        mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${efiboot_imgsize}" &> /dev/null
+    else
+        mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${efiboot_imgsize}"
+    fi
 
     mmd -i "${work_dir}/efiboot.img" \
            ::/EFI ::/EFI/BOOT ::/EFI/BOOT/drivers_x64 ::/EFI/BOOT/icons ::/EFI/live \
-           ::/EFI/loader ::/EFI/loader/entries
+           ::/loader ::/loader/entries
     mcopy -i "${work_dir}/efiboot.img" \
              "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" ::/EFI/BOOT/BOOTx64.EFI
     mcopy -i "${work_dir}/efiboot.img" \
@@ -587,7 +675,7 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     mcopy -i "${work_dir}/efiboot.img" \
              "${profile}/efiboot/boot/refind-dvd.conf" ::/EFI/BOOT/refind.conf
     mcopy -i "${work_dir}/efiboot.img" \
-             "${profile}/efiboot/loader/loader.conf" ::/EFI/loader/
+             "${profile}/efiboot/loader/loader.conf" ::loader/
 
     for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
         sed "s|%DESKTOP%|${desktop}|g;
@@ -618,64 +706,71 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
 
 # Archuseriso data
 _make_aui() {
+    if [[ -z "${iso_version}" ]]; then
+        iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
+                       cut -d' ' -f2 | \
+                       sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[@]:+-${iso_version_options[@]}}${lang:+-${lang}}-$(date +%m%d)"
+    fi
+    if [[ -z "${img_name}" ]]; then
+        img_name="${iso_name}-${iso_version}-x64.iso"
+    fi
+
     cp -aT --no-preserve=ownership -- "${profile}/aui/" "${isofs_dir}/aui/"
-    mv -- "${isofs_dir}/iso/aui/persistent" "${isofs_dir}/iso/aui/persistent_${iso_label}"
+    mv -- "${isofs_dir}/aui/persistent" "${isofs_dir}/aui/persistent_${iso_label}"
 
     ### esp
     # syslinux
-    mkdir -p -- "${isofs_dir}/aui/esp/${install_dir}/boot/"
-    ln -s -- "../../../../${install_dir}/boot/syslinux" "${isofs_dir}/aui/esp/${install_dir}/boot/syslinux"
-    mkdir -p -- "${isofs_dir}/aui/esp/syslinux/"
-    ln -s -- "../../../isolinux/isolinux.cfg" "${isofs_dir}/aui/esp/syslinux/syslinux.cfg"
+    if [[ -d "${isofs_dir}/${install_dir}/boot/syslinux" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/aui/esp/${install_dir}/boot/"
+        ln -s -- "../../../../${install_dir}/boot/syslinux" "${isofs_dir}/aui/esp/${install_dir}/boot/syslinux"
+    fi
+    if [[ -f "${isofs_dir}/syslinux/syslinux.cfg" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/aui/esp/syslinux/"
+        ln -s -- "../../../isolinux/isolinux.cfg" "${isofs_dir}/aui/esp/syslinux/syslinux.cfg"
+    fi
 
     # live kernel & initramfs
-    mkdir -p -- "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
-    mkdir -p -- "${isofs_dir}/aui/esp/${install_dir}/boot/licenses/"
+    install -d -m 0755 -- "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
+    install -d -m 0755 -- "${isofs_dir}/aui/esp/${install_dir}/boot/licenses/"
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
-            if [[ -e "../../../../${install_dir}/boot/${_ucode_image}" ]]; then
-                ln -s "../../../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/aui/esp/"
+            if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
+                ln -s -- "../../../../${install_dir}/boot/${_ucode_image}" "${isofs_dir}/aui/esp/${install_dir}/boot/"
             fi
     done
-    for _license in "../../../../../${install_dir}/boot/licenses/"*; do
-        ln -s "../../../../../${install_dir}/boot/licenses/${_license}/" \
-              "${work_dir}/iso/aui/esp/${install_dir}/boot/licenses/${_license}"
-    done
-    ln -s -- "../../../../${install_dir}/boot/memtest" "${isofs_dir}/aui/esp/${install_dir}/boot/"
-    ln -s -- "../../../../../${install_dir}/boot/licenses/memtest86+/" \
-             "${isofs_dir}/aui/esp/${install_dir}/boot/licenses/memtest86+"
-    for _kernel in "../../../../../${install_dir}/boot/x86_64/vmlinuz-"* \
-                   "../../../../../${install_dir}/boot/x86_64/initramfs-"*".img"; do
-            ln -s "../../../../../${install_dir}/boot/x86_64/${_kernel}" \
-                  "${work_dir}/iso/aui/esp/${install_dir}/boot/x86_64/"
+    if [[ -d "${isofs_dir}/${install_dir}/boot/licenses" ]]; then
+        for _license in "${isofs_dir}/${install_dir}/boot/licenses/"*; do
+            ln -s -- "../../../../../${install_dir}/boot/licenses/${_license##*/}/" \
+                     "${isofs_dir}/aui/esp/${install_dir}/boot/licenses/${_license##*/}"
+        done
+    fi
+    if [[ -f "${isofs_dir}/${install_dir}/boot/memtest" ]]; then
+        ln -s -- "../../../../${install_dir}/boot/memtest" "${isofs_dir}/aui/esp/${install_dir}/boot/"
+    fi
+    for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
+                   "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
+            ln -s -- "../../../../../${install_dir}/boot/x86_64/${_kernel##*/}" \
+                  "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
     done
 
     # persistent kernel & initramfs
-    mkdir -p -- "${isofs_dir}/aui/esp/EFI/"
+    install -d -m 0755 -- "${isofs_dir}/aui/esp/EFI/"
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
-            if [[ -e "../../${install_dir}/boot/${_ucode_image}" ]]; then
-                ln -s "../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/aui/esp/"
-            fi
+        if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
+            ln -s -- "../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/aui/esp/"
+        fi
     done
-    for _kernel in "../../${install_dir}/boot/x86_64/vmlinuz-"* \
-                   "../../${install_dir}/boot/x86_64/initramfs-"*".img"; do
-        ln -s "../../${install_dir}/boot/x86_64/${_kernel}" "${work_dir}/iso/aui/esp/"
+    for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
+                   "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
+        ln -s -- "../../${install_dir}/boot/x86_64/${_kernel##*/}" "${work_dir}/iso/aui/esp/"
     done
-    ln -s -- ../../loader "${isofs_dir}/aui/esp/loader"
-    ln -s -- ../../../EFI/boot "${isofs_dir}/aui/esp/EFI/BOOT"
-    ln -s -- ../../../EFI/live "${isofs_dir}/aui/esp/EFI/live"
-    ln -s -- ../../shellx64.efi "${isofs_dir}/aui/esp/shellx64.efi"
-
-    # duplicate /boot contents to persistent boot partition
-    # mounting persistent boot partition would hide original /boot contents
-    mkdir -p -- "${isofs_dir}/aui/persistent_${iso_label}/x86_64/upperdir/boot/"
-    cp -aT -- "${work_dir}/x86_64/airootfs/boot/memtest86+/" \
-              "${isofs_dir}/aui/persistent_${iso_label}/x86_64/upperdir/boot/memtest86+/"
-    cp -aT "${work_dir}/x86_64/airootfs/boot/syslinux/" \
-           "${isofs_dir}/aui/persistent_${iso_label}/x86_64/upperdir/boot/syslinux"
+    [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../loader "${isofs_dir}/aui/esp/loader"
+    [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../EFI/BOOT "${isofs_dir}/aui/esp/EFI/BOOT"
+    [[ -d "${isofs_dir}/EFI/live" ]] && ln -s -- ../../../EFI/live "${isofs_dir}/aui/esp/EFI/live"
+    [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../shellx64.efi "${isofs_dir}/aui/esp/shellx64.efi"
 
     if [[ -f "${isofs_dir}/aui/AUIDATA" ]]; then
         eval $(grep -- cow_label "${isofs_dir}/aui/AUIDATA")
-        sed -i "s|%COMP_TYPE%|${comp_type}|;
+        sed -i "s|%AIROOTFS_IMAGE_TOOL_OPTIONS%|\'$(echo ${airootfs_image_tool_options[@]})\'|;
                 s|%DESKTOP%|${desktop}|;
                 s|%INSTALL_DIR%|${install_dir}|;
                 s|%ARCHISO_LABEL%|${iso_label}|;
@@ -698,8 +793,8 @@ _make_aui() {
                 s|%DESKTOP%|${desktop}|" \
                 "${isofs_dir}/aui/archiso_sys-linux.cfg"
     fi
-    if [[ -n "${AUI_EMBEDDIR:-}" && -d "${AUI_EMBEDDIR:-}" ]]; then
-        cp -aT --no-preserve=ownership "${AUI_EMBEDDIR}" "${isofs_dir}/data"
+    if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
+        cp -aT --no-preserve=ownership "${embed_dir}" "${isofs_dir}/data"
     fi
 }
 
@@ -936,7 +1031,21 @@ _build_iso() {
     done
     
     _msg_info "Creating ISO image..."
-    xorriso -as mkisofs \
+    if [[ "${quiet}" == "y" ]]; then
+        xorriso -as mkisofs \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -joliet \
+            -joliet-long \
+            -volid "${iso_label}" \
+            -appid "${iso_application}" \
+            -publisher "${iso_publisher}" \
+            -preparer "prepared by ${app_name}" \
+            "${xorrisofs_options[@]}" \
+            -output "${out_dir}/${img_name}" \
+            "${isofs_dir}/" 2> /dev/null
+    else
+        xorriso -as mkisofs \
             -iso-level 3 \
             -full-iso9660-filenames \
             -joliet \
@@ -948,8 +1057,16 @@ _build_iso() {
             "${xorrisofs_options[@]}" \
             -output "${out_dir}/${img_name}" \
             "${isofs_dir}/"
+    fi
     _msg_info "Done!"
     du -h -- "${out_dir}/${img_name}"
+}
+
+_iso_version_options() {
+    if grep -q optimus <<< "${iso_version_options[@]}"; then
+        iso_version_options=(${iso_version_options[@]/nvidia})
+    fi
+    iso_version_options=($(sed 's/\s/\n/g' <<< "${iso_version_options[@]}" | sort | sed ':a;N;$!ba;s/\n/-/g'))
 }
 
 # Read profile's values from profiledef.sh
@@ -974,15 +1091,18 @@ _read_profile() {
 
         # Resolve paths
         packages="$(realpath -- "${profile}/packages.${arch}")"
-        packages_locales="$(realpath -- "${profile}/lang/${lang}/packages.${arch}")"
+        if [[ -n "${lang}" ]]; then
+          packages_locales="$(realpath -- "${profile}/lang/${lang}/packages.${arch}")"
+        fi
         pacman_conf="$(realpath -- "${pacman_conf}")"
+        [[ -n "${pacman_testing_conf}" ]] && pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
 
         cd -- "${OLDPWD}"
 
         # Validate profile
         # Check if the package list file exists and read packages from it
         if [[ -e "${packages}" ]]; then
-            mapfile -t pkg_list < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d' "${packages}")
+            mapfile -t pkg_list < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" | sed '/^$/d')
             if (( ${#pkg_list} < 1 )); then
                 (( validation_error=validation_error+1 ))
                 _msg_error "No package specified in '${packages}'." 0
@@ -995,6 +1115,11 @@ _read_profile() {
         if [[ ! -e "${pacman_conf}" ]]; then
             (( validation_error=validation_error+1 ))
             _msg_error "File '${pacman_conf}' does not exist." 0
+        fi
+        # Check if pacman-testing configuration file exists
+        if [[ -n "${pacman_testing_conf}" && ! -e "${pacman_testing_conf}" ]]; then
+            (( validation_error=validation_error+1 ))
+            _msg_error "File '${pacman_testing_conf}' does not exist." 0
         fi
         # Check if the specified bootmodes are supported
         for bootmode in "${bootmodes[@]}"; do
@@ -1030,12 +1155,14 @@ _read_profile() {
 # set overrides from mkarchiso option parameters, if present
 _set_overrides() {
     _msg_info "Setting overrides..."
-    [[ -n "$override_iso_label" ]] && iso_label="$override_iso_label"
-    [[ -n "$override_iso_publisher" ]] && iso_publisher="$override_iso_publisher"
-    [[ -n "$override_iso_application" ]] && iso_application="$override_iso_application"
-    [[ -n "$override_install_dir" ]] && install_dir="$override_install_dir"
-    [[ -n "$override_pacman_conf" ]] && pacman_conf="$override_pacman_conf"
-    [[ -n "$override_gpg_key" ]] && gpg_key="$override_gpg_key"
+    [[ -n "${override_iso_name}" ]] && img_name="${override_iso_name}.iso"
+    [[ -n "${override_iso_label}" ]] && iso_label="${override_iso_label}"
+    [[ -n "${override_iso_publisher}" ]] && iso_publisher="${override_iso_publisher}"
+    [[ -n "${override_iso_application}" ]] && iso_application="${override_iso_application}"
+    [[ -n "${override_install_dir}" ]] && install_dir="${override_install_dir}"
+    [[ -n "${override_pacman_conf}" ]] && pacman_conf="${override_pacman_conf}"
+    [[ -n "${override_pacman_testing_conf}" ]] && pacman_testing_conf="${override_pacman_testing_conf}"
+    [[ -n "${override_gpg_key}" ]] && gpg_key="${override_gpg_key}"
     # NOTE: the call to _msg_info() conveniently guards this function from evaluating to false
     _msg_info "Done!"
 }
@@ -1056,7 +1183,7 @@ _build_profile() {
     airootfs_dir="${work_dir}/${arch}/airootfs"
     isofs_dir="${work_dir}/iso"
     # Set ISO file name
-    img_name="${iso_name}-${iso_version}-${arch}.iso"
+    #img_name="${iso_name}-${iso_version}-x64.iso"
     # Create working directory
     [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
     # Write build date to file or if the file exists, read it from there
@@ -1066,32 +1193,183 @@ _build_profile() {
         printf '%s\n' "$SOURCE_DATE_EPOCH" > "${work_dir}/build_date"
     fi
 
-    [[ "${quiet}" == "n" ]] && _show_config
+    _show_config
     _run_once _make_pacman_conf
+    [[ -n "${pacman_testing_conf}" ]] && _run_once _make_pacman_testing_conf
+    [[ "${build_zfs_packages}" == "y" ]] && _build_zfs_packages
     [[ -n "${gpg_key}" ]] && _run_once _export_gpg_publickey
     _run_once _make_custom_airootfs
     _run_once _make_packages
-    _run_once _make_packages_testing
-    _run_once _make_packages_upgrade
+    [[ -n "${pkg_testing_list}" ]] && _run_once _make_packages_testing
+    [[ -n "${user_pkg_dir}" && -d "${user_pkg_dir}" ]] && _run_once _make_packages_upgrade
     _run_once _make_customize_airootfs
     _run_once _make_setup_mkinitcpio
     _run_once _make_pkglist
     _make_bootmodes
     _run_once _cleanup_airootfs
     _run_once _make_aui
-    _run_once _make_prepare_airootfs_image
+    _run_once _prepare_airootfs_image
     _run_once _build_iso
 }
 
-OPTS=$(getopt -o '?A:C:D:g:hL:l:N:o:P:p:V:vw:' \
-              -l 'name:,version:,label:,publisher:,application:' \
-              -l 'installdir:,workdir:,outdir:,gpgkey:,verbose,language:' \
-              -l 'profile:,testing:,help' \
+_build_zfs_packages () {
+    if [[ "${SCRIPTUSER}" == 'root' || -z "${SUDO_USER:-}" ]]; then
+        echo
+        echo 'Option for ZFS support:'
+        echo 'The script must be run from a _user session_ using sudo!'
+        echo 'Aborting...'
+        exit 0
+    fi
+
+    local _WD="$(pwd)"
+    local _auiwork="${_WD}/$(mktemp -d auiworkXXXXXXXX)"
+    local _ar64="${_auiwork}/archroot64"
+    local _linuxversion _modulesversion _zfspackages _zfssources _zfsversion
+    local _ZFSPUBKEY="6AD860EED4598027"
+    local _KEYSERVER="ha.pool.sks-keyservers.net"
+
+    # Retrieve ZFS on Linux public key
+    if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${_ZFSPUBKEY}" &> /dev/null; then
+        echo
+        read -r -n1 -p 'Retrieve missing ZFS on Linux public key (N/y)? '
+        echo
+        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+            echo 'Operation canceled by user!'
+            exit 0
+        fi
+        if ! sudo --user "${SCRIPTUSER}" gpg --keyserver "${_KEYSERVER}" --recv "${_ZFSPUBKEY}"; then
+            echo
+            echo "Retreiving ZFS public key ${_ZFSPUBKEY} failed, aborting!"
+            echo
+        fi
+    fi
+
+    if ! pacman -Q devtools &> /dev/null; then
+        echo 'devtools package not installed, aborting!'
+        exit 0
+    fi
+    if ! pacman -Q pacman-contrib &> /dev/null; then
+        echo 'pacman-contrib package not installed, aborting!'
+        exit 0
+    fi
+    mkdir -p "${_WD}/work/pkgdir"
+    mkdir -p "${_ar64}"
+    chmod a+x "${_auiwork}"
+    _zfssources=($(curl --silent --retry 3 --retry-connrefused --fail \
+                   https://api.github.com/repos/openzfs/zfs/releases/latest | \
+                   grep browser_download_url | cut -d':' -f2- | sed 's/"//g'))
+    _zfsversion="${_zfssources[0]%/zfs-*}"
+    _zfsversion="${_zfsversion#*-}"
+    if [[ -z "${_zfsversion}" ]]; then
+        echo 'Retrieving ZFS data failed, aborting!'
+        exit 0
+    fi
+    _msg_info "Preparing zfs chroot"
+    if [[ "${quiet}" == "y" ]]; then
+        mkarchroot -c /var/cache/pacman/pkg "${_ar64}/root" base linux linux-headers base-devel &> /dev/null
+    else
+        mkarchroot -c /var/cache/pacman/pkg "${_ar64}/root" base linux linux-headers base-devel
+    fi
+    _msg_info "Done!"
+    if [[ -n "${pkg_testing_list:-}" ]]; then
+        #unshare --fork --pid pacman --config "${work_dir}/pacman-testing.conf" --root "${_ar64}/root" -Sy > /dev/null 2>&1
+        for _package in ${pkg_testing_list[@]}; do
+            if [[ "${_package}" = 'linux' ]]; then
+                _msg_info "Installing linux packages from testing"
+                if [[ "${quiet}" == "y" ]]; then
+                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers &> /dev/null
+                else
+                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers
+                fi
+                _msg_info "Done!"
+                break
+            fi
+        done
+    fi
+    _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
+    if [[ "$(cut -d'.' -f3 <<< "${_linuxversion}")" =~ 'arch' ]]; then
+        _modulesversion="${_linuxversion%.arch*}.0-${_linuxversion##*.}"
+    else
+        _modulesversion="${_linuxversion%.arch*}-${_linuxversion##*.}"
+    fi
+    cp -arT "${profile}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
+    sed -i "s/%ZFSVERSION%/${_zfsversion}/
+            s/%LINUXVERSION%/${_linuxversion}/
+            s/%MODULESVERSION%/${_modulesversion}/" \
+            "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
+            "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
+    cd "${_auiwork}/zfsonlinux/zfs-utils/"
+    for _zfslink in "${_zfssources[@]}"; do
+        if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
+            curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" -O
+            curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}".asc -O
+            break
+        fi
+    done
+    cp -a zfs-*.tar.gz{,.asc} ../zfs-linux
+    chown -R "${SCRIPTUSER}": "${_auiwork}/zfsonlinux"
+    _msg_info "Creating PKGBUILDs"
+    if [[ "${quiet}" == "y" ]]; then
+        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD 2> /dev/null
+        sudo --user "${SCRIPTUSER}" updpkgsums 2> /dev/null
+    else
+        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
+        sudo --user "${SCRIPTUSER}" updpkgsums
+    fi
+    cd "${_auiwork}/zfsonlinux/zfs-linux/"
+    if [[ "${quiet}" == "y" ]]; then
+        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD 2> /dev/null
+        sudo --user "${SCRIPTUSER}" updpkgsums 2> /dev/null
+    else
+        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
+        sudo --user "${SCRIPTUSER}" updpkgsums
+    fi
+    _msg_info "Done!"
+    cd "${_auiwork}/zfsonlinux/zfs-utils/"
+    _msg_info "Building zfs-utils"
+    if [[ "${quiet}" == "y" ]]; then
+        sudo --user "${SCRIPTUSER}" \
+        makechrootpkg -r "${_ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar &> /dev/null
+    else
+        sudo --user "${SCRIPTUSER}" \
+        makechrootpkg -r "${_ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+    fi
+    _msg_info "Done!"
+    _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
+    cd "${_auiwork}/zfsonlinux/zfs-linux/"
+    _msg_info "Building zfs-linux"
+    if [[ "${quiet}" == "y" ]]; then
+        sudo --user "${SCRIPTUSER}" \
+        makechrootpkg -r "${_ar64}" -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar &> /dev/null
+    else
+        sudo --user "${SCRIPTUSER}" \
+        makechrootpkg -r "${_ar64}" -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+    fi
+    _msg_info "Done!"
+    _zfspackages=($(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$'))
+    if [[ -n "${user_pkg_dir}" ]]; then
+        cp "${_zfspackages[@]}" "${user_pkg_dir}"
+    else
+        cp "${_zfspackages[@]}" "${_WD}/work/pkgdir"
+        user_pkg_dir="${_WD}/work/pkgdir"
+    fi
+    rm -r "${_auiwork}"
+    cd "${_WD}"
+}
+
+OPTS=$(getopt -o '?A:C:D:g:hL:l:N:o:P:p:vw:' \
+              -l 'addi3wm,addpkg:,addpkgtesting:,application:,embeddir:' \
+              -l 'add-i3-wm,add-pkg:,add-pkg-testing:,embed-dir:' \
+              -l 'gpgkey:,installdir:,label:,language:,nvidia,optimus' \
+              -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
+              -l 'install-dir:,out-dir:pacmantestingconf:,pkg-dir:' \
+              -l 'verbose,workdir:,work-dir:,zfs' \
+              -l 'help' \
               -n 'mkaui' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
-if [[ $# -eq 0 ]]; then
+if [[ $# -eq 1 ]]; then
     _msg_error "No profile specified" 0
     _usage 1
 fi
@@ -1100,15 +1378,28 @@ while true; do
     case "${1}" in
         '-?'|'-h'|'--help')
             _usage 0 ;;
+        '-p'|'--add-pkg'|'--addpkg')
+            pkg_list+=($(tr ',' ' ' <<< ${2}))
+            shift 2 ;;
+        '--add-pkg-testing'|'--addpkgtesting')
+            pkg_testing_list=($(tr ',' ' ' <<< ${2}))
+            shift 2 ;;
         '-A'|'--application')
             override_iso_application="${2}"
             shift 2 ;;
+        '--add-i3-wm'|'--addi3wm')
+            pkg_list+=(i3-gaps feh dmenu i3status wmctrl rxvt-unicode)
+            iso_version_options+=(i3)
+            shift ;;
         '-C')
             override_pacman_conf="$(realpath -- "${2}")"
             shift 2 ;;
-        '-D'|'--installdir')
+        '-D'|'--install-dir'|'--installdir')
             override_install_dir="${2}"
             shift 2 ;;        
+        '--embed-dir'|'--embeddir')
+            embed_dir="${2}"
+            shift 2 ;;
         '-g'|'--gpgkey')
             override_gpg_key="${2}"
             shift 2 ;;
@@ -1138,28 +1429,36 @@ while true; do
         '-N'|'--name')
             override_iso_name="${2}"
             shift 2 ;;
-        '-o'|'--outdir')
+        '--nvidia')
+            pkg_list+=(nvidia nvidia-settings bbswitch)
+            iso_version_options+=(nvidia)
+            shift ;;
+        '--optimus')
+            pkg_list+=(nvidia nvidia-settings nvidia-prime)
+            iso_version_options+=(optimus)
+            shift ;;
+        '-o'|'--out-dir'|'--outdir')
             out_dir="$(realpath -- "${2}")"
+            shift 2 ;;
+        '--pacman-testing-conf'|'--pacmantestingconf')
+            override_pacman_testing_conf="$(realpath -- "${2}")"
+            shift 2 ;;
+        '--pkg-dir'|'--pkgdir')
+            user_pkg_dir="${2}"
             shift 2 ;;
         '-P'|'--publisher')
             override_iso_publisher="${2}"
             shift 2 ;;
-        '-p'|'--profile')
-            read -r -a opt_pkg_list <<< "${2}"
-            pkg_list+=("${opt_pkg_list[@]}")
-            shift 2 ;;
-        '--testing')
-            testingpackages="$(tr ',' ' ' <<< ${2})"
-            shift 2 ;;
-        '-V'|'--version')
-            iso_version="${2}"
-            shift 2 ;;
-        '-v'|'--verbose')
-            quiet="n"
+        'v'|'--verbose')
+            quiet="y"
             shift ;;
-        '-w'|'--workdir')
+        '-w'|'--workdir'|'--work-dir')
             work_dir="$(realpath -- "${2}")"
             shift 2 ;;
+        '--zfs')
+            build_zfs_packages="y"
+            iso_version_options+=(zfs)
+            shift ;;
         '--')
             shift
             break ;;
@@ -1172,6 +1471,12 @@ fi
 
 profile="$(realpath -- "${1}")"
 
+echo
+if [[ -d "${work_dir}" ]]; then
+    _msg_info "WORKING DIRECTORY ${work_dir} ALREADY EXISTS! REMOVE DIRECTORY FOR BUILDING A NEW ISO." && 
+    echo
+fi
+[[ -n "${iso_version_options:-}" ]] && _iso_version_options
 _read_profile
 _set_overrides
 _build_profile

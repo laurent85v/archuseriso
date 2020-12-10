@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-iso_name="aui-xfce"
-iso_label="AUIX"
+iso_name="aui-mate"
+iso_label="AUIM"
 iso_publisher=""
-desktop="Xfce"
+desktop="Mate"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"
 iso_version=""
 install_dir="arch"

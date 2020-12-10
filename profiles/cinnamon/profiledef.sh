@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 
-iso_name="aui-xfce"
-iso_label="AUIX"
+iso_name="aui-cinnamon"
+iso_label="AUIC"
 iso_publisher=""
-desktop="Xfce"
+desktop="Cinnamon"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"
 iso_version=""
 install_dir="arch"
