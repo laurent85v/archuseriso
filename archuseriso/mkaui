@@ -9,7 +9,7 @@ umask 0022
 export LANG="C"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-"$(date +%s)"}"
 
-# mkaui defaults
+# Defaults
 app_name="${0##*/}"
 pkg_list=()
 pkg_testing_list=()
@@ -19,8 +19,6 @@ out_dir="out"
 img_name=""
 gpg_key=""
 override_gpg_key=""
-
-# profile defaults
 profile=""
 iso_name="${app_name}"
 iso_label="${app_name^^}"
@@ -40,6 +38,7 @@ override_pacman_testing_conf=""
 bootmodes=()
 airootfs_image_type="squashfs"
 airootfs_image_tool_options=('-comp' 'zstd')
+declare -A file_permissions=()
 lang=""
 user_pkg_dir=""
 iso_version_options=()
@@ -325,6 +324,7 @@ _make_pacman_testing_conf() {
 # Prepare working directory and copy custom airootfs files (airootfs)
 _make_custom_airootfs() {
     local passwd=()
+    local filename permissions
 
     install -d -m 0755 -o 0 -g 0 -- "${airootfs_dir}"
 
@@ -335,10 +335,20 @@ _make_custom_airootfs() {
         if [[ -n "${lang}" ]]; then
             cp -af --no-preserve=ownership -- "${profile}/lang/${lang}/airootfs/." "${airootfs_dir}"
         fi
-
-        [[ -e "${airootfs_dir}/etc/shadow" ]] && chmod -f 0400 -- "${airootfs_dir}/etc/shadow"
-        [[ -e "${airootfs_dir}/etc/gshadow" ]] && chmod -f 0400 -- "${airootfs_dir}/etc/gshadow"
-
+        # Set ownership and mode for files and directories
+        for filename in "${!file_permissions[@]}"; do
+            IFS=':' read -ra permissions <<< "${file_permissions["${filename}"]}"
+            # Prevent file path traversal outside of $airootfs_dir
+            if [[ "$(realpath -q -- "${airootfs_dir}${filename}")" != "$(realpath -q -- "${airootfs_dir}")"* ]]; then
+                _msg_error "Failed to set permissions on '${airootfs_dir}${filename}'. Outside of valid path." 1
+            # Warn if the file does not exist
+            elif [[ ! -e "${airootfs_dir}${filename}" ]]; then
+                _msg_warning "Cannot change permissions of '${airootfs_dir}${filename}'. The file or directory does not exist."
+            else
+                chown -fh -- "${permissions[0]}:${permissions[1]}" "${airootfs_dir}${filename}"
+                chmod -f -- "${permissions[2]}" "${airootfs_dir}${filename}"
+            fi
+        done
     fi
 
     # Set archiso cow_spacesize to 50% ram size
@@ -426,16 +436,20 @@ _make_customize_airootfs() {
     if [[ -e "${profile}/airootfs/etc/passwd" ]]; then
         _msg_info "Copying /etc/skel/* to user homes..."
         while IFS=':' read -a passwd -r; do
+            # Only operate on UIDs in range 1000–59999
             (( passwd[2] >= 1000 && passwd[2] < 60000 )) || continue
+            # Skip invalid home directories
             [[ "${passwd[5]}" == '/' ]] && continue
 	        [[ -z "${passwd[5]}" ]] && continue
-
-            if [[ -d "${airootfs_dir}${passwd[5]}" ]]; then
-                cp -dnRT --preserve=mode,timestamps,links -- "${work_dir}/x86_64/airootfs/etc/skel" "${airootfs_dir}${passwd[5]}"
-                chmod -f 0750 -- "${airootfs_dir}${passwd[5]}"
+            # Prevent path traversal outside of $airootfs_dir
+            if [[ "$(realpath -q -- "${airootfs_dir}${passwd[5]}")" == "${airootfs_dir}"* ]]; then
+                if [[ ! -d "${airootfs_dir}${passwd[5]}" ]]; then
+                    install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${airootfs_dir}${passwd[5]}"
+                fi
+                cp -dnRT --preserve=mode,timestamps,links -- "${airootfs_dir}/etc/skel/." "${airootfs_dir}${passwd[5]}"
                 chown -hR -- "${passwd[2]}:${passwd[3]}" "${airootfs_dir}${passwd[5]}"
             else
-                install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${airootfs_dir}${passwd[5]}"
+                _msg_error "Failed to set permissions on '${airootfs_dir}${passwd[5]}'. Outside of valid path." 1
             fi
         done < "${profile}/airootfs/etc/passwd" 
         _msg_info "Done!"
@@ -443,6 +457,7 @@ _make_customize_airootfs() {
 
     if [[ -e "${airootfs_dir}/root/customize_airootfs_lang.sh" ]]; then
         _msg_info "Running customize_airootfs_lang.sh in '${airootfs_dir}' chroot..."
+        chmod -f -- +x "${airootfs_dir}/root/customize_airootfs_lang.sh"
         if [[ "${quiet}" == "y" ]]; then
             eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs_lang.sh" &> /dev/null
         else
@@ -453,6 +468,7 @@ _make_customize_airootfs() {
     fi
     if [[ -e "${airootfs_dir}/root/customize_airootfs.sh" ]]; then
         _msg_info "Running customize_airootfs.sh in '${airootfs_dir}' chroot..."
+        chmod -f -- +x "${airootfs_dir}/root/customize_airootfs.sh"
         if [[ "${quiet}" == "y" ]]; then
             eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs.sh" &> /dev/null
         else
@@ -1200,7 +1216,7 @@ _build_profile() {
     [[ -n "${gpg_key}" ]] && _run_once _export_gpg_publickey
     _run_once _make_custom_airootfs
     _run_once _make_packages
-    [[ -n "${pkg_testing_list}" ]] && _run_once _make_packages_testing
+    [[ -n "${pkg_testing_list[@]}" ]] && _run_once _make_packages_testing
     [[ -n "${user_pkg_dir}" && -d "${user_pkg_dir}" ]] && _run_once _make_packages_upgrade
     _run_once _make_customize_airootfs
     _run_once _make_setup_mkinitcpio
@@ -1271,7 +1287,7 @@ _build_zfs_packages () {
         mkarchroot -c /var/cache/pacman/pkg "${_ar64}/root" base linux linux-headers base-devel
     fi
     _msg_info "Done!"
-    if [[ -n "${pkg_testing_list:-}" ]]; then
+    if [[ -n "${pkg_testing_list[@]}" ]]; then
         #unshare --fork --pid pacman --config "${work_dir}/pacman-testing.conf" --root "${_ar64}/root" -Sy > /dev/null 2>&1
         for _package in ${pkg_testing_list[@]}; do
             if [[ "${_package}" = 'linux' ]]; then
