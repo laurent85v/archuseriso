@@ -2,11 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # Main
+alsa-utils
 amd-ucode
 arch-install-scripts
 b43-fwcutter
 base
 bind-tools
+brltty
 broadcom-wl
 btrfs-progs
 clonezilla
@@ -21,6 +23,7 @@ dnsmasq
 dosfstools
 edk2-shell
 efibootmgr
+espeakup
 ethtool
 exfatprogs
 f2fs-tools
@@ -42,6 +45,7 @@ lftp
 linux
 linux-atm
 linux-firmware
+livecd-sounds
 lsscsi
 lvm2
 lynx
