@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-V=0.5.4.1
+V=
 
 all:
 
