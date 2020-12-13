@@ -257,6 +257,22 @@ _mksignature() {
     _msg_info "Done!"
 }
 
+_mkchecksum_iso() {
+    _msg_info "Creating iso image checksum file..."
+    cd -- "${out_dir}"
+    sha512sum "${img_name}" > "${img_name}.sha512"
+    cd -- "${OLDPWD}"
+    _msg_info "Done!"
+}
+
+_mksignature_iso() {
+    _msg_info "Signing iso image..."
+    cd -- "${out_dir}"
+    gpg --detach-sign --default-key "${gpg_key}" "${img_name}"
+    cd -- "${OLDPWD}"
+    _msg_info "Done!"
+}
+
 # Helper function to run functions only one time.
 _run_once() {
     if [[ ! -e "${work_dir}/build.${1}" ]]; then
@@ -376,7 +392,7 @@ _make_packages() {
         unset ARCHISO_GNUPG_FD
     fi
 
-    _msg_info "Done! Packages installed successfully."
+    _msg_info "Done!"
 }
 
 # Packages in testing (airootfs)
@@ -399,7 +415,7 @@ _make_packages_testing () {
         unset ARCHISO_GNUPG_FD
     fi
 
-    _msg_info "Done! Packages installed successfully."
+    _msg_info "Done!"
 }
 
 # airootfs install user provided packages
@@ -425,7 +441,7 @@ _make_packages_upgrade() {
         unset ARCHISO_GNUPG_FD
     fi
 
-    _msg_info "Done! Packages installed successfully."
+    _msg_info "Done!"
 }
 
 # Customize installation (airootfs)
@@ -464,7 +480,7 @@ _make_customize_airootfs() {
             eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs_lang.sh"
         fi
         rm -- "${airootfs_dir}/root/customize_airootfs_lang.sh"
-        _msg_info "Done! customize_airootfs_lang.sh run successfully."
+        _msg_info "Done!"
     fi
     if [[ -e "${airootfs_dir}/root/customize_airootfs.sh" ]]; then
         _msg_info "Running customize_airootfs.sh in '${airootfs_dir}' chroot..."
@@ -475,7 +491,7 @@ _make_customize_airootfs() {
             eval -- arch-chroot "${airootfs_dir}" "/root/customize_airootfs.sh"
         fi
         rm -- "${airootfs_dir}/root/customize_airootfs.sh"
-        _msg_info "Done! customize_airootfs.sh run successfully."
+        _msg_info "Done!"
     fi
 }
 
@@ -564,7 +580,7 @@ _make_bootmode_bios.syslinux.mbr() {
         install -m 0644 -- "${airootfs_dir}/usr/share/licenses/common/GPL2/license.txt" \
             "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
     fi
-    _msg_info "Done! SYSLINUX set up for BIOS booting from a disk successfully."
+    _msg_info "Done!"
 }
 
 # Prepare /syslinux for El-Torito booting
@@ -577,7 +593,7 @@ _make_bootmode_bios.syslinux.eltorito() {
     # ISOLINUX and SYSLINUX installation is shared
     _run_once _make_bootmode_bios.syslinux.mbr
 
-    _msg_info "Done! SYSLINUX set up for BIOS booting from an optical disc successfully."
+    _msg_info "Done!"
 }
 
 # Prepare /EFI on ISO-9660
@@ -700,7 +716,7 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     # Copy kernel and initramfs
     _make_boot_on_fat
 
-    _msg_info "Done! systemd-boot set up for UEFI booting successfully."
+    _msg_info "Done!"
 }
 
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode
@@ -1036,6 +1052,10 @@ _build_iso() {
             "${xorrisofs_options[@]}" \
             -output "${out_dir}/${img_name}" \
             "${isofs_dir}/"
+    fi
+    _mkchecksum_iso
+    if [[ -n "${gpg_key}" ]]; then
+        _mksignature_iso
     fi
     _msg_info "Done!"
     du -h -- "${out_dir}/${img_name}"
