@@ -746,10 +746,6 @@ _make_aui() {
         install -d -m 0755 -- "${isofs_dir}/aui/esp/"
         ln -s -- "../../syslinux" "${isofs_dir}/aui/esp/syslinux"
     fi
-    #if [[ -f "${isofs_dir}/syslinux/syslinux.cfg" ]]; then
-    #    install -d -m 0755 -- "${isofs_dir}/aui/esp/syslinux/"
-    #    ln -s -- "../../../isolinux/isolinux.cfg" "${isofs_dir}/aui/esp/syslinux/syslinux.cfg"
-    #fi
 
     # live kernel & initramfs
     install -d -m 0755 -- "${isofs_dir}/aui/esp/${install_dir}/boot/x86_64/"
@@ -808,12 +804,12 @@ _make_aui() {
                 s|%DESKTOP%|${desktop}|g" \
                 "${isofs_dir}/aui/loader/entries/0aui_persistence-x86_64.conf"
     fi
-    if [[ -f "${isofs_dir}/aui/archiso_sys-linux.cfg" ]]; then
+    if [[ -f "${isofs_dir}/aui/syslinux/archiso_sys-linux.cfg" ]]; then
         sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
                 s|%INSTALL_DIR%|${install_dir}|g;
                 s|%COW_LABEL%|${cow_label}|g;
                 s|%DESKTOP%|${desktop}|g" \
-                "${isofs_dir}/aui/archiso_sys-linux.cfg"
+                "${isofs_dir}/aui/syslinux/archiso_sys-linux.cfg"
     fi
     if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
         cp -aT --no-preserve=ownership "${embed_dir}" "${isofs_dir}/data"

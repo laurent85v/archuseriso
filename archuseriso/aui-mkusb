@@ -413,7 +413,7 @@ _persistence () {
         _msg_info "copying boot loader data to ${WD}/${workdir}/usb2"
         cp -LrT "${WD}/${workdir}/iso/aui/esp" "${WD}/${workdir}/usb2/"
         cp -r "${WD}/${workdir}/iso/aui/loader" "${WD}/${workdir}/usb2/"
-        cp "${WD}/${workdir}/iso/aui/archiso_sys-linux.cfg" "${WD}/${workdir}/usb2/syslinux/"
+        cp -r "${WD}/${workdir}/iso/aui/syslinux" "${WD}/${workdir}/usb2/"
         cp "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
         _msg_info "copying persistence data to ${WD}/${workdir}/usb3"
         cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/"
