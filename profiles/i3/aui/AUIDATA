@@ -1,7 +1,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-AUIDATA=v2
+AUIDATA=v3
 comp_type=%COMP_TYPE%
 cow_label=AUIPERS
 desktop=%DESKTOP%

@@ -274,7 +274,7 @@ _usb_prepare () {
         fi
 
         # check iso
-        if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" ]] && $(grep -q 'AUIDATA=v2' "${WD}/${workdir}/iso/aui/AUIDATA"); then
+        if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" ]] && $(grep -q 'AUIDATA=v3' "${WD}/${workdir}/iso/aui/AUIDATA"); then
                 eval $(grep cow_label "${WD}/${workdir}/iso/aui/AUIDATA")
                 eval $(grep iso_label "${WD}/${workdir}/iso/aui/AUIDATA")
                 eval $(grep install_dir "${WD}/${workdir}/iso/aui/AUIDATA")
