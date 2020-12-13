@@ -106,7 +106,7 @@ _encrypt_setup () {
                 "${WD}/${workdir}/overlay/boot/loader/entries/0aui_persistence-x86_64.conf"
         sed -i "s|storage$|& encrypted|
                 s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
-                "${WD}/${workdir}/overlay/boot/${install_dir}/boot/syslinux/archiso_sys.cfg"
+                "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
         umount "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
         sleep 1
         rmdir "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
@@ -281,11 +281,6 @@ _usb_prepare () {
         else
                 echo "Error: ${isoname} is not a compatible image!"
                 echo
-                echo 'For the console iso image which does not support'
-                echo 'persitence use the '\''--rawwrite'\'' command option'
-                echo 'this way:'
-                echo
-                echo "sudo aui-mkusb ${isoname} ${usbdevice} --rawwrite"
                 _unmount
                 _usage 1
         fi
@@ -418,7 +413,7 @@ _persistence () {
         _msg_info "copying boot loader data to ${WD}/${workdir}/usb2"
         cp -LrT "${WD}/${workdir}/iso/aui/esp" "${WD}/${workdir}/usb2/"
         cp -r "${WD}/${workdir}/iso/aui/loader" "${WD}/${workdir}/usb2/"
-        cp "${WD}/${workdir}/iso/aui/archiso_sys.cfg" "${WD}/${workdir}/usb2/${install_dir}/boot/syslinux/"
+        cp "${WD}/${workdir}/iso/aui/archiso_sys-linux.cfg" "${WD}/${workdir}/usb2/syslinux/"
         cp "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
         _msg_info "copying persistence data to ${WD}/${workdir}/usb3"
         cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/"

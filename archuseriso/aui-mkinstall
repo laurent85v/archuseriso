@@ -231,7 +231,7 @@ _format_ext4 () {
         # enable ext4 journal
         if [[ -n "${ext4journal:-}" ]]; then
                 _msg_info "Ext4 partition: enabling file system journalisation"
-                tune2fs -O 'has_journal' "${rootdevice}"
+                tune2fs -O 'has_journal' "${rootdevice}" > /dev/null
         fi
 }
 
@@ -239,7 +239,7 @@ _format () {
         echo
         _msg_info "Formatting paritions"
         _msg_info "partition #1: type FAT, label ${label_boot:-AUIBOOT}"
-        if ! flock "${usbdevice}1" mkfs.fat "${usbdevice}1" -F32 -n "${label_boot:=AUIBOOT}"; then
+        if ! flock "${usbdevice}1" mkfs.fat "${usbdevice}1" -F32 -n "${label_boot:=AUIBOOT}" > /dev/null; then
                 echo 'Partition format failed!'
                 exit 1
         fi
@@ -329,9 +329,9 @@ _install () {
 
         # rEFInd boot manager
         _msg_info "Setting up boot loader"
-        cp -rT "${WD}/${workdir}/iso/EFI/boot/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
+        cp -rT "${WD}/${workdir}/iso/EFI/BOOT/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
         cp "${WD}/${workdir}/iso/shellx64.efi" "${WD}/${workdir}/usb/boot/EFI/"
-        cp "${WD}/${workdir}/iso/EFI/boot/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
+        cp "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
         cp "${WD}/${workdir}/iso/aui/refind_linux.conf" "${WD}/${workdir}/usb/boot/"
         sed -i "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
 
