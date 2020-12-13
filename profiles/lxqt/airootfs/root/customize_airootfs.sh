@@ -9,11 +9,6 @@ locale-gen
 
 sed -i "s/#Server/Server/g" /etc/pacman.d/mirrorlist
 
-# language script
-if [[ -f /root/customize_airootfs_lang.sh ]]; then
-    /root/customize_airootfs_lang.sh
-fi
-
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'
 # * Winbind : add 'wins'
