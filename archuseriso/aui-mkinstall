@@ -212,6 +212,7 @@ _partitions () {
         _msg_info "partition #2: root partition: free space"
         echo "$(( SECSTART + ESPSIZE)),,L," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always > /dev/null
         sleep 1
+        partprobe "${usbdevice}"
 }
 
 _format_f2fs() {
@@ -375,7 +376,7 @@ _bootloader () {
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
-        if ! sfdisk --part-attrs "${usbdevice}" 1 LegacyBIOSBootable > /dev/null; then
+        if ! sfdisk --part-attrs "${usbdevice}" 1 LegacyBIOSBootable &> /dev/null; then
                 echo 'Bootloader installation failed!'
                 exit 1
         fi

@@ -333,6 +333,7 @@ _partitions () {
                 exit 1
         fi
         sleep 2
+        partprobe "${usbdevice}"
 }
 
 _format_f2fs() {
@@ -446,7 +447,7 @@ _bootloader () {
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
-        if ! sfdisk --part-attrs "${usbdevice}" 2 LegacyBIOSBootable > /dev/null; then
+        if ! sfdisk --part-attrs "${usbdevice}" 2 LegacyBIOSBootable &> /dev/null; then
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
