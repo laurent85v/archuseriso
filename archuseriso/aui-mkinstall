@@ -12,11 +12,11 @@ _usage () {
         echo 'aui-mkinstall, performs a normal installation on a USB drive.'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkinstall <iso image> <usb device> [options]'
+        echo 'aui-mkinstall [options] <iso image> <usb device>'
         echo
         echo 'Get help:'
         echo 'aui-mkinstall --help'
-        exit $1
+        exit "${1}"
 }
 
 _help () {
@@ -24,7 +24,7 @@ _help () {
         echo 'Archuseriso tool for normal installation on a USB drive'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkinstall <iso image> <usb device> [options]'
+        echo 'aui-mkinstall [options] <iso image> <usb device>'
         echo
         echo 'Options:'
         echo '-h, --help           command line help'
@@ -34,9 +34,9 @@ _help () {
         echo "--username <user>    set a custom username, default username is 'archie'"
         echo
         echo 'Example:'
-        echo 'aui-mkinstall archuseriso-xfce-1231-x64.iso /dev/sdc --encrypt'
+        echo 'aui-mkinstall --encrypt archuseriso-xfce-1231-x64.iso /dev/sdc'
         echo
-        exit $1
+        exit "${1}"
 }
 
 _msg_info () {
@@ -59,6 +59,7 @@ _encrypt_mkluks () {
         fi
         echo
         rootdevice=/dev/mapper/auicrypt
+        _msg_info "Done!"
 }
 
 _encrypt_setup () {
@@ -129,7 +130,6 @@ _init () {
         LOGSEC=$(lsblk --noheadings --raw --scsi --output log-sec "${usbdevice}")
         # ESP size 512 MiB
         ESPSIZE=$(( 512 * 1024 * 1024 / LOGSEC ))
-        isosize=$(stat -c %s "${isoname}")
         MINCAPACITY=16000000000 # 16 GB
         # Drive partition #1, first sector at 1 MiB
         SECSTART=$(( 1024 * 1024 / LOGSEC ))
@@ -145,13 +145,13 @@ _init () {
 _confirm_write () {
         # Confim write
         echo
-        _msg_info "This process may take a long time depending on the device write speed, be patient!"
+        _msg_info "This process may take a long time depending on the drive write speed, be patient!"
         _msg_info ""
         _msg_info "ISO file:   ${isoname}"
         _msg_info "USB device: ${usbdevice}"
         _msg_info "Configured username: ${username}"
         echo
-        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
+        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size "${usbdevice}") (N/y)? "
         echo
         if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
                 echo 'Operation canceled by user!'
@@ -181,8 +181,10 @@ _confirm_write () {
         echo
         _msg_info "Mounting iso: mountpoint ${WD}/${workdir}/iso"
         mount "${isoname}" "${WD}/${workdir}/iso" -o ro
+        _msg_info "Done!"
         _msg_info "Mounting live image: mountpoint ${WD}/${workdir}/squashfs"
         mount "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs" -o ro
+        _msg_info "Done!"
 
         # check iso
         if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" && -d "${WD}/${workdir}/iso/aui/install" ]]; then
@@ -203,7 +205,8 @@ _partitions () {
         echo
         flock "${usbdevice}" wipefs "${usbdevice}"* --all --force > /dev/null
         sleep 1
-        _msg_info "Creating partitions: new gpt label"
+        _msg_info "Partitioning drive"
+        _msg_info "new gpt label"
         echo 'label: gpt' | flock "${usbdevice}" sfdisk "${usbdevice}" -w always > /dev/null
         sleep 1
         _msg_info "partition #1: boot partition: $(( ESPSIZE / 1024 / 2)) MiB"
@@ -213,6 +216,7 @@ _partitions () {
         echo "$(( SECSTART + ESPSIZE)),,L," | flock "${usbdevice}" sfdisk "${usbdevice}" --append -W always > /dev/null
         sleep 1
         partprobe "${usbdevice}"
+        _msg_info "Done!"
 }
 
 _format_f2fs() {
@@ -231,7 +235,7 @@ _format_ext4 () {
         fi
         # enable ext4 journal
         if [[ -n "${ext4journal:-}" ]]; then
-                _msg_info "Ext4 partition: enabling file system journalisation"
+                _msg_info "Ext4 partition: enabling ext4 journal"
                 tune2fs -O 'has_journal' "${rootdevice}" > /dev/null
         fi
 }
@@ -255,6 +259,7 @@ _format () {
         else
                 _format_ext4
         fi
+        _msg_info "Done!"
 }
 
 _mount () {
@@ -267,6 +272,7 @@ _mount () {
         _msg_info "device: ${usbdevice}1, mountpoint: ${WD}/${workdir}/boot"
         mount "${usbdevice}1" "${WD}/${workdir}/usb/boot"
         mkdir -p "${WD}/${workdir}/usb/boot/EFI/BOOT"
+        _msg_info "Done!"
 }
 
 _install () {
@@ -276,12 +282,15 @@ _install () {
         cp -aT "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usb"
         # Copy aui install tree
         cp -aT "${WD}/${workdir}/iso/aui/install" "${WD}/${workdir}/usb"
+        _msg_info "Done!"
 
         # System settings
         # * remove live settings except volatile journal
         # * fstab
         # * live user renamed 'archie', no password set
+
         _msg_info "Removing live settings"
+
         # kernel
         cp "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz-linux" "${WD}/${workdir}/usb/boot/"
         cp "${WD}/${workdir}/iso/arch/boot/intel-ucode.img" "${WD}/${workdir}/usb/boot/"
@@ -290,14 +299,17 @@ _install () {
         sed -i "s|%AUIROOT%|${label_root}|;
                 s|%AUIBOOT%|${label_boot}|" \
                "${WD}/${workdir}/usb/etc/fstab"
+
         # sshd, mirrorlist, logind.conf
         sed -i 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usb/etc/ssh/sshd_config"
         rm -r "${WD}/${workdir}/usb/etc/systemd/logind.conf.d"
+
         # live services
         arch-chroot "${WD}/${workdir}/usb" systemctl disable pacman-init.service choose-mirror.service --quiet
         rm -r "${WD}/${workdir}/usb/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
         rm "${WD}/${workdir}/usb/root/"{.automated_script.sh,.zlogin}
         rm "${WD}/${workdir}/usb/etc/initcpio/hooks/archiso"
+
         # autologin
         if [[ -e "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf" ]]; then
                 sed -i 's/^\(autologin-user=\)live$/#\1/' "${WD}/${workdir}/usb/etc/lightdm/lightdm.conf"
@@ -306,19 +318,28 @@ _install () {
         if [[ -e "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf" ]]; then
                 rm "${WD}/${workdir}/usb/etc/sddm.conf.d/autologin.conf"
         fi
+
         # sudo
         sed -i 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usb/etc/sudoers"
         sed -i 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usb/etc/sudoers"
+
+        _msg_info "Done!"
+
         # Arch keyring
         _msg_info "Initialising pacman keys"
         arch-chroot "${WD}/${workdir}/usb" pacman-key --init &> /dev/null
         arch-chroot "${WD}/${workdir}/usb" pacman-key --populate archlinux &> /dev/null
+        _msg_info "Done!"
+
         # username
         _msg_info "Configuring user ${username}"
         mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${username}"
         sed -i "s/live/${username}/g" \
                "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
                "${WD}/${workdir}/usb/etc/samba/smb.conf"
+        _msg_info "Done!"
+
+        _msg_info "initramfs update"
         # haveged, initramfs
         arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
         _msg_info "initramfs update"
@@ -341,10 +362,10 @@ _install () {
         cp "${WD}/${workdir}/iso/aui/syslinux.cfg" "${WD}/${workdir}/usb/boot/syslinux/"
         cp "${WD}/${workdir}"/usb/usr/lib/syslinux/bios/*.c32 "${WD}/${workdir}/usb/boot/syslinux/"
 
+        _msg_info "Done!"
+
         if [[ -n "${encryption:-}" ]]; then
                 _encrypt_setup
-        else
-                true
         fi
 }
 
@@ -360,9 +381,8 @@ _finalize () {
 
         if [[ -n "${encryption:-}" ]]; then
                 cryptsetup close auicrypt
-        else
-                true
         fi
+        _msg_info "Done!"
 }
 
 _bootloader () {
@@ -380,6 +400,7 @@ _bootloader () {
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
+        _msg_info "Done!"
 }
 
 # arguments
@@ -421,7 +442,7 @@ _install
 _finalize
 _bootloader
 
-_msg_info "Done!"
+_msg_info "Success!"
 echo
 echo "IMPORTANTS NOTES:"
 echo "Configured username is ${username}, no password was set!"

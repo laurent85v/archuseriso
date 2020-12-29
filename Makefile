@@ -1,19 +1,13 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-V=
-
 all:
 
 install: 
 	install -d $(DESTDIR)/usr/bin/ $(DESTDIR)/usr/share/archuseriso/
 	install -m 0644 LICENSE $(DESTDIR)/usr/share/archuseriso/
 	install -m 0644 readme.md $(DESTDIR)/usr/share/archuseriso/
-	cp -aT --no-preserve=ownership tools/ $(DESTDIR)/usr/bin/
-	cp -aT --no-preserve=ownership archuseriso/ $(DESTDIR)/usr/share/archuseriso/
+	cp -aT --no-preserve=ownership archuseriso/ $(DESTDIR)/usr/bin/
+	cp -aT --no-preserve=ownership profiles/ $(DESTDIR)/usr/share/archuseriso/profiles/
 
-dist:
-	git archive --format=tar --prefix=archuseriso-$(V)/ v$(V) | gzip -9 > archuseriso-$(V).tar.gz
-	gpg --detach-sign --use-agent archuseriso-$(V).tar.gz
-
-.PHONY: install dist
+.PHONY: install

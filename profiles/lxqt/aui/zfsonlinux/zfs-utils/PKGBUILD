@@ -4,7 +4,7 @@
 
 pkgname=zfs-utils
 pkgver=%ZFSVERSION%
-pkgrel=2
+pkgrel=1
 pkgdesc="Userspace utilities for the Zettabyte File System."
 arch=('x86_64')
 url="https://zfsonlinux.org/"

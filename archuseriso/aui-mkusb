@@ -12,11 +12,11 @@ _usage () {
         echo 'and encryption.'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkusb <iso image> <usb device> [options]'
+        echo 'aui-mkusb [options] <iso image> <usb device>'
         echo
         echo 'Get help:'
         echo 'aui-mkusb --help'
-        exit $1
+        exit "${1}"
 }
 
 _help () {
@@ -24,7 +24,7 @@ _help () {
         echo 'Archuseriso tool for creating a Live USB with persistent storage'
         echo
         echo 'Command synopsis:'
-        echo 'aui-mkusb <usb device> <iso image> [options]'
+        echo 'aui-mkusb [options] <usb device> <iso image>'
         echo
         echo 'Options:'
         echo '-h, --help                Command line help'
@@ -39,9 +39,9 @@ _help () {
         echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc'
         echo
         echo 'Example with custom partitioning, unallocated drive space left for other usages:'
-        echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc --sizepart2 1G --sizepart3 10G'
+        echo 'sudo aui-mkusb --sizepart2 1G --sizepart3 10G aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc'
         echo
-        exit $1
+        exit "${1}"
 }
 
 _msg_info () {
@@ -66,6 +66,7 @@ _unmount () {
                 umount "${WD}/${workdir}/usb3"
         fi
         rmdir "${WD}/${workdir}/usb"{1,2,3} "${WD}/${workdir}/iso" "${WD}/${workdir}"
+        _msg_info "Done!"
 }
 
 _encrypt_mkluks () {
@@ -76,6 +77,7 @@ _encrypt_mkluks () {
                _unmount
                exit 1
         fi
+        _msg_info "Done!"
         echo
         _msg_info "LUKS encryption setup done! type in your passphrase to unlock partition"
         if ! cryptsetup open "${usbdevice}3" auicrypt; then
@@ -83,6 +85,7 @@ _encrypt_mkluks () {
                _unmount
                exit 1
         fi
+        _msg_info "Done!"
         echo
         cowdevice=/dev/mapper/auicrypt
 }
@@ -101,6 +104,7 @@ _encrypt_setup () {
         set +e
         arch-chroot "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
         set -e
+        _msg_info "Done!"
         sed -i "s|storage$|& encrypted|
                 s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                 "${WD}/${workdir}/overlay/boot/loader/entries/0aui_persistence-x86_64.conf"
@@ -110,6 +114,7 @@ _encrypt_setup () {
         umount "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
         sleep 1
         rmdir "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+        _msg_info "Done!"
 }
 
 _checks () {
@@ -225,7 +230,7 @@ _confirm_write () {
         _msg_info "ISO file:   ${isoname}"
         _msg_info "USB device: ${usbdevice}"
         echo
-        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size ${usbdevice}) (N/y)? "
+        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size "${usbdevice}") (N/y)? "
         echo
         if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
                echo 'Operation canceled by user!'
@@ -241,6 +246,7 @@ _rawwrite () {
                 _unmount
                 exit 1
         fi
+        _msg_info "Done!"
 }
 
 _usb_prepare () {
@@ -284,6 +290,7 @@ _usb_prepare () {
                 _unmount
                 _usage 1
         fi
+        _msg_info "Done!"
 }
 
 _partitions () {
@@ -296,6 +303,7 @@ _partitions () {
         partprobe "${usbdevice}"
         sleep 2
         echo
+        _msg_info "Partitioning drive"
         _msg_info "Creating partitions: new gpt label"
         if ! echo 'label: gpt' | sfdisk "${usbdevice}" -W always > /dev/null; then
                 echo 'Failed to create new gpt partition table!'
@@ -310,8 +318,8 @@ _partitions () {
                 _cowsize=$(( ${cowsize/[gG]} * 1024 * 1024 * 1024 / LOGSEC ))
         fi
         # partition #1 iso data
-        _msg_info "partition #1, live partition:  $(( (isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8) / 1024 / 2 )) MiB"
-        if ! echo "${SECSTART},$(( isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8 )),${_ptlinux}," | sfdisk "${usbdevice}" -W always > /dev/null; then
+        _msg_info "partition #1, live partition:  $(( (isosize / LOGSEC + ESP * 1024 * 1024 * 3 / 8 / LOGSEC) / 1024 / 2 )) MiB"
+        if ! echo "${SECSTART},$(( isosize / LOGSEC + ESP * 1024 * 1024 * 3 / 8 / LOGSEC )),${_ptlinux}," | sfdisk "${usbdevice}" -W always > /dev/null; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
@@ -319,7 +327,7 @@ _partitions () {
         sleep 2
         # partition #2 boot & efi partition
         _msg_info "partition #2, boot partition: $(( _fatsize / 1024 / 2 )) MiB"
-        if ! echo "$(( SECSTART + isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8 )),${_fatsize},${_ptmsft}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
+        if ! echo "$(( SECSTART + isosize / LOGSEC + ESP * 1024 * 1024 * 3 / 8 / LOGSEC )),${_fatsize},${_ptmsft}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
                 _unmount
                 echo 'Failed to create new partition layout!'
                 exit 1
@@ -327,13 +335,14 @@ _partitions () {
         sleep 2
         # partition #3 persistent partition
         _msg_info "partition #3, persistent partition: ${cowsize:-free space}"
-        if ! echo "$(( SECSTART + isosize / LOGSEC + ESP * 1024 * 1024 / LOGSEC * 3 / 8 + _fatsize )),${_cowsize:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
+        if ! echo "$(( SECSTART + isosize / LOGSEC + ESP * 1024 * 1024 * 3 / 8 / LOGSEC + _fatsize )),${_cowsize:-},${_ptlinux}," | sfdisk "${usbdevice}" --append -W always > /dev/null; then
                 echo 'Failed to create new partition layout!'
                 _unmount
                 exit 1
         fi
         sleep 2
         partprobe "${usbdevice}"
+        _msg_info "Done!"
 }
 
 _format_f2fs() {
@@ -386,6 +395,7 @@ _format () {
         else
                 _format_ext4
         fi
+        _msg_info "Done!"
 }
 
 _mount () {
@@ -398,6 +408,7 @@ _mount () {
         mount "${usbdevice}2" "${WD}/${workdir}/usb2"
         _msg_info "device: ${cowdevice}, mountpoint: ${WD}/${workdir}/usb3"
         mount "${cowdevice}" "${WD}/${workdir}/usb3"
+        _msg_info "Done!"
 }
 
 _copy () {
@@ -405,6 +416,7 @@ _copy () {
         echo
         _msg_info "Copying iso data to ${WD}/${workdir}/usb1"
         cp -rT "${WD}/${workdir}/iso" "${WD}/${workdir}/usb1"
+        _msg_info "Done!"
 }
 
 _persistence () {
@@ -420,10 +432,9 @@ _persistence () {
         cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/"
         cp -a "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${iso_label}_original"
         cp "${WD}/${workdir}/iso/aui/AUIDATA" "${WD}/${workdir}/usb3/"
+        _msg_info "Done!"
         if [[ -n "${encryption:-}" ]]; then
                _encrypt_setup
-        else
-               true
         fi
 }
 
@@ -451,6 +462,7 @@ _bootloader () {
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
+        _msg_info "Done!"
 }
 
 # arguments
@@ -504,6 +516,6 @@ else
         _bootloader
 fi
 echo
-_msg_info "Done!"
+_msg_info "Success!"
 
 # vim: set expandtab:

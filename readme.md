@@ -64,19 +64,19 @@ Command synopsis:
 
 Xfce profile with default options:
 
-    sudo aui-mkiso /usr/share/archuseriso/xfce/
+    sudo aui-mkiso /usr/share/archuseriso/profiles/xfce/
 
 Kde Plasma profile, German language plus options for Optimus hardware and additional packages:
 
-    sudo aui-mkiso --language de --optimus --add-pkg byobu,base-devel /usr/share/archuseriso/kde/
+    sudo aui-mkiso --language de --optimus --add-pkg byobu,base-devel /usr/share/archuseriso/profiles/kde/
 
 Gnome profile, additional packages, user packages:
 
-    sudo aui-mkiso --add-pkg ntop,vlc --pkg-dir ~/mypackages /usr/share/archuseriso/gnome/
+    sudo aui-mkiso --add-pkg ntop,vlc --pkg-dir ~/mypackages /usr/share/archuseriso/profiles/gnome/
 
 LXQt profile, adding i3wm to X sessions available from the display manager:
 
-    sudo aui-mkiso --add-i3-wm /usr/share/archuseriso/lxqt
+    sudo aui-mkiso --add-i3-wm /usr/share/archuseriso/profiles/lxqt
 
 When done remove the `work` directory. The ISO image is located in the `out` directory.
 
