@@ -716,10 +716,10 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
             "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
     fi
 
+    _msg_info "Done!"
+
     # Copy kernel and initramfs
     _make_boot_on_fat
-
-    _msg_info "Done!"
 }
 
 # Prepare efiboot.img::/EFI for "El Torito" EFI boot mode

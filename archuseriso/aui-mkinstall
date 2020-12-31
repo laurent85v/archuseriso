@@ -69,11 +69,9 @@ _encrypt_setup () {
                "${WD}/${workdir}/usb/boot/refind_linux.conf"
         sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                "${WD}/${workdir}/usb/boot/syslinux/syslinux.cfg"
+        _msg_info "Done!"
         _msg_info "initramfs update"
-        # ignore mkinitcpio return status error
-        set +e
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
-        set -e
         _msg_info "Done!"
 }
 
@@ -332,21 +330,23 @@ _install () {
         _msg_info "Done!"
 
         # username
-        _msg_info "Configuring user ${username}"
-        mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${username}"
-        sed -i "s/live/${username}/g" \
-               "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
-               "${WD}/${workdir}/usb/etc/samba/smb.conf"
-        _msg_info "Done!"
+        if [[ -d "${WD}/${workdir}/usb/home/live" ]]; then  
+                _msg_info "Configuring user ${username}"
+                mv "${WD}/${workdir}/usb/home/live" "${WD}/${workdir}/usb/home/${username}"
+                sed -i "s/live/${username}/g" \
+                       "${WD}/${workdir}/usb/etc/"{passwd,group,shadow,gshadow} \
+                       "${WD}/${workdir}/usb/etc/samba/smb.conf"
+                _msg_info "Done!"
+        else
+                _msg_info "no user account found on the live image!"
+                username="root"
+                _msg_info "Done!"
+        fi
 
-        _msg_info "initramfs update"
         # haveged, initramfs
         arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
         _msg_info "initramfs update"
-        # ignore mkinitcpio return status error
-        set +e
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
-        set -e
         _msg_info "Done!"
 
         # rEFInd boot manager

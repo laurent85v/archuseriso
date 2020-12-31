@@ -100,10 +100,7 @@ _encrypt_setup () {
         mount "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot" -o bind
         sed -i "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
         _msg_info "initramfs update"
-        # ignore mkinitcpio return status error
-        set +e
         arch-chroot "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
-        set -e
         _msg_info "Done!"
         sed -i "s|storage$|& encrypted|
                 s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
