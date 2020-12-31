@@ -1,14 +1,14 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-V=0.5.4
+V=0.5.4.1
 
 all:
 
 install: 
 	install -d $(DESTDIR)/usr/bin/ $(DESTDIR)/usr/share/archuseriso/
-	install LICENSE $(DESTDIR)/usr/share/archuseriso/
-	install readme.md $(DESTDIR)/usr/share/archuseriso/
+	install -m 0644 LICENSE $(DESTDIR)/usr/share/archuseriso/
+	install -m 0644 readme.md $(DESTDIR)/usr/share/archuseriso/
 	cp -aT --no-preserve=ownership tools/ $(DESTDIR)/usr/bin/
 	cp -aT --no-preserve=ownership archuseriso/ $(DESTDIR)/usr/share/archuseriso/
 
