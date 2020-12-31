@@ -69,7 +69,11 @@ _encrypt_setup () {
         sed -i "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
                "${WD}/${workdir}/usb/boot/syslinux/syslinux.cfg"
         _msg_info "initramfs update"
+        # ignore mkinitcpio return status error
+        set +e
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
+        set -e
+        _msg_info "Done!"
 }
 
 _checks () {
@@ -314,7 +318,11 @@ _install () {
         # haveged, initramfs
         arch-chroot "${WD}/${workdir}/usb" systemctl enable haveged --quiet
         _msg_info "initramfs update"
+        # ignore mkinitcpio return status error
+        set +e
         arch-chroot "${WD}/${workdir}/usb" mkinitcpio -P &> /dev/null
+        set -e
+        _msg_info "Done!"
 
         # rEFInd boot manager
         _msg_info "Setting up boot loader"

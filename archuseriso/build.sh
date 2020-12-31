@@ -294,11 +294,14 @@ make_setup_mkinitcpio() {
       gpg --export "${gpg_key}" > "${work_dir}/gpgkey"
       exec 17<>"${work_dir}/gpgkey"
     fi
+    # ignore mkinitcpio return status error
+    set +e
     if [ -n "${verbose}" ]; then
         ARCHISO_GNUPG_FD="${gpg_key:+17}" mkaui -v -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
     else
         ARCHISO_GNUPG_FD="${gpg_key:+17}" mkaui -w "${work_dir}/x86_64" -C "${work_dir}/pacman.conf" -D "${install_dir}" -r 'mkinitcpio -P' run
     fi
+    set -e
     if [[ "${gpg_key}" ]]; then
       exec 17<&-
     fi

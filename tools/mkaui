@@ -479,7 +479,10 @@ _make_setup_mkinitcpio() {
         export ARCHISO_GNUPG_FD
     fi
     local run_cmd='mkinitcpio -P'
+    # ignore mkinitcpio return status error
+    set +e
     command_run
+    set -e
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<&-
         unset ARCHISO_GNUPG_FD
