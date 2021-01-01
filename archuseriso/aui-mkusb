@@ -27,19 +27,19 @@ _help () {
         echo 'aui-mkusb [options] <usb device> <iso image>'
         echo
         echo 'Options:'
-        echo '-h, --help                Command line help'
-        echo '--encrypt                 Encrypt persistent partition'
-        echo '--ext4journal             Enable ext4 journal (disabled by default for minimizing drive writes)'
-        echo '--f2fs                    Use the F2FS file system for the persistent partition (Default Ext4)' 
-        echo '--rawwrite                Raw ISO image write to USB drive (dd like mode)'
-        echo '--sizepart2 integer[g|G]  2nd partition size in GiB (Boot partition, FAT)'
-        echo '--sizepart3 integer[g|G]  3rd partition size in GiB (persistent partition, Ext4/F2FS)'
+        echo '-h, --help                  Command line help'
+        echo '--encrypt                   Encrypt persistent partition'
+        echo '--no-journal                Disable ext4 journal'
+        echo '--f2fs                      Use the F2FS file system for the persistent partition (Default Ext4)' 
+        echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
+        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot partition, FAT)'
+        echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition, Ext4/F2FS)'
         echo
         echo 'Example:'
         echo 'sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc'
         echo
         echo 'Example with custom partitioning, unallocated drive space left for other usages:'
-        echo 'sudo aui-mkusb --sizepart2 1G --sizepart3 10G aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc'
+        echo 'sudo aui-mkusb --size-part2 1G --size-part3 10G aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc'
         echo
         exit "${1}"
 }
@@ -353,16 +353,16 @@ _format_f2fs() {
 
 _format_ext4 () {
         _msg_info "partition #3: type Ext4, label ${cow_label}"
-        if ! flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt,'^has_journal' -q > /dev/null; then
+        if ! flock "${cowdevice}" mkfs.ext4 "${cowdevice}" -L "${cow_label}" -O encrypt -q > /dev/null; then
                echo 'Formatting partition failed!'
                 _unmount
                exit 1
         fi
-        # enable ext4 journal
+        # disable ext4 journal
         if [[ -n "${ext4journal:-}" ]]; then
-                _msg_info "Ext4 partitions: enabling file system journalisation"
-                tune2fs -O 'has_journal' "${usbdevice}1"
-                tune2fs -O 'has_journal' "${cowdevice}"
+                _msg_info "Ext4 partitions: disable journal"
+                tune2fs -O '^has_journal' "${usbdevice}1" &> /dev/null
+                tune2fs -O '^has_journal' "${cowdevice}" &> /dev/null
         fi
 }
 
@@ -370,7 +370,7 @@ _format () {
         echo
         _msg_info "Formatting partitions"
         _msg_info "partition #1: type Ext4, label ${iso_label}"
-        if ! flock "${usbdevice}1" mkfs.ext4 "${usbdevice}1" -L "${iso_label}" -O encrypt,'^has_journal' -m 0 -q > /dev/null; then
+        if ! flock "${usbdevice}1" mkfs.ext4 "${usbdevice}1" -L "${iso_label}" -O encrypt -m 0 -q > /dev/null; then
                echo 'Partition format failed!'
                 _unmount
                exit 1
@@ -463,7 +463,7 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,f2fs,rawwrite,sizepart2:,sizepart3:,help' -n 'aui-mkusb' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,raw-write,size-part2:,size-part3:,help' -n 'aui-mkusb' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -476,19 +476,19 @@ while true; do
                 '--encrypt')
                         encryption=yes
                         shift ;;
-                '--ext4journal')
-                        ext4journal=yes
+                '--no-journal')
+                        ext4journal=no
                         shift ;;
                 '--f2fs')
                         f2fs=yes
                         shift ;;
-                '--rawwrite')
+                '--raw-write')
                         rawwrite=yes
                         shift ;;
-                '--sizepart2')
+                '--size-part2')
                         fatsize=$2
                         shift 2;;
-                '--sizepart3')
+                '--size-part3')
                         cowsize=$2
                         shift 2;;
                 '--')

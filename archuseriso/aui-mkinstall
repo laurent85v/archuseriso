@@ -29,7 +29,7 @@ _help () {
         echo 'Options:'
         echo '-h, --help           command line help'
         echo '--encrypt            encrypt persistent partition'
-        echo '--ext4journal        enable ext4 journal (disabled by default for minimizing drive writes)'
+        echo '--no-journal         disable ext4 journal'
         echo '--f2fs               use the F2FS file system for the root partition (Default Ext4)'
         echo "--username <user>    set a custom username, default username is 'archie'"
         echo
@@ -227,20 +227,20 @@ _format_f2fs() {
 
 _format_ext4 () {
         _msg_info "partition #2: type Ext4, label ${label_root:-AUIROOT}"
-        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt,'^has_journal' -q; then
+        if ! flock "${rootdevice}" mkfs.ext4 "${rootdevice}" -L "${label_root:=AUIROOT}" -O encrypt -q; then
                 echo 'Formatting partition failed!'
                 exit 1
         fi
-        # enable ext4 journal
+        # disable ext4 journal
         if [[ -n "${ext4journal:-}" ]]; then
-                _msg_info "Ext4 partition: enabling ext4 journal"
-                tune2fs -O 'has_journal' "${rootdevice}" > /dev/null
+                _msg_info "Ext4 partition: disable journal"
+                tune2fs -O '^has_journal' "${rootdevice}" &> /dev/null
         fi
 }
 
 _format () {
         echo
-        _msg_info "Formatting paritions"
+        _msg_info "Formatting partitions"
         _msg_info "partition #1: type FAT, label ${label_boot:-AUIBOOT}"
         if ! flock "${usbdevice}1" mkfs.fat "${usbdevice}1" -F32 -n "${label_boot:=AUIBOOT}" > /dev/null; then
                 echo 'Partition format failed!'
@@ -404,7 +404,7 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,ext4journal,f2fs,help,username:' -n 'aui-mkinstall' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,help,username:' -n 'aui-mkinstall' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -417,8 +417,8 @@ while true; do
                 '--encrypt')
                         encryption=yes
                         shift ;;
-                '--ext4journal')
-                        ext4journal=yes
+                '--no-journal')
+                        ext4journal=no
                         shift ;;
                 '--f2fs')
                         f2fs=yes
