@@ -12,6 +12,7 @@ export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-"$(date +%s)"}"
 # Defaults
 app_name="${0##*/}"
 pkg_list=()
+pkg_list_additions=()
 pkg_testing_list=()
 quiet="y"
 work_dir="work"
@@ -1100,6 +1101,7 @@ _read_profile() {
         # Check if the package list file exists and read packages from it
         if [[ -e "${packages}" ]]; then
             mapfile -t pkg_list < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales:-}" | sed '/^$/d')
+            pkg_list+=(${pkg_list_additions[@]})
             if (( ${#pkg_list} < 1 )); then
                 (( validation_error=validation_error+1 ))
                 _msg_error "No package specified in '${packages}'." 0
@@ -1374,7 +1376,7 @@ while true; do
         '-?'|'-h'|'--help')
             _usage 0 ;;
         '-p'|'--add-pkg'|'--addpkg')
-            pkg_list+=($(tr ',' ' ' <<< "${2}"))
+            pkg_list_additions+=($(tr ',' ' ' <<< "${2}"))
             shift 2 ;;
         '--add-pkg-testing'|'--addpkgtesting')
             pkg_testing_list=($(tr ',' ' ' <<< "${2}"))
@@ -1383,7 +1385,7 @@ while true; do
             override_iso_application="${2}"
             shift 2 ;;
         '--add-i3-wm'|'--addi3wm')
-            pkg_list+=(i3-gaps feh dmenu i3status wmctrl rxvt-unicode)
+            pkg_list_additions+=(i3-gaps feh dmenu i3status wmctrl rxvt-unicode)
             iso_version_options+=(i3)
             shift ;;
         '-C')
@@ -1425,11 +1427,11 @@ while true; do
             override_iso_name="${2}"
             shift 2 ;;
         '--nvidia')
-            pkg_list+=(nvidia nvidia-settings bbswitch)
+            pkg_list_additions+=(nvidia nvidia-settings bbswitch)
             iso_version_options+=(nvidia)
             shift ;;
         '--optimus')
-            pkg_list+=(nvidia nvidia-settings nvidia-prime)
+            pkg_list_additions+=(nvidia nvidia-settings nvidia-prime)
             iso_version_options+=(optimus)
             shift ;;
         '-o'|'--out-dir'|'--outdir')
