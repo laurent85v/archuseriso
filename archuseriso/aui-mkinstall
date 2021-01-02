@@ -404,7 +404,9 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,help,username:' -n 'aui-mkinstall' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,help,username:' \
+                     --long 'nojournal' \
+                     -n 'aui-mkinstall' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -417,7 +419,7 @@ while true; do
                 '--encrypt')
                         encryption=yes
                         shift ;;
-                '--no-journal')
+                '--no-journal'|'--nojournal')
                         ext4journal=no
                         shift ;;
                 '--f2fs')

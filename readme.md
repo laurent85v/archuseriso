@@ -1,26 +1,26 @@
 Description
 ===========
 
-Profiles for building Arch Linux Live ISO images. Bootable USB drives creation tools featuring persistent storage and encryption.
+Build iso images, create live usb drives, install on usb drives.
+ 
+Archuseriso is based on Archiso the Arch Linux tool for building the official iso image.
 
-Archuseriso is based on Archiso the tool for building the official Arch Linux ISO image.
+Archuseriso provides new profiles and additional tools for building iso images and creating usb drives featuring persistent storage and encryption.
+
 
 Highlights
 ----------
 
 * easy build
-* very fast live images
-* live usb drive creation tool
-* persistence support
+* fast live images
 * pacman updates support
 * rEFInd boot manager
-* LUKS encryption option
-* ZFS support option
-* language option
-* package list customization
+* LUKS encryption
+* ZFS support
+* language support
 * user packages support
-* Nvidia graphics driver option
-* Optimus hardware option
+* Nvidia graphics support
+* Optimus hardware support
 * samba public folder sharing
 
 Profiles available
@@ -55,7 +55,7 @@ Install:
 
     sudo make -C archuseriso install
 
-Create ISO image
+Create iso image
 ----------------
 
 Command synopsis:
@@ -68,21 +68,17 @@ Xfce profile with default options:
 
 Kde Plasma profile, German language plus options for Optimus hardware and additional packages:
 
-    sudo aui-mkiso --language de --optimus --add-pkg byobu,base-devel /usr/share/archuseriso/profiles/kde/
+    sudo aui-mkiso --language=de --optimus --add-pkg=byobu,base-devel /usr/share/archuseriso/profiles/kde/
 
 Gnome profile, additional packages, user packages:
 
-    sudo aui-mkiso --add-pkg ntop,vlc --pkg-dir ~/mypackages /usr/share/archuseriso/profiles/gnome/
-
-LXQt profile, adding i3wm to X sessions available from the display manager:
-
-    sudo aui-mkiso --add-i3-wm /usr/share/archuseriso/profiles/lxqt
+    sudo aui-mkiso --add-pkg=ntop,vlc --pkg-dir=~/mypackages /usr/share/archuseriso/profiles/gnome/
 
 When done remove the `work` directory. The ISO image is located in the `out` directory.
 
-Create Live USB
+Create live usb
 ---------------
-The live usb is created with persistent storage support by default.
+The live usb is created with persistence enabled.
 
 Command synopsis:
 
@@ -92,26 +88,23 @@ Example:
 
     sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
 
-Live USB partition layout created by `aui-mkusb`:
+Live usb partitions:
 
     GPT layout
-    Partition  Type  Usage        Size
-    #1         Ext4  Squashfs     Image size 
-    #2         FAT   Boot         Default 512 MiB
-    #3         Ext4  Persistence  Default free disk space 
+    Partition   Type      Usage         Size
+    #1          Ext4      Squashfs      Image size 
+    #2          EFI FAT   Boot          512 MiB
+    #3          Ext4      Persistence   Free disk space 
 
-#### ISO image with ZFS support
+#### ZFS support
 
-`aui-mkiso` has a command option '--zfs' for building an iso image with ZFS support. The build script
-proceeds in two stages, first stage builds the necessary zfs packages against current Arch Linux kernel,
-second stage builds the iso image.
+Needs option '--zfs'.
+The build script proceeds in two stages, first stage builds the zfs packages, second stage builds the iso image.
+Archuseriso also provides a utility `aui-build_zfs_packages` for only building the ZFS packages.
 
-Archuseriso also provides a command line utility `aui-build_zfs_packages` for building the ZFS packages. The
-packages can be installed on any Arch Linux system for adding ZFS support.
-
-Hard disk like installation on a USB drive
-------------------------------------------
-No live image installed, no compression, hard disk like installation except systemd logs configured in volatile mode for limiting writes to usb drive. See the command line help for available options.
+Installation on a usb drive
+---------------------------
+Hard disk like installation except systemd journal configured in volatile mode.
 
 Command synopsis:
 
@@ -120,3 +113,10 @@ Command synopsis:
 Example
 
     sudo aui-mkinstall aui-xfce-linux_5_7_10-0724-x64.iso /dev/sdc
+
+usb drive partitions:
+
+    GPT layout
+    Partition   Type      Usage    Size
+    #1          EFI FAT   Boot     512 MiB
+    #2          Ext4      System   Free disk space 

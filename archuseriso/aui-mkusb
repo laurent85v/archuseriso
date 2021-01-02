@@ -463,7 +463,9 @@ _bootloader () {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,raw-write,size-part2:,size-part3:,help' -n 'aui-mkusb' -- "$@")
+OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,raw-write,size-part2:,size-part3:,help' \
+                     --long 'nojournal,rawwrite,sizepart2:,sizepart3:' \
+                     -n 'aui-mkusb' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -476,19 +478,19 @@ while true; do
                 '--encrypt')
                         encryption=yes
                         shift ;;
-                '--no-journal')
+                '--no-journal'|'--nojournal')
                         ext4journal=no
                         shift ;;
                 '--f2fs')
                         f2fs=yes
                         shift ;;
-                '--raw-write')
+                '--raw-write'|'--rawwrite')
                         rawwrite=yes
                         shift ;;
-                '--size-part2')
+                '--size-part2'|'--sizepart2')
                         fatsize=$2
                         shift 2;;
-                '--size-part3')
+                '--size-part3'|'--sizepart3')
                         cowsize=$2
                         shift 2;;
                 '--')
