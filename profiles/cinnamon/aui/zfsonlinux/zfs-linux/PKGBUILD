@@ -41,7 +41,7 @@ prepare() {
 
 build() {
     cd "${srcdir}/zfs-${_zfsver}"
-    ./autogen.sh
+    ./autogen.sh || true
     ./configure --prefix=/usr --sysconfdir=/etc --sbindir=/usr/bin --libdir=/usr/lib \
                 --datadir=/usr/share --includedir=/usr/include --with-udevdir=/usr/lib/udev \
                 --libexecdir=/usr/lib --with-config=kernel \

@@ -1223,9 +1223,8 @@ _build_zfs_packages () {
     local _WD _auiwork _ar64 _linuxversion _modulesversion _zfspackages _zfssources _zfsversion
     local _ZFSPUBKEY _KEYSERVER
     _WD="$(pwd)"
-    _auiwork="${_WD}/$(mktemp -d auiworkXXXXXXXX)"
+    _auiwork="${_WD}/$(mktemp -u auiworkXXXXXXXX)"
     _ar64="${_auiwork}/archroot64"
-    _linuxversion _modulesversion _zfspackages _zfssources _zfsversion
     _ZFSPUBKEY="6AD860EED4598027"
     _KEYSERVER="ha.pool.sks-keyservers.net"
 
@@ -1300,7 +1299,7 @@ _build_zfs_packages () {
             "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
             "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
     cd "${_auiwork}/zfsonlinux/zfs-utils/"
-    for _zfslink in "${_zfssources[@]}"; do
+    for _zfslink in ${_zfssources[@]}; do
         if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
             curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" -O
             curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}".asc -O

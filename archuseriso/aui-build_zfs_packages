@@ -12,7 +12,7 @@ WD="$(pwd)"
 # Tony Hutter public key
 ZFSPUBKEY="6AD860EED4598027"
 KEYSERVER="ha.pool.sks-keyservers.net"
-auiwork="${WD}"/auiwork$(openssl rand -hex 4)
+auiwork="${WD}/$(mktemp -u auiworkXXXXXXXX)"
 ar64="${auiwork}/archroot64"
 linuxversion=""
 modulesversion=""
