@@ -1,50 +1,58 @@
 #!/usr/bin/env bash
 #
+# Copyright (C) 2021 Laurent Jourden <laurent85@enarel.fr>
+#
 # SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Script to build the ZFS packages against the linux kernel 
+# for Arch Linux.
 
 set -e -u
 
-AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
-aui_profile=/usr/share/archuseriso/profiles/console
-SCRIPTUSER="${SUDO_USER:-}"
 WD="$(pwd)"
+appname="${0##*/}"
+aui_profile=/usr/share/archuseriso/profiles/console
+AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
+auiwork="${WD}/$(mktemp -u auiwork.XXXXXXXX)"
+ar64="${auiwork}/archroot64"
+help="no"
+linuxtesting="no"
+linuxversion=""
+modulesversion=""
+SCRIPTUSER="${SUDO_USER:-}"
+zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
 # Tony Hutter public key
 ZFSPUBKEY="6AD860EED4598027"
 KEYSERVER="ha.pool.sks-keyservers.net"
-auiwork="${WD}/$(mktemp -u auiworkXXXXXXXX)"
-ar64="${auiwork}/archroot64"
-linuxversion=""
-modulesversion=""
 declare -a zfspackages
 declare -a zfssources
-zfsversion=""
 
 _usage () {
         echo
-        echo 'aui-build_zfs_packages, command for building the ZFS packages.'
+        echo "${appname}, ZFS packages creation tool."
         echo
-        echo 'Command synopsis:'
-        echo 'aui-build_zfs_packages [options]'
+        echo 'Synopsis:'
+        echo "${appname} [options]"
         echo
-        echo 'Get help:'
-        echo 'aui-build_zfs_packages --help'
+        echo 'Help:'
+        echo "${appname} --help"
         echo
         exit "${1}"
 }
 
 _help () {
         echo
-        echo 'Archuseriso tool for building the ZFS packages against the Arch Linux kernel.'
+        echo "${appname}, ZFS packages creation tool."
         echo
-        echo 'Command synopsis:'
-        echo 'aui-build_zfs_packages [options]'
+        echo 'Synopsis:'
+        echo "${appname} [options]"
         echo
         echo 'Options:'
         echo '-h, --help              Command line help'
         echo "-C, --confdir <path>    Profile path (default: ${aui_profile})"
         echo '--linuxtesting          Build packages against the linux kernel in testing repository'
-        echo1
+        echo
         exit "${1}"
 }
 _init () {
@@ -56,11 +64,11 @@ _init () {
                 echo 'pacman-contrib package not installed, aborting!'
                 exit 0
         fi
-        mkdir -p "${ar64}"
-        mkdir -p "${WD}/out"
-        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail \
+        mkdir -p -- "${ar64}"
+        mkdir -p -- "${WD}/out"
+        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
                    https://api.github.com/repos/openzfs/zfs/releases/latest | \
-                   grep browser_download_url | cut -d':' -f2- | sed 's/"//g')
+                   grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
         zfsversion="${zfssources[0]%/zfs-*}"
         zfsversion="${zfsversion#*-}"
         if [[ -z "${zfsversion}" ]]; then
@@ -79,8 +87,8 @@ _init () {
 }
 
 _create_archroot64 () {
-        LC_ALL=C mkarchroot -C "${aui_profile}/pacman.conf" -c /var/cache/pacman/pkg "${ar64}/root" base linux linux-headers base-devel
-        if [[ -n "${linuxtesting:-}" ]]; then
+        LC_ALL=C mkarchroot -C "${aui_profile}/pacman.conf" -c /var/cache/pacman/pkg -- "${ar64}/root" base linux linux-headers base-devel
+        if [[ "${linuxtesting}" == "yes" ]]; then
                 unshare --fork --pid pacman --config "${aui_profile}/pacman-testing.conf" --root "${ar64}/root" -Sy
                 if unshare --fork --pid pacman --config "${aui_profile}/pacman-testing.conf" --root "${ar64}/root" -Si testing/linux; then
                         pacstrap -C "${aui_profile}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers
@@ -88,7 +96,7 @@ _create_archroot64 () {
                         echo
                         echo 'No linux package in testing currently, aborting!'
                         echo
-                        rm -r "${auiwork}"
+                        rm -r -- "${auiwork}"
                         exit 1
                 fi
         fi
@@ -101,22 +109,22 @@ _build_zfs_packages () {
         else
                 modulesversion="${linuxversion%.arch*}-${linuxversion##*.}"
         fi
-        cp -arT "${aui_profile}/aui/zfsonlinux" "${auiwork}/zfsonlinux"
-        sed -i "s/%ZFSVERSION%/${zfsversion}/
-                s/%LINUXVERSION%/${linuxversion}/
-                s/%MODULESVERSION%/${modulesversion}/" \
-                "${auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
-                "${auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
-        cd "${auiwork}/zfsonlinux/zfs-utils/"
-        for _zfslink in ${zfssources[@]}; do
+        cp -arT -- "${aui_profile}/aui/zfsonlinux" "${auiwork}/zfsonlinux"
+        sed -i -- "s/%ZFSVERSION%/${zfsversion}/
+                   s/%LINUXVERSION%/${linuxversion}/
+                   s/%MODULESVERSION%/${modulesversion}/" \
+                   "${auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
+                   "${auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
+        cd -- "${auiwork}/zfsonlinux/zfs-utils/"
+        for _zfslink in "${zfssources[@]}"; do
                 if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
-                       curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" -O
-                       curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}".asc -O
+                       curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
+                       curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}".asc
                        break
                 fi
         done
-        cp -a zfs-*.tar.gz{,.asc} ../zfs-linux
-        chown -R "${SCRIPTUSER}": "${auiwork}/zfsonlinux"
+        cp -a -- zfs-*.tar.gz{,.asc} ../zfs-linux
+        chown -R -- "${SCRIPTUSER}": "${auiwork}/zfsonlinux"
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
         sudo --user "${SCRIPTUSER}" updpkgsums
         cd "${auiwork}/zfsonlinux/zfs-linux/"
@@ -125,16 +133,16 @@ _build_zfs_packages () {
         cd "${auiwork}/zfsonlinux/zfs-utils/"
         LC_ALL=C sudo --user "${SCRIPTUSER}" \
         makechrootpkg -r "${ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-        mapfile -t zfspackages < <(find "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
-        cd "${auiwork}/zfsonlinux/zfs-linux/"
+        mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
+        cd -- "${auiwork}/zfsonlinux/zfs-linux/"
         LC_ALL=C sudo --user "${SCRIPTUSER}" \
         makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-        mapfile -t zfspackages < <(find "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
-        cp "${zfspackages[@]}" "${WD}/out"
-        rm -r "${auiwork}"
+        mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
+        cp -- "${zfspackages[@]}" "${WD}/out"
+        rm -r -- "${auiwork}"
 }
 
-OPTS=$(getopt -o 'C:,h' -l 'confdir:,help,linuxtesting' -n 'aui-build_zfs_packages' -- "$@")
+OPTS=$(getopt -o 'C:,h' -l 'confdir:,help,linuxtesting' -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -156,7 +164,7 @@ while true; do
         esac
 done
 
-if [[ -n "${help:-}" ]]; then
+if [[ "${help}" == "yes" ]]; then
        _help 0
 fi
 
@@ -164,7 +172,7 @@ if [[ ${EUID} -ne 0 ]]; then
         echo "This script must be run as root."
         echo
         echo "Get help:"
-        echo "aui-build_zfs_packages --help"
+        echo "${appname} --help"
         exit 1
 fi
 

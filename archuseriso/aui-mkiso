@@ -10,43 +10,45 @@ export LANG="C"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-"$(date +%s)"}"
 
 # Defaults
+airootfs_image_type="squashfs"
+airootfs_image_tool_options=('-comp' 'zstd')
 app_name="${0##*/}"
+arch="$(uname -m)"
+bootmodes=()
+build_zfs_packages="n"
+desktop=""
+embed_dir=""
+gpg_key=""
+img_name=""
+install_dir="${app_name}"
+iso_application="${app_name} iso"
+iso_label="${app_name^^}"
+iso_name="${app_name}"
+iso_publisher="${app_name}"
+iso_version=""
+iso_version_options=()
+lang=""
+override_iso_application=""
+override_iso_label=""
+override_iso_name=""
+override_iso_publisher=""
+override_install_dir=""
+out_dir="out"
+override_gpg_key=""
+override_pacman_conf=""
+override_pacman_testing_conf=""
+packages_locales=""
+pacman_conf="/etc/pacman.conf"
+pacman_testing_conf=""
 pkg_list=()
 pkg_list_additions=()
 pkg_testing_list=()
-quiet="y"
-work_dir="work"
-out_dir="out"
-img_name=""
-gpg_key=""
-override_gpg_key=""
 profile=""
-iso_name="${app_name}"
-iso_label="${app_name^^}"
-override_iso_label=""
-iso_publisher="${app_name}"
-override_iso_publisher=""
-iso_application="${app_name} iso"
-override_iso_application=""
-iso_version=""
-install_dir="${app_name}"
-override_install_dir=""
-arch="$(uname -m)"
-pacman_conf="/etc/pacman.conf"
-pacman_testing_conf=""
-override_pacman_conf=""
-override_pacman_testing_conf=""
-bootmodes=()
-airootfs_image_type="squashfs"
-airootfs_image_tool_options=('-comp' 'zstd')
-declare -A file_permissions=()
-lang=""
-user_pkg_dir=""
-iso_version_options=()
-override_iso_name=""
-embed_dir=""
-build_zfs_packages="n"
+quiet="y"
 SCRIPTUSER="${SUDO_USER:-}"
+user_pkg_dir=""
+work_dir="work"
+declare -A file_permissions=()
 
 # Show an INFO message
 # $1: message string
@@ -222,6 +224,7 @@ _mkairootfs_ext4+squashfs() {
     _msg_info "Done!"
     _umount_airootfs
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
+    echo
     _msg_info "Creating SquashFS image, this may take some time..."
     _run_mksquashfs "${airootfs_dir}.img"
     _msg_info "Done!"
@@ -235,6 +238,7 @@ _mkairootfs_squashfs() {
     fi
 
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
+    echo
     _msg_info "Creating SquashFS image, this may take some time..."
     _run_mksquashfs "${airootfs_dir}"
     _msg_info "Done!"
@@ -294,6 +298,7 @@ _make_pacman_conf() {
         _cache_dirs="${_system_cache_dirs}"
     fi
 
+    echo
     _msg_info "Copying custom pacman.conf to work directory..."
     # take the profile pacman.conf and strip all settings that would break in chroot when using pacman -r
     # see `man 8 pacman` for further info
@@ -735,7 +740,7 @@ _make_aui() {
     if [[ -z "${iso_version}" ]]; then
         iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
                        cut -d' ' -f2 | \
-                       sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[@]:+-${iso_version_options[@]}}${lang:+-${lang}}-$(date +%m%d)"
+                       sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
     fi
     if [[ -z "${img_name}" ]]; then
         img_name="${iso_name}-${iso_version}-x64.iso"
@@ -1058,6 +1063,7 @@ _build_iso() {
         _mksignature_iso
     fi
     _msg_info "Done!"
+    echo
     _msg_info "$(du -h -- "${out_dir}/${img_name}")"
 }
 
@@ -1100,7 +1106,7 @@ _read_profile() {
         # Validate profile
         # Check if the package list file exists and read packages from it
         if [[ -e "${packages}" ]]; then
-            mapfile -t pkg_list < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales:-}" | sed '/^$/d')
+            mapfile -t pkg_list < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales}" | sed '/^$/d')
             pkg_list+=(${pkg_list_additions[@]})
             if (( ${#pkg_list} < 1 )); then
                 (( validation_error=validation_error+1 ))
@@ -1223,7 +1229,7 @@ _build_zfs_packages () {
     local _WD _auiwork _ar64 _linuxversion _modulesversion _zfspackages _zfssources _zfsversion
     local _ZFSPUBKEY _KEYSERVER
     _WD="$(pwd)"
-    _auiwork="${_WD}/$(mktemp -u auiworkXXXXXXXX)"
+    _auiwork="${_WD}/$(mktemp -u auiwork.XXXXXXXX)"
     _ar64="${_auiwork}/archroot64"
     _ZFSPUBKEY="6AD860EED4598027"
     _KEYSERVER="ha.pool.sks-keyservers.net"
@@ -1252,12 +1258,12 @@ _build_zfs_packages () {
         echo 'pacman-contrib package not installed, aborting!'
         exit 0
     fi
-    mkdir -p "${_WD}/work/pkgdir"
-    mkdir -p "${_ar64}"
-    chmod a+x "${_auiwork}"
-    mapfile -t _zfssources < <(curl --silent --retry 3 --retry-connrefused --fail \
+    mkdir -p -- "${_WD}/work/pkgdir"
+    mkdir -p -- "${_ar64}"
+    chmod a+x -- "${_auiwork}"
+    mapfile -t _zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
                    https://api.github.com/repos/openzfs/zfs/releases/latest | \
-                   grep browser_download_url | cut -d':' -f2- | sed 's/"//g')
+                   grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
     _zfsversion="${_zfssources[0]%/zfs-*}"
     _zfsversion="${_zfsversion#*-}"
     if [[ -z "${_zfsversion}" ]]; then
@@ -1266,20 +1272,19 @@ _build_zfs_packages () {
     fi
     _msg_info "Preparing zfs chroot"
     if [[ "${quiet}" == "y" ]]; then
-        mkarchroot -c /var/cache/pacman/pkg "${_ar64}/root" base linux linux-headers base-devel &> /dev/null
+        mkarchroot -c /var/cache/pacman/pkg -- "${_ar64}/root" base linux linux-headers base-devel &> /dev/null
     else
-        mkarchroot -c /var/cache/pacman/pkg "${_ar64}/root" base linux linux-headers base-devel
+        mkarchroot -c /var/cache/pacman/pkg -- "${_ar64}/root" base linux linux-headers base-devel
     fi
     _msg_info "Done!"
     if [[ -n "${pkg_testing_list[*]}" ]]; then
-        #unshare --fork --pid pacman --config "${work_dir}/pacman-testing.conf" --root "${_ar64}/root" -Sy > /dev/null 2>&1
-        for _package in ${pkg_testing_list[@]}; do
+        for _package in "${pkg_testing_list[@]}"; do
             if [[ "${_package}" = 'linux' ]]; then
                 _msg_info "Installing linux package from testing"
                 if [[ "${quiet}" == "y" ]]; then
-                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers &> /dev/null
+                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${_ar64}/root" linux linux-headers &> /dev/null
                 else
-                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M "${_ar64}/root" linux linux-headers
+                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${_ar64}/root" linux linux-headers
                 fi
                 _msg_info "Done!"
                 break
@@ -1292,22 +1297,22 @@ _build_zfs_packages () {
     else
         _modulesversion="${_linuxversion%.arch*}-${_linuxversion##*.}"
     fi
-    cp -arT "${profile}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
-    sed -i "s/%ZFSVERSION%/${_zfsversion}/
-            s/%LINUXVERSION%/${_linuxversion}/
-            s/%MODULESVERSION%/${_modulesversion}/" \
-            "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
-            "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
-    cd "${_auiwork}/zfsonlinux/zfs-utils/"
-    for _zfslink in ${_zfssources[@]}; do
+    cp -arT -- "${profile}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
+    sed -i -- "s/%ZFSVERSION%/${_zfsversion}/
+               s/%LINUXVERSION%/${_linuxversion}/
+               s/%MODULESVERSION%/${_modulesversion}/" \
+               "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
+               "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
+    cd -- "${_auiwork}/zfsonlinux/zfs-utils/"
+    for _zfslink in "${_zfssources[@]}"; do
         if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
-            curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}" -O
-            curl --silent --retry 3 --retry-connrefused --fail -L "${_zfslink}".asc -O
+            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
+            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}".asc
             break
         fi
     done
-    cp -a zfs-*.tar.gz{,.asc} ../zfs-linux
-    chown -R "${SCRIPTUSER}": "${_auiwork}/zfsonlinux"
+    cp -a -- zfs-*.tar.gz{,.asc} ../zfs-linux
+    chown -R "${SCRIPTUSER}": -- "${_auiwork}/zfsonlinux"
     _msg_info "Creating PKGBUILDs"
     if [[ "${quiet}" == "y" ]]; then
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD 2> /dev/null
@@ -1316,7 +1321,7 @@ _build_zfs_packages () {
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
         sudo --user "${SCRIPTUSER}" updpkgsums
     fi
-    cd "${_auiwork}/zfsonlinux/zfs-linux/"
+    cd -- "${_auiwork}/zfsonlinux/zfs-linux/"
     if [[ "${quiet}" == "y" ]]; then
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD 2> /dev/null
         sudo --user "${SCRIPTUSER}" updpkgsums 2> /dev/null
@@ -1325,7 +1330,7 @@ _build_zfs_packages () {
         sudo --user "${SCRIPTUSER}" updpkgsums
     fi
     _msg_info "Done!"
-    cd "${_auiwork}/zfsonlinux/zfs-utils/"
+    cd -- "${_auiwork}/zfsonlinux/zfs-utils/"
     _msg_info "Building zfs-utils"
     if [[ "${quiet}" == "y" ]]; then
         sudo --user "${SCRIPTUSER}" \
@@ -1335,8 +1340,8 @@ _build_zfs_packages () {
         makechrootpkg -r "${_ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     fi
     _msg_info "Done!"
-    mapfile -t _zfspackages < <(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
-    cd "${_auiwork}/zfsonlinux/zfs-linux/"
+    mapfile -t _zfspackages < <(find -- "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
+    cd -- "${_auiwork}/zfsonlinux/zfs-linux/"
     _msg_info "Building zfs-linux"
     if [[ "${quiet}" == "y" ]]; then
         sudo --user "${SCRIPTUSER}" \
@@ -1346,15 +1351,15 @@ _build_zfs_packages () {
         makechrootpkg -r "${_ar64}" -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     fi
     _msg_info "Done!"
-    mapfile -t _zfspackages < <(find "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
+    mapfile -t _zfspackages < <(find -- "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
     if [[ -n "${user_pkg_dir}" ]]; then
-        cp "${_zfspackages[@]}" "${user_pkg_dir}"
+        cp -- "${_zfspackages[@]}" "${user_pkg_dir}"
     else
-        cp "${_zfspackages[@]}" "${_WD}/work/pkgdir"
+        cp -- "${_zfspackages[@]}" "${_WD}/work/pkgdir"
         user_pkg_dir="${_WD}/work/pkgdir"
     fi
-    rm -r "${_auiwork}"
-    cd "${_WD}"
+    rm -r -- "${_auiwork}"
+    cd -- "${_WD}"
 }
 
 OPTS=$(getopt -o '?A:C:D:g:hL:l:N:o:P:p:vw:' \
@@ -1477,7 +1482,7 @@ if [[ -d "${work_dir}" ]]; then
     echo
     exit 0
 fi
-[[ -n "${iso_version_options:-}" ]] && _iso_version_options
+[[ -n "${iso_version_options[*]}" ]] && _iso_version_options
 _read_profile
 _set_overrides
 _build_profile
