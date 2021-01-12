@@ -13,8 +13,10 @@ appname="${0##*/}"
 encryption="no"
 ext4journal="yes"
 f2fs="no"
+espsize=""
 isoname=""
 MINCAPACITY=16000000000 # 16 GB
+rootsize=""
 usbdevice=""
 username="archie"
 WD="${PWD}"
@@ -40,11 +42,13 @@ _help () {
         echo 'aui-mkinstall [options] <iso image> <usb device>'
         echo
         echo 'Options:'
-        echo '-h, --help           command line help'
-        echo '--encrypt            encrypt persistent partition'
-        echo '--no-journal         disable ext4 journal'
-        echo '--f2fs               use the F2FS file system for the root partition (Default Ext4)'
-        echo "--username <user>    set a custom username, default username is 'archie'"
+        echo '-h, --help                  command line help'
+        echo '--encrypt                   encrypt persistent partition'
+        echo '--no-journal                disable ext4 journal'
+        echo '--f2fs                      use the F2FS file system for the root partition (Default Ext4)'
+        echo '--size-part1 integer[g|G]   1st partition size in GiB (Boot & efi partition, FAT)'
+        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Root partition, Ext4/F2FS)'
+        echo "--username <user>           set a custom username, default username is 'archie'"
         echo
         echo 'Example:'
         echo 'aui-mkinstall --encrypt archuseriso-xfce-1231-x64.iso /dev/sdc'
@@ -149,6 +153,24 @@ _checks () {
                 echo "Error: ${isoname} is not an iso image!"
                 _usage 1
         fi
+        # Set efi boot partition size in MiB
+        if [[ -n "${espsize}" ]]; then
+                if ! [[ "${espsize}" =~ ^[1-9][0-9]?+$ ]]; then
+                        echo "FAT partition size error: Invalid --fat-size argument (GiB): ${espsize}"
+                        _usage 1
+                fi
+                espsize=$(( espsize * 1024 ))
+        else
+                espsize=512
+        fi
+        # Set root partition size in MiB, free space left by default
+        if [[ -n "${rootsize}" ]]; then
+                if ! [[ "${rootsize}" =~ ^[1-9][0-9]?+$ ]]; then
+                        echo "Ext4/F2FS partition size error: Invalid size argument (GiB): ${rootsize}"
+                        _usage 1
+                fi
+                rootsize=$(( rootsize * 1024 ))
+        fi
         if [[ "${f2fs}" == "yes" ]]; then
                 if ! pacman -Q f2fs-tools &> /dev/null; then
                         echo 'f2fs-tools package not installed, aborting!'
@@ -158,15 +180,30 @@ _checks () {
 }
 
 _init () {
-        devicesize=$(blockdev --getsize64 "${usbdevice}")
-        LOGSEC=$(lsblk --noheadings --raw --scsi --output log-sec -- "${usbdevice}")
-        # ESP size 512 MiB
-        ESPSIZE=$(( 512 * 1024 * 1024 / LOGSEC ))
+        local _espsize _rootsize
+        drivesize=$(blockdev --getsize64 "${usbdevice}")
+        LOGICSEC=$(blockdev --getss "${usbdevice}")
         # Drive partition #1, first sector at 1 MiB
-        SECSTART=$(( 1024 * 1024 / LOGSEC ))
-        # Check usb device capacity
-        if [[ ${devicesize} -lt ${MINCAPACITY} ]]; then
+        STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
+        # Check usb drive capacity
+        if [[ ${drivesize} -lt ${MINCAPACITY} ]]; then
                 echo 'Storage capacity error!'
+                exit 1
+        fi
+        # check partitions size don't exceed drive's capacity
+        _espsize=$(( espsize * 1024 * 1024 ))
+        if [[ -n "${rootsize}" ]]; then
+                _rootsize=$(( rootsize * 1024 * 1024 ))
+        else
+                _rootsize=0
+        fi
+        if [[ ! ${drivesize} -gt $(( _espsize + _rootsize )) ]]; then
+                echo "Size settings error: exceeds drive storage capacity!"
+                exit 1
+        fi
+        # check usb drive capacity
+        if [[ ! ${drivesize} -gt $(( _espsize + _rootsize )) ]]; then
+                echo "Size settings error: exceeds drive storage capacity!"
                 exit 1
         fi
 }
@@ -174,7 +211,7 @@ _init () {
 _confirm_write () {
         # Confim write
         echo
-        _msg_info "This process may take a long time depending on the drive write speed, be patient!"
+        _msg_info "This process may take a long time depending on the drive's write speed, be patient!"
         _msg_info ""
         _msg_info "ISO file:   ${isoname}"
         _msg_info "USB device: ${usbdevice}"
@@ -217,6 +254,7 @@ _confirm_write () {
 
         # check iso
         if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" && -d "${WD}/${workdir}/iso/aui/install" ]]; then
+                eval $(grep -- aui_suffix "${WD}/${workdir}/iso/aui/AUIDATA")
                 eval $(grep -- label_root "${WD}/${workdir}/iso/aui/AUIDATA")
                 eval $(grep -- label_boot "${WD}/${workdir}/iso/aui/AUIDATA")
         else
@@ -230,20 +268,49 @@ _confirm_write () {
 }
 
 _partitions () {
-        # Create usb device partition table & partitions
+        local _part_type_linux _part_type_msft
+        local _start_1st_part _start_2nd_part
+        local _sectors_1st_part _sectors_2nd_part
+        local _size_1st_part _size_2nd_part
+
+        # GPT Partition type : Linux Filesystem
+        _part_type_linux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+        # GPT Partition type : Microsoft basic data
+        _part_type_msft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
+
+        # Start sector, partition size in both sectors and MiB
+        _start_1st_part=$(( STARTSEC ))
+        _size_1st_part=$(( espsize * 1024 * 1024 ))
+        _sectors_1st_part=$(( _size_1st_part / LOGICSEC ))
+        _start_2nd_part=$(( _start_1st_part + _sectors_1st_part ))
+        if [[ -n "${rootsize}" ]]; then
+                _sectors_2nd_part=$(( ${rootsize/[gG]} * 1024 * 1024 * 1024 / LOGICSEC ))
+        fi
+	if [[ -n "${rootsize}" ]]; then
+                _size_2nd_part=$(( rootsize * 1024 * 1024 ))
+                _sectors_2nd_part=$(( _size_2nd_part / LOGICSEC ))
+        else
+                _size_2nd_part=$(( drivesize - _size_1st_part - (STARTSEC * LOGICSEC) ))
+        fi
+
+        # Wipe drive
         echo
         flock -- "${usbdevice}" wipefs --all --force -- "${usbdevice}"* > /dev/null
         sleep 1
+
+        # New gpt partition table 
         _msg_info "Partitioning drive"
         _msg_info "new gpt label"
         echo 'label: gpt' | flock -- "${usbdevice}" sfdisk -w always -- "${usbdevice}" > /dev/null
-        sleep 1
-        _msg_info "partition #1: boot partition: $(( ESPSIZE / 1024 / 2)) MiB"
-        echo "${SECSTART},${ESPSIZE},U," | flock -- "${usbdevice}" sfdisk -W always -- "${usbdevice}" > /dev/null
-        sleep 1
-        _msg_info "partition #2: root partition: free space"
-        echo "$(( SECSTART + ESPSIZE)),,L," | flock -- "${usbdevice}" sfdisk --append -W always -- "${usbdevice}" > /dev/null
-        sleep 1
+        sleep 2
+
+        # partition #1 boot & efi partition
+        _msg_info "partition #1: boot & efi partition: $(( _size_1st_part / 1024 / 1024 )) MiB"
+        echo "$(( _start_1st_part )),$(( _sectors_1st_part )),${_part_type_msft}," | flock -- "${usbdevice}" sfdisk -W always -- "${usbdevice}" > /dev/null
+        sleep 2
+        _msg_info "partition #2: root partition: $(( _size_2nd_part / 1024 / 1024 )) MiB"
+        echo "$(( _start_2nd_part )),${_sectors_2nd_part:-},${_part_type_linux}," | flock -- "${usbdevice}" sfdisk --append -W always -- "${usbdevice}" > /dev/null
+        sleep 2
         partprobe -- "${usbdevice}"
         _msg_info "Done!"
 }
@@ -437,6 +504,7 @@ _bootloader () {
 # arguments
 OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,f2fs,help,username:' \
                      --long 'nojournal' \
+                     --long 'size-part1:,sizepart1:,size-part2:,sizepart2:' \
                      -n 'aui-mkinstall' -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -456,6 +524,12 @@ while true; do
                 '--f2fs')
                         f2fs="yes"
                         shift ;;
+                '--size-part1'|'--sizepart1')
+                        espsize="${2/[gG]}"
+                        shift 2 ;;
+                '--size-part2'|'--sizepart2')
+                        rootsize="${2/[gG]}"
+                        shift 2 ;;
                 '--username')
                         username="${2}"
                         shift 2 ;;
