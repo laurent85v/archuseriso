@@ -15,10 +15,12 @@ ext4journal="yes"
 f2fs="no"
 espsize=""
 isoname=""
+medium_version=""
 MINCAPACITY=16000000000 # 16 GB
 rootsize=""
 usbdevice=""
 username="archie"
+valid_medium_version="v4"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
 
@@ -77,35 +79,35 @@ _cleanup() {
         if [[ -d "${WD}/${workdir}" ]]; then
                 rmdir -- "${WD}/${workdir}"
         fi
-        if [[ -e /dev/mapper/auicrypt ]]; then
-                cryptsetup close auicrypt
+        if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
+                cryptsetup close "${crypt_mapper:-auicrypt}"
         fi
 }
 
 _encrypt_mkluks () {
         echo
         _msg_info "Setting up encrypted partition, type in a passphrase of your choice"
-        if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat -- "${usbdevice}2"; then
+        if ! cryptsetup --label "${crypt_label:=AUICRYPT}" --uuid "${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usbdevice}2"; then
                 echo 'Encryption setup failed, exiting!'
                 exit 1
         fi
         echo
         _msg_info "LUKS encryption setup done! type in your passphrase to unlock device"
-        if ! cryptsetup -- open "${usbdevice}2" auicrypt; then
+        if ! cryptsetup -- open "${usbdevice}2" "${crypt_mapper:-auicrypt}"; then
                 echo 'Error: Could not unlock device! Exiting.'
                 exit 1
         fi
         echo
-        rootdevice=/dev/mapper/auicrypt
+        rootdevice="/dev/mapper/${crypt_mapper:-auicrypt}"
         _msg_info "Done!"
 }
 
 _encrypt_setup () {
         _msg_info "Finalizing encryption settings"
         sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/usb/etc/mkinitcpio.conf"
-        sed -i -- "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+        sed -i -- "s|root=LABEL=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usb/boot/refind_linux.conf"
-        sed -i -- "s|root=LABEL=|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+        sed -i -- "s|root=LABEL=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usb/boot/syslinux/syslinux.cfg"
         _msg_info "Done!"
         _msg_info "initramfs update"
@@ -237,8 +239,8 @@ _confirm_write () {
                        exit 1
                 fi
         done
-        if [[ -e /dev/mapper/auicrypt ]]; then
-                echo 'Error: cryptsetup mapping /dev/mapper/auicrypt exists! cannot proceed.'
+        if [[ -e /dev/mapper/${crypt_mapper:-auicrypt} ]]; then
+                echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
                 exit 1
         fi
         mkdir -p -- "${WD}/${workdir}/"{iso,squashfs,usb}
@@ -253,16 +255,19 @@ _confirm_write () {
         _msg_info "Done!"
 
         # check iso
-        if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" && -d "${WD}/${workdir}/iso/aui/install" ]]; then
-                eval $(grep -- aui_suffix "${WD}/${workdir}/iso/aui/AUIDATA")
-                eval $(grep -- label_root "${WD}/${workdir}/iso/aui/AUIDATA")
-                eval $(grep -- label_boot "${WD}/${workdir}/iso/aui/AUIDATA")
-        else
-                echo "Error: ${isoname} is not a compatible image!"
-                umount -- "${WD}/${workdir}/squashfs"
-                sleep 1
-                umount -- "${WD}/${workdir}/iso"
-                rmdir -- "${WD}/${workdir}/"{usb,squashfs,iso,}
+        if [[ ! -e "${WD}/${workdir}/iso/aui/mediumdef.sh" ]]; then
+                echo "Error: ${isoname} is not a compatible iso image!"
+                echo
+                _unmount
+                _usage 1
+        fi
+
+        # source medium def variables
+        source "${WD}/${workdir}/iso/aui/mediumdef.sh"
+        if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
+                echo "Error: ${isoname} is not a compatible iso image!"
+                echo
+                _unmount
                 _usage 1
         fi
 }
@@ -316,16 +321,16 @@ _partitions () {
 }
 
 _format_f2fs() {
-        _msg_info "partition #2: type F2FS, label ${label_root:-AUIROOT}"
-        if ! flock -- "${rootdevice}" mkfs.f2fs -l "${label_root:=AUIROOT}" -O encrypt,extra_attr,compression -- "${rootdevice}" > /dev/null; then
+        _msg_info "partition #2: type F2FS, label ${root_label:-AUIROOT}"
+        if ! flock -- "${rootdevice}" mkfs.f2fs -l "${root_label:=AUIROOT}" -O encrypt,extra_attr,compression -- "${rootdevice}" > /dev/null; then
                 echo 'Formatting partition failed!'
                 exit 1
         fi
 }
 
 _format_ext4 () {
-        _msg_info "partition #2: type Ext4, label ${label_root:-AUIROOT}"
-        if ! flock -- "${rootdevice}" mkfs.ext4 -L "${label_root:=AUIROOT}" -O encrypt -q -- "${rootdevice}"; then
+        _msg_info "partition #2: type Ext4, label ${root_label:-AUIROOT}"
+        if ! flock -- "${rootdevice}" mkfs.ext4 -L "${root_label:=AUIROOT}" -O encrypt -q -- "${rootdevice}"; then
                 echo 'Formatting partition failed!'
                 exit 1
         fi
@@ -339,8 +344,8 @@ _format_ext4 () {
 _format () {
         echo
         _msg_info "Formatting partitions"
-        _msg_info "partition #1: type FAT, label ${label_boot:-AUIBOOT}"
-        if ! flock -- "${usbdevice}1" mkfs.fat -F32 -n "${label_boot:=AUIBOOT}" -- "${usbdevice}1" > /dev/null; then
+        _msg_info "partition #1: type FAT, label ${esp_label:-AUIESP}"
+        if ! flock -- "${usbdevice}1" mkfs.fat -F32 -n "${esp_label:=AUIESP}" -- "${usbdevice}1" > /dev/null; then
                 echo 'Partition format failed!'
                 exit 1
         fi
@@ -391,10 +396,9 @@ _install () {
         cp -- "${WD}/${workdir}/iso/arch/boot/x86_64/vmlinuz-linux" "${WD}/${workdir}/usb/boot/"
         cp -- "${WD}/${workdir}/iso/arch/boot/intel-ucode.img" "${WD}/${workdir}/usb/boot/"
         cp -- "${WD}/${workdir}/iso/arch/boot/amd-ucode.img" "${WD}/${workdir}/usb/boot/"
+
         # fstab
-        sed -i -- "s|%AUIROOT%|${label_root}|;
-                   s|%AUIBOOT%|${label_boot}|" \
-                  "${WD}/${workdir}/usb/etc/fstab"
+        sed -i -- "s|%ESP_LABEL%|${esp_label}|" "${WD}/${workdir}/usb/etc/fstab"
 
         # sshd, mirrorlist, logind.conf
         sed -i -- 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usb/etc/ssh/sshd_config"
@@ -452,13 +456,14 @@ _install () {
         cp -rT -- "${WD}/${workdir}/iso/EFI/BOOT/" "${WD}/${workdir}/usb/boot/EFI/BOOT/"
         cp -- "${WD}/${workdir}/iso/shellx64.efi" "${WD}/${workdir}/usb/boot/EFI/"
         cp -- "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" "${WD}/${workdir}/usb/boot/vmlinuz-linux.png"
-        cp -- "${WD}/${workdir}/iso/aui/refind_linux.conf" "${WD}/${workdir}/usb/boot/"
-        sed -i -- "s|%AUIROOT%|${label_root}|" "${WD}/${workdir}/usb/boot/refind_linux.conf"
+        sed -- "s|%ROOT_LABEL%|${root_label}|g" "${WD}/${workdir}/iso/aui/install/refind_linux.conf" \
+                > "${WD}/${workdir}/usb/boot/refind_linux.conf"
 
         # syslinux bootloader
         mkdir -p -- "${WD}/${workdir}/usb/boot/syslinux/"
-        cp -- "${WD}/${workdir}/iso/aui/syslinux.cfg" "${WD}/${workdir}/usb/boot/syslinux/"
         cp -- "${WD}/${workdir}"/usb/usr/lib/syslinux/bios/*.c32 "${WD}/${workdir}/usb/boot/syslinux/"
+        sed -- "s|%ROOT_LABEL%|${root_label}|g" "${WD}/${workdir}/iso/aui/install/syslinux.cfg" \
+                > "${WD}/${workdir}/usb/boot/syslinux/syslinux.cfg"
 
         _msg_info "Done!"
 
@@ -478,7 +483,7 @@ _finalize () {
         rmdir -- "${WD}/${workdir}/"{usb,squashfs,iso,}
 
         if [[ "${encryption}" == "yes" ]]; then
-                cryptsetup close auicrypt
+                cryptsetup close "${crypt_mapper:-auicrypt}"
         fi
         _msg_info "Done!"
 }
