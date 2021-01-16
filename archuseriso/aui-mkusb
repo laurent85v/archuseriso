@@ -10,17 +10,25 @@
 set -e -u
 
 appname="${0##*/}"
+cow_files_settings=()
+cow_label=""
 cowsize=""
 encryption="no"
+esp_files_settings=()
+esp_label=""
 espsize=""
 ext4journal="yes"
 f2fs="no"
-# efi boot partition size in MiB
+img_label=""
+install_dir=""
+iso_label=""
 isoname=""
+medium_version=""
 rawwrite="no"
 usbdevice=""
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
+valid_medium_version="v4"
 
 _usage() {
         echo
@@ -81,8 +89,8 @@ _cleanup() {
         if [[ -d "${WD}/${workdir}" ]]; then
                 rmdir -- "${WD}/${workdir}"
         fi
-        if [[ -e /dev/mapper/auicrypt ]]; then
-                cryptsetup close auicrypt
+        if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
+                cryptsetup close "${crypt_mapper:-auicrypt}"
         fi
 }
 
@@ -110,7 +118,7 @@ _unmount() {
 _encrypt_mkluks() {
         echo
         _msg_info "Setting up encrypted partition, type in a passphrase of your choice"
-        if ! cryptsetup --label "${cryptlabel:=AUICRYPT}" --uuid "${cryptuuid:=$(uuidgen)}" -q luksFormat -- "${usbdevice}3" > /dev/null; then
+        if ! cryptsetup --label "${crypt_label:-AUICRYPT}" --uuid "${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usbdevice}3" > /dev/null; then
                echo 'Encryption setup failed, exiting!'
                _unmount
                exit 1
@@ -118,14 +126,14 @@ _encrypt_mkluks() {
         _msg_info "Done!"
         echo
         _msg_info "LUKS encryption setup done! type in your passphrase to unlock partition"
-        if ! cryptsetup -- open "${usbdevice}3" auicrypt; then
+        if ! cryptsetup -- open "${usbdevice}3" "${crypt_mapper:-auicrypt}"; then
                echo 'Error: Could not unlock partition! Exiting.'
                _unmount
                exit 1
         fi
         _msg_info "Done!"
         echo
-        cowdevice=/dev/mapper/auicrypt
+        cowdevice="/dev/mapper/${crypt_mapper:-auicrypt}"
 }
 
 _encrypt_setup() {
@@ -133,18 +141,18 @@ _encrypt_setup() {
         _msg_info "Setting up encryption"
         mkdir -- "${WD}/${workdir}/"{overlay,squashfs}
         mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
-        mkdir -- "${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir"
-        mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${iso_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
+        mkdir -- "${WD}/${workdir}/usb3/persistent_${img_label}/x86_64/workdir"
+        mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${img_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${img_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
         mount -o bind -- "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot"
         sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
         _msg_info "initramfs update"
         arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
         _msg_info "Done!"
         sed -i -- "s|storage$|& encrypted|
-                  s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+                  s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/loader/entries/0aui_persistence-x86_64.conf"
         sed -i -- "s|storage$|& encrypted|
-                  s|overlay|cryptdevice=UUID=${cryptuuid}:auicrypt &|" \
+                  s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
         umount -- "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
         sleep 1
@@ -297,8 +305,8 @@ _usb_prepare() {
                         exit 1
                 fi
         done
-        if [[ -e /dev/mapper/auicrypt ]]; then
-                echo 'Error: cryptsetup mapping /dev/mapper/auicrypt exists! cannot proceed.'
+        if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
+                echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
                 exit 1
         fi
         mkdir -p -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{1,2,3}
@@ -314,16 +322,22 @@ _usb_prepare() {
         fi
 
         # check iso
-        if [[ -f "${WD}/${workdir}/iso/aui/AUIDATA" ]] && $(grep -q -- 'AUIDATA=v3' "${WD}/${workdir}/iso/aui/AUIDATA"); then
-                eval $(grep -- cow_label "${WD}/${workdir}/iso/aui/AUIDATA")
-                eval $(grep -- iso_label "${WD}/${workdir}/iso/aui/AUIDATA")
-                eval $(grep -- install_dir "${WD}/${workdir}/iso/aui/AUIDATA")
-        else
-                echo "Error: ${isoname} is not a compatible image!"
+        if [[ ! -e "${WD}/${workdir}/iso/aui/mediumdef.sh" ]]; then
+                echo "Error: ${isoname} is not a compatible iso image!"
                 echo
                 _unmount
                 _usage 1
         fi
+
+        # source medium def variables
+        source "${WD}/${workdir}/iso/aui/mediumdef.sh"
+        if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
+                echo "Error: ${isoname} is not a compatible iso image!"
+                echo
+                _unmount
+                _usage 1
+        fi
+
         _msg_info "Done!"
 }
 
@@ -427,14 +441,14 @@ _format_ext4() {
 _format() {
         echo
         _msg_info "Formatting partitions"
-        _msg_info "partition #1: type Ext4, label ${iso_label}"
-        if ! flock -- "${usbdevice}1" mkfs.ext4 -L "${iso_label}" -O encrypt -m 0 -q -- "${usbdevice}1" > /dev/null; then
+        _msg_info "partition #1: type Ext4, label ${img_label}"
+        if ! flock -- "${usbdevice}1" mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usbdevice}1" > /dev/null; then
                echo 'Partition format failed!'
                 _unmount
                exit 1
         fi
-        _msg_info "partition #2: type FAT, label AUIESP"
-        if ! flock -- "${usbdevice}2" mkfs.fat -F32 -n AUIESP -- "${usbdevice}2" > /dev/null; then
+        _msg_info "partition #2: type FAT, label ${esp_label}"
+        if ! flock -- "${usbdevice}2" mkfs.fat -F32 -n "${esp_label}" -- "${usbdevice}2" > /dev/null; then
                echo 'Partition format failed!'
                 _unmount
                exit 1
@@ -483,10 +497,20 @@ _persistence() {
         cp -r -- "${WD}/${workdir}/iso/aui/loader" "${WD}/${workdir}/usb2/"
         cp -r -- "${WD}/${workdir}/iso/aui/syslinux" "${WD}/${workdir}/usb2/"
         cp -- "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
+        for mediumfile in "${esp_files_settings[@]}"; do
+                sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
+                        s|%ESP_LABEL%|${esp_label}|g;
+                        s|%COW_LABEL%|${cow_label}|g;
+                        s|=${iso_label}|=${img_label}|g" \
+                       "${WD}/${workdir}/usb2/${mediumfile}"
+        done
         _msg_info "copying persistence data to ${WD}/${workdir}/usb3"
-        cp -a -- "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/"
-        cp -a -- "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${iso_label}_original"
-        cp -- "${WD}/${workdir}/iso/aui/AUIDATA" "${WD}/${workdir}/usb3/"
+        cp -a -- "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${img_label}"
+        cp -a -- "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${iso_label}_origin"
+        for mediumfile in "${cow_files_settings[@]}"; do
+                sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usb3/${mediumfile}"
+        done
+
         _msg_info "Done!"
         if [[ "${encryption}" == "yes" ]]; then
                _encrypt_setup
@@ -496,7 +520,7 @@ _persistence() {
 _finalize() {
         _unmount
         if [[ "${encryption}" == "yes" ]]; then
-               cryptsetup close auicrypt
+               cryptsetup close "${crypt_mapper:-auicrypt}"
         else
                 true
         fi

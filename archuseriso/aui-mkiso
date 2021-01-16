@@ -795,28 +795,23 @@ _make_aui() {
     [[ -d "${isofs_dir}/EFI/live" ]] && ln -s -- ../../../EFI/live "${isofs_dir}/aui/esp/EFI/live"
     [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../shellx64.efi "${isofs_dir}/aui/esp/shellx64.efi"
 
-    if [[ -f "${isofs_dir}/aui/AUIDATA" ]]; then
-        eval $(grep -- cow_label "${isofs_dir}/aui/AUIDATA")
-        sed -i "s|%AIROOTFS_IMAGE_TOOL_OPTIONS%|\'$(echo ${airootfs_image_tool_options[@]})\'|g;
-                s|%DESKTOP%|${desktop}|g;
+    if [[ -f "${isofs_dir}/aui/mediumdef.sh" ]]; then
+        # Set medium def
+        sed -i "s|%DESKTOP%|${desktop}|g;
                 s|%INSTALL_DIR%|${install_dir}|g;
                 s|%ARCHISO_LABEL%|${iso_label}|g;
                 s|%ISO_NAME%|${iso_name}|g;
                 s|%ISO_VERSION%|${iso_version}|g;
                 s|%LANG%|${lang}|g" \
-                "${isofs_dir}/aui/AUIDATA"
+                "${isofs_dir}/aui/mediumdef.sh"
     fi
     if [[ -f "${isofs_dir}/aui/loader/entries/0aui_persistence-x86_64.conf" ]]; then
-        sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                s|%INSTALL_DIR%|${install_dir}|g;
-                s|%COW_LABEL%|${cow_label}|g;
+        sed -i "s|%INSTALL_DIR%|${install_dir}|g;
                 s|%DESKTOP%|${desktop}|g" \
                 "${isofs_dir}/aui/loader/entries/0aui_persistence-x86_64.conf"
     fi
     if [[ -f "${isofs_dir}/aui/syslinux/archiso_sys-linux.cfg" ]]; then
-        sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                s|%INSTALL_DIR%|${install_dir}|g;
-                s|%COW_LABEL%|${cow_label}|g;
+        sed -i "s|%INSTALL_DIR%|${install_dir}|g;
                 s|%DESKTOP%|${desktop}|g" \
                 "${isofs_dir}/aui/syslinux/archiso_sys-linux.cfg"
     fi
