@@ -483,7 +483,7 @@ _mount() {
 _copy() {
         # Copy iso data to partition #1
         echo
-        _msg_info "Copying iso data to ${WD}/${workdir}/usb1"
+        _msg_info "Copying live to ${WD}/${workdir}/usb1"
         cp -rT -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usb1"
         _msg_info "Done!"
 }
@@ -492,11 +492,11 @@ _persistence() {
         # Persistence setup
         echo
         _msg_info "Setting up persistence"
-        _msg_info "copying boot loader data to ${WD}/${workdir}/usb2"
-        cp -LrT -- "${WD}/${workdir}/iso/aui/esp" "${WD}/${workdir}/usb2/"
-        cp -r -- "${WD}/${workdir}/iso/aui/loader" "${WD}/${workdir}/usb2/"
-        cp -r -- "${WD}/${workdir}/iso/aui/syslinux" "${WD}/${workdir}/usb2/"
-        cp -- "${WD}/${workdir}/iso/aui/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
+        _msg_info "copying esp settings to ${WD}/${workdir}/usb2"
+        cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usb2/"
+        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/loader" "${WD}/${workdir}/usb2/"
+        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/syslinux" "${WD}/${workdir}/usb2/"
+        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
         for mediumfile in "${esp_files_settings[@]}"; do
                 sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
                         s|%ESP_LABEL%|${esp_label}|g;
@@ -504,9 +504,9 @@ _persistence() {
                         s|=${iso_label}|=${img_label}|g" \
                        "${WD}/${workdir}/usb2/${mediumfile}"
         done
-        _msg_info "copying persistence data to ${WD}/${workdir}/usb3"
-        cp -a -- "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${img_label}"
-        cp -a -- "${WD}/${workdir}/iso/aui/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${iso_label}_origin"
+        _msg_info "copying persistence settings to ${WD}/${workdir}/usb3"
+        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${img_label}"
+        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${iso_label}_origin"
         for mediumfile in "${cow_files_settings[@]}"; do
                 sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usb3/${mediumfile}"
         done

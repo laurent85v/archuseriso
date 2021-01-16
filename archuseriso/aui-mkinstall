@@ -377,7 +377,7 @@ _install () {
         _msg_info "Copying data to ${WD}/${workdir}/usb, may take some time"
         cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usb"
         # Copy aui install tree
-        cp -aT -- "${WD}/${workdir}/iso/aui/install" "${WD}/${workdir}/usb"
+        cp -aT -- "${WD}/${workdir}/iso/aui/install/auirootfs" "${WD}/${workdir}/usb"
         _msg_info "Done!"
 
         # System settings
