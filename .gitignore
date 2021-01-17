@@ -2,5 +2,5 @@
 archuseriso-*.tar.gz*
 *.pkg.tar.xz
 *.pkg.tar.zst
-configs/*/out
-configs/*/work
+out/
+work/
