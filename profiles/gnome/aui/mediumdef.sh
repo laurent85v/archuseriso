@@ -17,13 +17,16 @@ lang="%LANG%"
 medium_version='v4'
 root_label=ROOT${aui_suffix:-}
 cow_files_settings=(
-	"persistent_${img_label}/x86_64/upperdir/etc/fstab"
-	"persistent_${iso_label}_origin/x86_64/upperdir/etc/fstab")
+        "persistent_${img_label}/x86_64/upperdir/etc/fstab"
+        "persistent_${iso_label}_origin/x86_64/upperdir/etc/fstab")
 esp_files_settings=(
-	'EFI/BOOT/refind.conf'
-	'loader/entries/0aui_persistence-x86_64.conf'
-	'loader/entries/archiso-x86_64-linux.conf'
-	'loader/entries/archiso_2_console-x86_64-linux.conf'
-	'loader/entries/archiso_3_ram-x86_64-linux.conf'
-	'syslinux/archiso_pxe-linux.cfg'
-	'syslinux/archiso_sys-linux.cfg')
+        'EFI/BOOT/refind.conf'
+        'loader/entries/0aui_persistence-x86_64.conf'
+        'loader/entries/archiso-x86_64-linux.conf'
+        'loader/entries/archiso_2_console-x86_64-linux.conf'
+        'loader/entries/archiso_3_ram-x86_64-linux.conf'
+        'syslinux/archiso_pxe-linux.cfg'
+        'syslinux/archiso_sys-linux.cfg')
+root_files_settings=(
+        'etc/fstab'
+)

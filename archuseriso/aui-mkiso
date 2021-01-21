@@ -805,16 +805,15 @@ _make_aui() {
                 s|%LANG%|${lang}|g" \
                 "${isofs_dir}/aui/mediumdef.sh"
     fi
-    if [[ -f "${isofs_dir}/aui/liveusb/loader/entries/0aui_persistence-x86_64.conf" ]]; then
-        sed -i "s|%INSTALL_DIR%|${install_dir}|g;
-                s|%DESKTOP%|${desktop}|g" \
-                "${isofs_dir}/aui/liveusb/loader/entries/0aui_persistence-x86_64.conf"
-    fi
-    if [[ -f "${isofs_dir}/aui/liveusb/syslinux/archiso_sys-linux.cfg" ]]; then
-        sed -i "s|%INSTALL_DIR%|${install_dir}|g;
-                s|%DESKTOP%|${desktop}|g" \
-                "${isofs_dir}/aui/liveusb/syslinux/archiso_sys-linux.cfg"
-    fi
+    for auifile in "${isofs_dir}/aui/liveusb/loader/entries/0aui_persistence-x86_64.conf" \
+                   "${isofs_dir}/aui/liveusb/syslinux/archiso_sys-linux.cfg" \
+                   "${isofs_dir}/aui/hybrid/loader/entries/0aui_persistence-x86_64.conf" \
+                   "${isofs_dir}/aui/hybrid/syslinux/archiso_sys-linux.cfg"; do
+        if [[ -f "${auifile}" ]]; then
+            sed -i "s|%INSTALL_DIR%|${install_dir}|g;
+                    s|%DESKTOP%|${desktop}|g" "${auifile}"
+        fi
+    done
     if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
         cp -aT --no-preserve=ownership "${embed_dir}" "${isofs_dir}/data"
     fi
