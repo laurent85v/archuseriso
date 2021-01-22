@@ -133,7 +133,7 @@ _encryption_settings() {
         arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
         _msg_info "Done!"
         sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/boot/loader/entries/0aui_persistence-x86_64.conf"
+                  "${WD}/${workdir}/usbrw/boot/loader/entries/0aui-x86_64-linux.conf"
         sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
         _msg_info "Done!"
