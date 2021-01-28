@@ -75,7 +75,7 @@ _msg_info() {
 
 _cleanup() {
         local _workdirs
-        _workdirs=('overlay/boot' 'overlay' 'squashfs' 'iso' 'usb1' 'usb2' 'usb3')
+        _workdirs=('overlay/boot' 'overlay' 'squashfs' 'iso' 'usbro' 'usbesp' 'usbrw')
         for _workdir in ${_workdirs[*]}; do
                 if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
                         umount -- "${WD}/${workdir}/${_workdir}"
@@ -98,7 +98,7 @@ _unmount() {
         echo
         _msg_info "Unmounting working directories, may take some time"
         local _workdirs
-        _workdirs=('iso' 'usb1' 'usb2' 'usb3')
+        _workdirs=('iso' 'usbro' 'usbesp' 'usbrw')
         for _workdir in ${_workdirs[*]}; do
                 if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
                         umount -- "${WD}/${workdir}/${_workdir}"
@@ -141,9 +141,9 @@ _encrypt_setup() {
         _msg_info "Setting up encryption"
         mkdir -- "${WD}/${workdir}/"{overlay,squashfs}
         mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
-        mkdir -- "${WD}/${workdir}/usb3/persistent_${img_label}/x86_64/workdir"
-        mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usb3/persistent_${img_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usb3/persistent_${img_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
-        mount -o bind -- "${WD}/${workdir}/usb2" "${WD}/${workdir}/overlay/boot"
+        mkdir -- "${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir"
+        mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
+        mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/overlay/boot"
         sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
         _msg_info "initramfs update"
         arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
@@ -293,13 +293,13 @@ _rawwrite() {
 
 _usb_prepare() {
         # Check & prepare working directory
-        for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{1,2,3}; do
+        for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{ro,esp,rw}; do
                 if findmnt -nr -- "${mountpoint}" > /dev/null; then
                        echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
                        exit 1
                 fi
         done
-        for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{1,2,3}; do
+        for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{ro,esp,rw}; do
                 if [[ -e "${WD}/${mountpoint}" ]]; then
                         echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
                         exit 1
@@ -309,7 +309,7 @@ _usb_prepare() {
                 echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
                 exit 1
         fi
-        mkdir -p -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{1,2,3}
+        mkdir -p -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{ro,esp,rw}
 
         # Mount iso
         echo
@@ -317,7 +317,7 @@ _usb_prepare() {
         _msg_info "mountpoint: ${WD}/${workdir}/iso"
         if ! mount -o ro -- "${isoname}" "${WD}/${workdir}/iso"; then
                 echo "Error: mounting iso failed!"
-                rmdir -- "${WD}/${workdir}/usb"{1,2,3} "${WD}/${workdir}/iso" "${WD}/${workdir}"
+                rmdir -- "${WD}/${workdir}/usb"{ro,esp,rw} "${WD}/${workdir}/iso" "${WD}/${workdir}"
                 exit 1
         fi
 
@@ -471,20 +471,20 @@ _mount() {
         # Mount usb device
         echo
         _msg_info "Mounting partitions"
-        _msg_info "device: ${usbdevice}1, mountpoint: ${WD}/${workdir}/usb1"
-        mount -- "${usbdevice}1" "${WD}/${workdir}/usb1"
-        _msg_info "device: ${usbdevice}2, mountpoint: ${WD}/${workdir}/usb2"
-        mount -- "${usbdevice}2" "${WD}/${workdir}/usb2"
-        _msg_info "device: ${cowdevice}, mountpoint: ${WD}/${workdir}/usb3"
-        mount -- "${cowdevice}" "${WD}/${workdir}/usb3"
+        _msg_info "device: ${usbdevice}1, mountpoint: ${WD}/${workdir}/usbro"
+        mount -- "${usbdevice}1" "${WD}/${workdir}/usbro"
+        _msg_info "device: ${usbdevice}2, mountpoint: ${WD}/${workdir}/usbesp"
+        mount -- "${usbdevice}2" "${WD}/${workdir}/usbesp"
+        _msg_info "device: ${cowdevice}, mountpoint: ${WD}/${workdir}/usbrw"
+        mount -- "${cowdevice}" "${WD}/${workdir}/usbrw"
         _msg_info "Done!"
 }
 
 _copy() {
         # Copy iso data to partition #1
         echo
-        _msg_info "Copying live to ${WD}/${workdir}/usb1"
-        cp -rT -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usb1"
+        _msg_info "Copying live to ${WD}/${workdir}/usbro"
+        cp -rT -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usbro"
         _msg_info "Done!"
 }
 
@@ -492,23 +492,23 @@ _persistence() {
         # Persistence setup
         echo
         _msg_info "Setting up persistence"
-        _msg_info "copying esp settings to ${WD}/${workdir}/usb2"
-        cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usb2/"
-        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/loader" "${WD}/${workdir}/usb2/"
-        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/syslinux" "${WD}/${workdir}/usb2/"
-        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usb2/EFI/BOOT/"
+        _msg_info "copying esp settings to ${WD}/${workdir}/usbesp"
+        cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usbesp/"
+        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/loader" "${WD}/${workdir}/usbesp/"
+        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/syslinux" "${WD}/${workdir}/usbesp/"
+        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
         for mediumfile in "${esp_files_settings[@]}"; do
                 sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
                         s|%ESP_LABEL%|${esp_label}|g;
                         s|%COW_LABEL%|${cow_label}|g;
                         s|=${iso_label}|=${img_label}|g" \
-                       "${WD}/${workdir}/usb2/${mediumfile}"
+                       "${WD}/${workdir}/usbesp/${mediumfile}"
         done
-        _msg_info "copying persistence settings to ${WD}/${workdir}/usb3"
-        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${img_label}"
-        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usb3/persistent_${iso_label}_origin"
+        _msg_info "copying persistence settings to ${WD}/${workdir}/usbrw"
+        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${img_label}"
+        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${iso_label}_origin"
         for mediumfile in "${cow_files_settings[@]}"; do
-                sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usb3/${mediumfile}"
+                sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${mediumfile}"
         done
 
         _msg_info "Done!"
