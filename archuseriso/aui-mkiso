@@ -16,6 +16,7 @@ app_name="${0##*/}"
 arch="$(uname -m)"
 bootmodes=()
 build_zfs_packages="n"
+directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
 embed_dir=""
 gpg_key=""
@@ -167,9 +168,9 @@ _show_config() {
     _msg_info "            ISO publisher:   ${iso_publisher}"
     _msg_info "          ISO application:   ${iso_application}"
     _msg_info "               Boot modes:   ${bootmodes[*]}"
-    _msg_info "                 Packages:   ${pkg_list[*]}"
     _msg_info "    Packages from testing:   ${pkg_testing_list[*]}"
     _msg_info "  User packages directory:   ${user_pkg_dir}"
+    _msg_info "                 Packages:   ${pkg_list[*]}"
 }
 
 # Cleanup airootfs
@@ -1468,6 +1469,9 @@ if (( EUID != 0 )); then
     _msg_error "${app_name} must be run as root." 1
 fi
 
+if [[ ! -d "$(realpath -- "${1}")" ]]; then
+    set -- "${directory_profiles}/${1}"
+fi
 profile="$(realpath -- "${1}")"
 
 echo
