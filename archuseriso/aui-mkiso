@@ -738,11 +738,6 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
 
 # Archuseriso data
 _make_aui() {
-    if [[ -z "${iso_version}" ]]; then
-        iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
-                       cut -d' ' -f2 | \
-                       sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
-    fi
     if [[ -z "${img_name}" ]]; then
         img_name="${iso_name}-${iso_version}-x64.iso"
     fi
@@ -1171,6 +1166,21 @@ _export_gpg_publickey() {
      gpg --batch --output "${work_dir}/pubkey.gpg" --export "${gpg_key}"
 }
 
+_make_version() {
+    if [[ -z "${iso_version}" ]]; then
+        iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
+                       cut -d' ' -f2 | \
+                       sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
+    fi
+    install -d -m 0755 -- "${isofs_dir}/${install_dir}"
+    _msg_info "Creating files with iso version..."
+    printf '%s\n' "${iso_version}" > "${airootfs_dir}/version"
+    printf '%s\n' "${iso_version}" > "${isofs_dir}/${install_dir}/version"
+    printf '%.1024s' "$(printf '# GRUB Environment Block\nVERSION=%s\n%s' "${iso_version}" \
+           "$(printf '%0.1s' "#"{1..1024})")" > "${isofs_dir}/${install_dir}/grubenv"
+    _msg_info "Done!"
+    }
+
 _make_pkglist() {
     install -d -m 0755 -- "${isofs_dir}/${install_dir}"
     _msg_info "Creating a list of installed packages on live-enviroment..."
@@ -1182,8 +1192,6 @@ _build_profile() {
     # Set up essential directory paths
     airootfs_dir="${work_dir}/${arch}/airootfs"
     isofs_dir="${work_dir}/iso"
-    # Set ISO file name
-    #img_name="${iso_name}-${iso_version}-x64.iso"
     # Create working directory
     [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
     # Write build date to file or if the file exists, read it from there
@@ -1202,6 +1210,7 @@ _build_profile() {
     _run_once _make_packages
     [[ -n "${pkg_testing_list[*]}" ]] && _run_once _make_packages_testing
     [[ -n "${user_pkg_dir}" && -d "${user_pkg_dir}" ]] && _run_once _make_packages_upgrade
+    _run_once _make_version
     _run_once _make_customize_airootfs
     _run_once _make_setup_mkinitcpio
     _run_once _make_pkglist
