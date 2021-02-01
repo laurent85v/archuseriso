@@ -8,11 +8,14 @@ set -e -u
 umask 0022
 export LANG="C"
 export SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-"$(date +%s)"}"
+SCRIPTUSER="${SUDO_USER:-}"
 
-# Defaults
-airootfs_image_type="squashfs"
-airootfs_image_tool_options=('-comp' 'zstd')
+# Set application name from the script's file name
 app_name="${0##*/}"
+
+# Global variables.
+airootfs_image_type="squashfs"
+airootfs_image_tool_options=()
 arch="$(uname -m)"
 bootmodes=()
 build_zfs_packages="n"
@@ -21,34 +24,26 @@ desktop=""
 embed_dir=""
 gpg_key=""
 img_name=""
-install_dir="${app_name}"
-iso_application="${app_name} iso"
-iso_label="${app_name^^}"
+install_dir=""
+iso_application=""
+iso_label=""
 iso_name="${app_name}"
-iso_publisher="${app_name}"
+iso_publisher=""
 iso_version=""
 iso_version_options=()
 lang=""
-override_iso_application=""
-override_iso_label=""
-override_iso_name=""
-override_iso_publisher=""
-override_install_dir=""
-out_dir="out"
-override_gpg_key=""
-override_pacman_conf=""
-override_pacman_testing_conf=""
+out_dir=""
+packages=""
 packages_locales=""
-pacman_conf="/etc/pacman.conf"
+pacman_conf=""
 pacman_testing_conf=""
 pkg_list=()
 pkg_list_additions=()
 pkg_testing_list=()
 profile=""
-quiet="y"
-SCRIPTUSER="${SUDO_USER:-}"
+quiet=""
 user_pkg_dir=""
-work_dir="work"
+work_dir=""
 declare -A file_permissions=()
 
 # Show an INFO message
@@ -198,6 +193,10 @@ _cleanup_airootfs() {
 }
 
 _run_mksquashfs() {
+    # Set default mksquashfs options
+    if (( ${#airootfs_image_tool_options[@]} < 1 )); then
+        airootfs_image_tool_options=('-comp' 'zstd')
+    fi
     local image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
     if [[ "${quiet}" == "y" ]]; then
         mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress &> /dev/null
@@ -364,7 +363,7 @@ _make_custom_airootfs() {
         for filename in "${!file_permissions[@]}"; do
             IFS=':' read -ra permissions <<< "${file_permissions["${filename}"]}"
             # Prevent file path traversal outside of $airootfs_dir
-            if [[ "$(realpath -q -- "${airootfs_dir}${filename}")" != "$(realpath -q -- "${airootfs_dir}")"* ]]; then
+            if [[ "$(realpath -q -- "${airootfs_dir}${filename}")" != "${airootfs_dir}"* ]]; then
                 _msg_error "Failed to set permissions on '${airootfs_dir}${filename}'. Outside of valid path." 1
             # Warn if the file does not exist
             elif [[ ! -e "${airootfs_dir}${filename}" ]]; then
@@ -1066,10 +1065,6 @@ _iso_version_options() {
 
 # Read profile's values from profiledef.sh
 _read_profile() {
-    local validation_error=0
-    local bootmode
-
-    _msg_info "Reading profile..."
     if [[ -z "${profile}" ]]; then
         _msg_error "No profile specified!" 1
     fi
@@ -1083,8 +1078,9 @@ _read_profile() {
         # Source profile's variables
         source "${profile}/profiledef.sh"
 
-        # Resolve paths
-        packages="$(realpath -- "${profile}/packages.${arch}")"
+        # Resolve paths of files that are expected to reside in the profile's directory
+        [[ -n "${packages}" ]] || packages="${profile}/packages.${arch}"
+        packages="$(realpath -- "${packages}")"
         if [[ -n "${lang}" ]]; then
           packages_locales="$(realpath -- "${profile}/lang/${lang}/packages.${arch}")"
         fi
@@ -1092,74 +1088,125 @@ _read_profile() {
         [[ -n "${pacman_testing_conf}" ]] && pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
 
         cd -- "${OLDPWD}"
+    fi
+}
 
-        # Validate profile
-        # Check if the package list file exists and read packages from it
-        if [[ -e "${packages}" ]]; then
-            mapfile -t pkg_list < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales}" | sed '/^$/d')
-            pkg_list+=(${pkg_list_additions[@]})
-            if (( ${#pkg_list} < 1 )); then
-                (( validation_error=validation_error+1 ))
-                _msg_error "No package specified in '${packages}'." 0
+# Validate set options
+_validate_options() {
+    local validation_error=0 bootmode
+    local pkg_list_from_file=()
+    _msg_info "Validating options..."
+    # Check if the package list file exists and read packages from it
+    if [[ -e "${packages}" ]]; then
+        mapfile -t pkg_list_from_file < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales}" | sed '/^$/d')
+        if (( ${#pkg_list_from_file} < 1 )); then
+            (( validation_error=validation_error+1 ))
+            _msg_error "No package specified in '${packages}'." 0
+        fi
+        pkg_list+=("${pkg_list_from_file[@]}")
+        pkg_list+=("${pkg_list_additions[@]}")
+    else
+        (( validation_error=validation_error+1 ))
+        _msg_error "No package specified in '${packages}'." 0
+    fi
+
+    # Check if pacman configuration file exists
+    if [[ ! -e "${pacman_conf}" ]]; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "File '${pacman_conf}' does not exist." 0
+    fi
+    # Check if pacman-testing configuration file exists
+    if [[ -n "${pacman_testing_conf}" && ! -e "${pacman_testing_conf}" ]]; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "File '${pacman_testing_conf}' does not exist." 0
+    fi
+    # Check if the specified bootmodes are supported
+    for bootmode in "${bootmodes[@]}"; do
+        if typeset -f "_make_bootmode_${bootmode}" &> /dev/null; then
+            if typeset -f "_validate_requirements_bootmode_${bootmode}" &> /dev/null; then
+                "_validate_requirements_bootmode_${bootmode}"
+            else
+                _msg_warning "Function '_validate_requirements_bootmode_${bootmode}' does not exist. Validating the requirements of '${bootmode}' boot mode will not be possible."
             fi
         else
             (( validation_error=validation_error+1 ))
-            _msg_error "File '${packages}' does not exist." 0
+            _msg_error "${bootmode} is not a valid boot mode!" 0
         fi
-        # Check if pacman configuration file exists
-        if [[ ! -e "${pacman_conf}" ]]; then
-            (( validation_error=validation_error+1 ))
-            _msg_error "File '${pacman_conf}' does not exist." 0
-        fi
-        # Check if pacman-testing configuration file exists
-        if [[ -n "${pacman_testing_conf}" && ! -e "${pacman_testing_conf}" ]]; then
-            (( validation_error=validation_error+1 ))
-            _msg_error "File '${pacman_testing_conf}' does not exist." 0
-        fi
-        # Check if the specified bootmodes are supported
-        for bootmode in "${bootmodes[@]}"; do
-            if typeset -f "_make_bootmode_${bootmode}" &> /dev/null; then
-                if typeset -f "_validate_requirements_bootmode_${bootmode}" &> /dev/null; then
-                    "_validate_requirements_bootmode_${bootmode}"
-                else
-                    _msg_warning "Function '_validate_requirements_bootmode_${bootmode}' does not exist. Validating the requirements of '${bootmode}' boot mode will not be possible."
-                fi
-            else
-                (( validation_error=validation_error+1 ))
-                _msg_error "${bootmode} is not a valid boot mode!" 0
-            fi
-        done
-        # Check if the specified airootfs_image_type is supported
-        if typeset -f "_mkairootfs_${airootfs_image_type}" &> /dev/null; then
-            if typeset -f "_validate_requirements_airootfs_image_type_${airootfs_image_type}" &> /dev/null; then
-                "_validate_requirements_airootfs_image_type_${airootfs_image_type}"
-            else
-                _msg_warning "Function '_validate_requirements_airootfs_image_type_${airootfs_image_type}' does not exist. Validating the requirements of '${airootfs_image_type}' airootfs image type will not be possible."
-            fi
+    done
+    # Check if the specified airootfs_image_type is supported
+    if typeset -f "_mkairootfs_${airootfs_image_type}" &> /dev/null; then
+        if typeset -f "_validate_requirements_airootfs_image_type_${airootfs_image_type}" &> /dev/null; then
+            "_validate_requirements_airootfs_image_type_${airootfs_image_type}"
         else
-            (( validation_error=validation_error+1 ))
-            _msg_error "Unsupported image type: '${airootfs_image_type}'" 0
+            _msg_warning "Function '_validate_requirements_airootfs_image_type_${airootfs_image_type}' does not exist. Validating the requirements of '${airootfs_image_type}' airootfs image type will not be possible."
         fi
-        if (( validation_error )); then
-            _msg_error "${validation_error} errors were encountered while validating the profile. Aborting." 1
-        fi
+    else
+        (( validation_error=validation_error+1 ))
+        _msg_error "Unsupported image type: '${airootfs_image_type}'" 0
+    fi
+    if (( validation_error )); then
+        _msg_error "${validation_error} errors were encountered while validating the profile. Aborting." 1
     fi
     _msg_info "Done!"
 }
 
 # set overrides from mkarchiso option parameters, if present
+# Set defaults and, if present, overrides from aui-mkiso command line option parameters
 _set_overrides() {
-    _msg_info "Setting overrides..."
-    [[ -n "${override_iso_name}" ]] && img_name="${override_iso_name}.iso"
-    [[ -n "${override_iso_label}" ]] && iso_label="${override_iso_label}"
-    [[ -n "${override_iso_publisher}" ]] && iso_publisher="${override_iso_publisher}"
-    [[ -n "${override_iso_application}" ]] && iso_application="${override_iso_application}"
-    [[ -n "${override_install_dir}" ]] && install_dir="${override_install_dir}"
-    [[ -n "${override_pacman_conf}" ]] && pacman_conf="${override_pacman_conf}"
-    [[ -n "${override_pacman_testing_conf}" ]] && pacman_testing_conf="${override_pacman_testing_conf}"
-    [[ -n "${override_gpg_key}" ]] && gpg_key="${override_gpg_key}"
-    # NOTE: the call to _msg_info() conveniently guards this function from evaluating to false
-    _msg_info "Done!"
+    # Set variables that have command line overrides
+    if [[ -v override_work_dir ]]; then
+        work_dir="${override_work_dir}"
+    elif [[ -z "${work_dir}" ]]; then
+        work_dir='./work'
+    fi
+    work_dir="$(realpath -- "${work_dir}")"
+    if [[ -v override_out_dir ]]; then
+        out_dir="${override_out_dir}"
+    elif [[ -z "${out_dir}" ]]; then
+        out_dir='./out'
+    fi
+    out_dir="$(realpath -- "${out_dir}")"
+    if [[ -v override_pacman_conf ]]; then
+        pacman_conf="${override_pacman_conf}"
+    elif [[ -z "${pacman_conf}" ]]; then
+        pacman_conf="/etc/pacman.conf"
+    fi
+    pacman_conf="$(realpath -- "${pacman_conf}")"
+    if [[ -v override_pacman_testing_conf ]]; then
+        pacman_testing_conf="${override_pacman_testing_conf}"
+    elif [[ -z "${pacman_testing_conf}" ]]; then
+        pacman_testing_conf="/etc/pacman_testing.conf"
+    fi
+    pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
+    if [[ -v override_iso_label ]]; then
+        iso_label="${override_iso_label}"
+    elif [[ -z "${iso_label}" ]]; then
+        iso_label="${app_name^^}"
+    fi
+    if [[ -v override_iso_publisher ]]; then
+        iso_publisher="${override_iso_publisher}"
+    elif [[ -z "${iso_publisher}" ]]; then
+        iso_publisher="${app_name}"
+    fi
+    if [[ -v override_iso_application ]]; then
+        iso_application="${override_iso_application}"
+    elif [[ -z "${iso_application}" ]]; then
+        iso_application="${app_name} iso"
+    fi
+    if [[ -v override_install_dir ]]; then
+        install_dir="${override_install_dir}"
+    elif [[ -z "${install_dir}" ]]; then
+        install_dir="${app_name}"
+    fi
+    [[ ! -v override_gpg_key ]] || gpg_key="${override_gpg_key}"
+    if [[ -v override_quiet ]]; then
+        quiet="${override_quiet}"
+    elif [[ -z "${quiet}" ]]; then
+        quiet="y"
+    fi
+    if [[ -v override_iso_name ]]; then
+        img_name="${override_iso_name}"
+    fi
 }
 
 _export_gpg_publickey() {
@@ -1205,7 +1252,7 @@ _build_profile() {
     _run_once _make_pacman_conf
     [[ -n "${pacman_testing_conf}" ]] && _run_once _make_pacman_testing_conf
     [[ "${build_zfs_packages}" == "y" ]] && _run_once _build_zfs_packages
-    [[ -n "${gpg_key}" ]] && _run_once _export_gpg_publickey
+    [[ -z "${gpg_key}" ]] || _run_once _export_gpg_publickey
     _run_once _make_custom_airootfs
     _run_once _make_packages
     [[ -n "${pkg_testing_list[*]}" ]] && _run_once _make_packages_testing
@@ -1443,7 +1490,7 @@ while true; do
             iso_version_options+=(optimus)
             shift ;;
         '-o'|'--out-dir'|'--outdir')
-            out_dir="$(realpath -- "${2}")"
+            override_out_dir="${2}"
             shift 2 ;;
         '--pacman-testing-conf'|'--pacmantestingconf')
             override_pacman_testing_conf="$(realpath -- "${2}")"
@@ -1455,10 +1502,10 @@ while true; do
             override_iso_publisher="${2}"
             shift 2 ;;
         '-v'|'--verbose')
-            quiet="n"
+            override_quiet="n"
             shift ;;
         '-w'|'--workdir'|'--work-dir')
-            work_dir="$(realpath -- "${2}")"
+            override_work_dir="${2}"
             shift 2 ;;
         '--zfs')
             build_zfs_packages="y"
@@ -1483,15 +1530,16 @@ if [[ ! -d "$(realpath -- "${1}")" ]]; then
 fi
 profile="$(realpath -- "${1}")"
 
+[[ -n "${iso_version_options[*]}" ]] && _iso_version_options
+_read_profile
+_set_overrides
 echo
 if [[ -d "${work_dir}" ]]; then
     _msg_info "WORKING DIRECTORY '${work_dir}' ALREADY EXISTS! REMOVE DIRECTORY BEFORE BUILDING A NEW ISO." && 
     echo
     exit 0
 fi
-[[ -n "${iso_version_options[*]}" ]] && _iso_version_options
-_read_profile
-_set_overrides
+_validate_options
 _build_profile
 _msg_info "Success!"
 
