@@ -505,6 +505,10 @@ _make_customize_airootfs() {
 
 # rebuild initramfs (airootfs)
 _make_setup_mkinitcpio() {
+    if [[ "${iso_version}" =~ (nvidia|optimus) ]]; then
+        # add nvidia modules to initramfs
+        sed -i 's/MODULES=(/&nvidia nvidia_drm nvidia_modeset/' "${airootfs_dir}/etc/mkinitcpio.conf"
+    fi
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD

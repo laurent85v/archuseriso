@@ -16,21 +16,18 @@ sed -i '/^hosts:/ {
         s/\(resolve\)/mdns_minimal \[NOTFOUND=return\] \1/
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
-# Nvidia GPU proprietary driver setup
-# either nvidia only setup
-# either optimus, both graphics devices setup
-# either no nvidia driver installed
-if $(pacman -Qsq '^nvidia$' > /dev/null 2>&1); then
-    # checking optimus option
-    if [[ -z "${AUI_OPTIMUS:-}" ]]; then
-        # No optimus option, nvidia driver only setup
-        sed -i 's|^#\(display-setup-script=\)$|\1/etc/lightdm/display_setup.sh|' /etc/lightdm/lightdm.conf
-    else
-        # optimus option setup, no specific lightdm configuration required
-        rm /etc/lightdm/display_setup.sh
-    fi
+# Nvidia driver setup
+# either nvidia setup
+# either optimus setup (default settings should work)
+# either no setup
+if grep -q 'nvidia' /version; then
+    # Nvidia settings
+    sed -i 's|^#\(display-setup-script=\)$|\1/etc/lightdm/display_setup.sh|' /etc/lightdm/lightdm.conf
+elif grep -q 'optimus' /version; then
+    # Optimus settings
+    rm /etc/lightdm/display_setup.sh
 else
-    # nvidia not installed, removing configuration files
+    # No settings
     rm /etc/lightdm/display_setup.sh /etc/modprobe.d/nvidia-drm.conf
 fi
 
@@ -66,7 +63,7 @@ ln -s /usr/lib/systemd/system/lightdm.service /etc/systemd/system/display-manage
 # * groups member
 # * user without password
 # * sudo no password settings
-useradd -m -G "adm,audio,floppy,log,network,rfkill,scanner,storage,optical,power,sys,video,wheel" -s /bin/zsh live
+useradd -m -G 'wheel' -s /bin/zsh live
 sed -i 's/^\(live:\)!:/\1:/' /etc/shadow
 sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
 

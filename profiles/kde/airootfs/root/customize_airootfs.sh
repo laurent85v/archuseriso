@@ -16,19 +16,16 @@ sed -i '/^hosts:/ {
         s/\(resolve\)/mdns_minimal \[NOTFOUND=return\] \1/
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
-# Nvidia GPU proprietary driver setup
-# either nvidia only setup
-# either optimus, both graphics devices setup
-# either no nvidia driver installed
-if $(pacman -Qsq '^nvidia$' > /dev/null 2>&1); then
-    # checking optimus option
-    if [[ -z "${AUI_OPTIMUS:-}" ]]; then
-        # No optimus option, nvidia driver only setup
-        echo 'xrandr --setprovideroutputsource modesetting NVIDIA-0' >> /usr/share/sddm/scripts/Xsetup
-        echo 'xrandr --auto --dpi 96' >> /usr/share/sddm/scripts/Xsetup
-    fi
-else
-    # nvidia not installed, removing configuration file
+# Nvidia driver setup
+# either nvidia setup
+# either optimus setup (default settings should work)
+# either no setup
+if grep -q 'nvidia' /version; then
+    # Nvidia settings
+    echo 'xrandr --setprovideroutputsource modesetting NVIDIA-0' >> /usr/share/sddm/scripts/Xsetup
+    echo 'xrandr --auto --dpi 96' >> /usr/share/sddm/scripts/Xsetup
+elif ! grep -q 'optimus' /version; then
+    # Remove module settings
     rm /etc/modprobe.d/nvidia-drm.conf
 fi
 
@@ -51,7 +48,7 @@ ln -s /usr/lib/systemd/system/sddm.service /etc/systemd/system/display-manager.s
 # * groups member
 # * user without password
 # * sudo no password settings
-useradd -m -G "adm,audio,floppy,log,network,rfkill,scanner,storage,optical,power,sys,video,wheel" -s /bin/zsh live
+useradd -m -G 'wheel' -s /bin/zsh live
 sed -i 's/^\(live:\)!:/\1:/' /etc/shadow
 sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers
 
