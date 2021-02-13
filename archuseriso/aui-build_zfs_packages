@@ -19,6 +19,7 @@ help="no"
 linuxtesting="no"
 linuxversion=""
 modulesversion=""
+pkgdest=""
 SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
@@ -63,9 +64,15 @@ _init () {
         if ! pacman -Q pacman-contrib &> /dev/null; then
                 echo 'pacman-contrib package not installed, aborting!'
                 exit 0
+        else
+                # check host PKGDEST setting in /etc/makepkg.conf
+                # where packages created have to be placed
+                pkgdest="$(grep -s '^PKGDEST=' /etc/makepkg.conf || true)"
+                pkgdest="${pkgdest#PKGDEST=}"
         fi
+        pkgdest="${pkgdest:-"${WD}/out"}"
         mkdir -p -- "${ar64}"
-        mkdir -p -- "${WD}/out"
+        sudo --user "${SCRIPTUSER}" mkdir -p -- "${pkgdest}"
         mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
                    https://api.github.com/repos/openzfs/zfs/releases/latest | \
                    grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
@@ -76,7 +83,8 @@ _init () {
                 exit 0
         fi
         if [[ ! -e "${aui_profile}/aui/zfsonlinux" ]]; then
-                if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" --output "${auiwork}/archuseriso-master.tar.gz"; then
+                if curl --retry 3 --retry-connrefused --fail -L "${AUISOURCES}" \
+                   --output "${auiwork}/archuseriso-master.tar.gz"; then
                         tar --directory "${auiwork}" -xf "${auiwork}/archuseriso-master.tar.gz"
                         aui_profile="${auiwork}/archuseriso-master/profiles/console"
                 else
@@ -87,11 +95,15 @@ _init () {
 }
 
 _create_archroot64 () {
-        LC_ALL=C mkarchroot -C "${aui_profile}/pacman.conf" -c /var/cache/pacman/pkg -- "${ar64}/root" base linux linux-headers base-devel
+        LC_ALL=C mkarchroot -C "${aui_profile}/pacman.conf" -c /var/cache/pacman/pkg -- \
+                               "${ar64}/root" base linux linux-headers base-devel
         if [[ "${linuxtesting}" == "yes" ]]; then
-                unshare --fork --pid pacman --config "${aui_profile}/pacman-testing.conf" --root "${ar64}/root" -Sy
-                if unshare --fork --pid pacman --config "${aui_profile}/pacman-testing.conf" --root "${ar64}/root" -Si testing/linux; then
-                        pacstrap -C "${aui_profile}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers
+                unshare --fork --pid pacman --config "${aui_profile}/pacman-testing.conf" \
+                        --root "${ar64}/root" -Sy
+                if unshare --fork --pid pacman --config "${aui_profile}/pacman-testing.conf" \
+                           --root "${ar64}/root" -Si testing/linux; then
+                        pacstrap -C "${aui_profile}/pacman-testing.conf" -c -G -M \
+                                    "${ar64}/root" linux linux-headers
                 else
                         echo
                         echo 'No linux package in testing currently, aborting!'
@@ -131,14 +143,20 @@ _build_zfs_packages () {
         sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
         sudo --user "${SCRIPTUSER}" updpkgsums
         cd "${auiwork}/zfsonlinux/zfs-utils/"
-        LC_ALL=C sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-        mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
+        LC_ALL=C \
+                 sudo --user "${SCRIPTUSER}" \
+                 makechrootpkg -r "${ar64}" -- \
+                 PKGDEST="" \
+                 --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -E '\.pkg\.tar\.(zst|xz)$')
         cd -- "${auiwork}/zfsonlinux/zfs-linux/"
-        LC_ALL=C sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-        mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
-        cp -- "${zfspackages[@]}" "${WD}/out"
+        LC_ALL=C \
+                 sudo --user "${SCRIPTUSER}" \
+                 makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- \
+                 PKGDEST="" \
+                 --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+        mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -E '\.pkg\.tar\.(zst|xz)$')
+        sudo --user "${SCRIPTUSER}" cp -- "${zfspackages[@]}" "${pkgdest}"
         rm -r -- "${auiwork}"
 }
 
@@ -205,9 +223,10 @@ _build_zfs_packages
 cd "${WD}"
 
 echo 'Done!'
-echo 'ZFS packaged stored in directory '\''out'
 echo
-find "${WD}/out" -type f -name "*.pkg.tar.*"
+echo "${zfspackages[*]}" | sed 's|\s|\n|g' | sed 's|.*/||'
+echo
+echo 'ZFS packages placed in directory '\'"${pkgdest}"\'
 echo
 
 # vim: set expandtab:
