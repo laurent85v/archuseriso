@@ -56,6 +56,11 @@ _help () {
         echo
         exit "${1}"
 }
+
+_cleanup() {
+        [[ -d "${auiwork}" ]] && rm -r -- "${auiwork}"
+}
+
 _init () {
         if ! pacman -Q devtools &> /dev/null; then
                 echo 'devtools package not installed, aborting!'
@@ -216,6 +221,7 @@ if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/n
         fi
 fi
 
+trap _cleanup EXIT
 _init
 _create_archroot64
 _build_zfs_packages
