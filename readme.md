@@ -7,6 +7,9 @@ Archuseriso is based on Archiso, the Arch Linux tool for building the official i
 
 Archuseriso provides profiles and additional tools for building iso images and creating usb drives. Features persistence, installation and encryption.
 
+AUR https://aur.archlinux.org/packages/archuseriso
+
+ISO download http://dl.gnutux.fr/archuseriso
 
 Features
 --------
