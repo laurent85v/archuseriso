@@ -494,8 +494,7 @@ _settings() {
                 _msg_info "Done!"
         fi
 
-        # haveged, initramfs
-        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable haveged --quiet
+        # initramfs
         _msg_info "initramfs update"
         arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
         _msg_info "Done!"
