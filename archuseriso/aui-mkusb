@@ -471,6 +471,7 @@ _esp() {
         cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
         for mediumfile in "${esp_files_settings[@]}"; do
                 sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
+                        s|%IMG_LABEL%|${img_label}|g;
                         s|%ESP_LABEL%|${esp_label}|g;
                         s|%COW_LABEL%|${cow_label}|g;
                         s|=${iso_label}|=${img_label}|g" \

@@ -451,6 +451,7 @@ _esp() {
                 if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
                     sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
                             s|%DESKTOP%|${desktop}|g;
+                            s|%IMG_LABEL%|${img_label}|g;
                             s|%ESP_LABEL%|${esp_label}|g;
                             s|%ROOT_LABEL%|${root_label}|g;
                             s|=${iso_label}|=${img_label}|g" \
