@@ -161,7 +161,7 @@ _build_zfs_packages () {
                  PKGDEST="" \
                  --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
         mapfile -t zfspackages < <(find -- "${auiwork}/zfsonlinux/" | grep -E '\.pkg\.tar\.(zst|xz)$')
-        sudo --user "${SCRIPTUSER}" cp -- "${zfspackages[@]}" "${pkgdest}"
+        cp -- "${zfspackages[@]}" "${pkgdest}"
         rm -r -- "${auiwork}"
 }
 
