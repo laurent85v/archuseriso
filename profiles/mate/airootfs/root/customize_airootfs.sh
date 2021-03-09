@@ -16,7 +16,6 @@ sed -i '/^hosts:/ {
         s/\(resolve\)/mdns_minimal \[NOTFOUND=return\] \1/
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
-i
 # Nvidia driver setup
 # either nvidia setup
 # either optimus setup (default settings should work)
