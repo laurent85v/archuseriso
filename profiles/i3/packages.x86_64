@@ -1,7 +1,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Main
+### Archiso packages
+##
+#
+alsa-utils
 amd-ucode
 arch-install-scripts
 b43-fwcutter
@@ -97,21 +100,19 @@ xfsprogs
 xl2tpd
 zsh
 
-# Desktop
+### Desktop packages
+##
+# Required or recommended
 acpi
 acpid
 alsa-firmware
-alsa-utils
 arandr
 aspell-en
-bash-completion
-binutils
 dmenu
 feh
 gnome-themes-extra
 i3
 intel-media-driver
-jre-openjdk
 libcanberra-pulse
 libva-intel-driver
 libva-mesa-driver
@@ -119,27 +120,15 @@ libva-utils
 libva-vdpau-driver
 lightdm-gtk-greeter
 lsb-release
-mesa-demos
 mesa-vdpau
 mobile-broadband-provider-info
 modemmanager
 network-manager-applet
-networkmanager-openconnect
-networkmanager-openvpn
-networkmanager-pptp
-networkmanager-vpnc
 nss-mdns
-numlockx
-os-prober
-ranger
 rxvt-unicode
-smartmontools
 ttf-droid
 ttf-hack
 vdpauinfo
-virtualgl
-wmctrl
-weechat
 xf86-input-evdev
 xf86-video-amdgpu
 xf86-video-ati
@@ -147,44 +136,51 @@ xf86-video-nouveau
 xf86-video-vesa
 xorg-mkfontscale
 xorg-server
-xorg-twm
 xorg-xdpyinfo
 xorg-xdriinfo
-xorg-xgamma
-xorg-xhost
 xorg-xinit
 xorg-xinput
+xorg-xsetroot
+xterm
+# Optional
+jre-openjdk
+mesa-demos
+networkmanager-openconnect
+networkmanager-openvpn
+networkmanager-pptp
+networkmanager-vpnc
+numlockx
+ranger
+wmctrl
+weechat
+xorg-twm
+xorg-xgamma
+xorg-xhost
 xorg-xkill
 xorg-xlsclients
 xorg-xrefresh
-xorg-xsetroot
 xorg-xvinfo
 xorg-xwininfo
-xterm
-
-### Extra packages for installation
-### * uncomment line to install package
-### * you may add new packages to the list
 
 ### Browser
 ##
-#
+# Recommended
 #chromium
 firefox
 
-### Cups
+### Printing
 ##
-#
+# Optional
 cups-pdf cups-pk-helper
 
-### Nvidia
+### Nvidia graphics driver
 ##
 #
 #nvidia nvidia-settings bbswitch
 
 ### Office
 ##
-#
+# Optional
 #abiword
 gnumeric
 #hunspell-en_US libreoffice-fresh
@@ -192,28 +188,32 @@ gnumeric
 
 ### Virtualbox guest
 ##
-#
+# Optional
 #virtualbox-guest-modules-arch virtualbox-guest-utils
 
 ### Vulkan
 ##
-#
+# Optional
 amdvlk
 vulkan-intel
 vulkan-mesa-layers
 vulkan-radeon
 vulkan-tools
 
-### Xorg
+### Intel graphics driver
 ## The Xorg built-in modesetting driver generally performs
 ## better than Intel's driver. Use the one which works
 ## the best with your hardware (default: not installed)
 #
 #xf86-video-intel
 
-### Others
+### Additional packages
 ##
-#
+# Required
+refind
+# Optional
+bash-completion
+binutils
 byobu
 cpio
 cpupower
@@ -226,11 +226,11 @@ hddtemp
 hwinfo
 neofetch
 net-tools
+os-prober
 p7zip
 pacman-contrib
 powertop
 pwgen
-refind
 strace
 tree
 unrar

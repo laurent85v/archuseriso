@@ -1,7 +1,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Main
+### Archiso packages
+##
+#
+alsa-utils
 amd-ucode
 arch-install-scripts
 b43-fwcutter
@@ -97,32 +100,25 @@ xfsprogs
 xl2tpd
 zsh
 
-# Desktop 
+### Desktop packages
+##
+# Required or recommended
 acpi
 acpid
 alsa-firmware
-alsa-utils
 aspell-en
-bash-completion
-binutils
 bluez-tools
 bluez-utils
 breeze-gtk
 breeze-icons
-cryfs
 feh
-fprintd
 gnome-keyring
 gnome-themes-extra
 gparted
 gvfs-afc
-gvfs-google
-gvfs-gphoto2
 gvfs-mtp
-gvfs-nfs
 gvfs-smb
 intel-media-driver
-jre-openjdk
 kvantum-qt5
 l3afpad
 libpulse
@@ -132,84 +128,87 @@ libva-intel-driver
 libva-mesa-driver
 libva-utils
 libva-vdpau-driver
-lm_sensors
 lsb-release
 lxqt
-mesa-demos
 mesa-vdpau
 mobile-broadband-provider-info
 modemmanager
 mousetweaks
 network-manager-applet
-networkmanager-openconnect
-networkmanager-openvpn
-networkmanager-pptp
-networkmanager-vpnc
 nss-mdns
-numlockx
-os-prober
 pavucontrol-qt
 picom
-pulseaudio-bluetooth
-pulseaudio-zeroconf
-qpdfview
-samba
 sddm
-system-config-printer
 ttf-droid
 ttf-hack
 vdpauinfo
-virtualgl
-vlc
 xdg-user-dirs
-xf86-input-elographics
 xf86-input-evdev
-xf86-input-void
-xf86-input-wacom
 xf86-video-amdgpu
 xf86-video-ati
 xf86-video-nouveau
 xf86-video-vesa
 xorg-mkfontscale
 xorg-server
-xorg-twm
 xorg-xdriinfo
-xorg-xgamma
-xorg-xhost
 xorg-xinit
 xorg-xinput
+xsettingsd
+xterm
+# Optional
+cryfs
+fprintd
+gvfs-google
+gvfs-gphoto2
+gvfs-nfs
+jre-openjdk
+lm_sensors
+mesa-demos
+networkmanager-openconnect
+networkmanager-openvpn
+networkmanager-pptp
+networkmanager-vpnc
+numlockx
+os-prober
+pulseaudio-bluetooth
+pulseaudio-zeroconf
+qpdfview
+samba
+system-config-printer
+vlc
+xf86-input-elographics
+xf86-input-void
+xf86-input-wacom
+xorg-twm
+xorg-xgamma
+xorg-xhost
 xorg-xkill
 xorg-xlsclients
 xorg-xrefresh
-xorg-xsetroot
+org-xsetroot
 xorg-xvinfo
 xorg-xwininfo
-xsettingsd
-xterm
 
-### Extra packages for installation
-### * uncomment line to install package
-### * you may add new packages to the list
 
 ### Browser
 ##
-#
+# Recommended
 #chromium
 firefox
 
-### Cups
+### Printing
 ##
-#
+# Optional
 cups-pdf cups-pk-helper
 
-### Nvidia
+### Nvidia graphics driver
 ##
-#
+# Optional
 #nvidia nvidia-settings bbswitch
 
 ### Office
 ##
-#
+# Optional
 #abiword
 gnumeric
 #hunspell-en_US libreoffice-fresh
@@ -217,28 +216,32 @@ gnumeric
 
 ### Virtualbox guest
 ##
-#
+# Optional
 #virtualbox-guest-modules-arch virtualbox-guest-utils
 
 ### Vulkan
 ##
-#
+# Optional
 amdvlk
 vulkan-intel
 vulkan-mesa-layers
 vulkan-radeon
 vulkan-tools
 
-### Xorg
+### Intel graphics driver
 ## The Xorg built-in modesetting driver generally performs
 ## better than Intel's driver. Use the one which works
 ## the best with your hardware (default: not installed)
 #
 #xf86-video-intel
 
-### Others
+### Additional packages
 ##
-#
+# Required
+refind
+# Optional
+bash-completion
+binutils
 byobu
 cpio
 cpupower
@@ -255,7 +258,6 @@ p7zip
 pacman-contrib
 powertop
 pwgen
-refind
 strace
 tree
 unrar

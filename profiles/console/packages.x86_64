@@ -1,7 +1,9 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Main
+### Archiso packages
+##
+#
 alsa-utils
 amd-ucode
 arch-install-scripts
@@ -101,7 +103,11 @@ xfsprogs
 xl2tpd
 zsh
 
-# Extra
+### Additional packages
+##
+# Required
+refind
+# Optional
 bash-completion
 binutils
 byobu
@@ -120,7 +126,6 @@ os-prober
 pacman-contrib
 powertop
 pwgen
-refind
 strace
 tree
 wget

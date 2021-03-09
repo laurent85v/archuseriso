@@ -1,7 +1,10 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Main
+### Archiso packages
+##
+#
+alsa-utils
 amd-ucode
 arch-install-scripts
 b43-fwcutter
@@ -101,139 +104,136 @@ xfsprogs
 xl2tpd
 zsh
 
-# Desktop
+### Desktop packages
+##
+# Required or recommended
 acpi
 acpid
 adwaita-icon-theme
 adapta-gtk-theme
 alsa-firmware
-alsa-utils
 aspell-en
-bash-completion
-binutils
 blueberry
 cinnamon
 cinnamon-translations
-cryfs
 feh
 ffmpegthumbnailer
 file-roller
-fprintd
 gnome-calculator
 gnome-calendar
 gnome-characters
 gnome-disk-utility
 gnome-font-viewer
 gnome-keyring
-gnome-logs
-gnome-maps
 gnome-menus
-gnome-packagekit
-gnome-remote-desktop
 gnome-screenshot
-gnome-screenshot
-gnome-software-packagekit-plugin
 gnome-system-monitor
 gnome-terminal
 gnome-user-share
-gnote
 gparted
-gsmartcontrol
 gst-libav
 gvfs-afc
-gvfs-google
-gvfs-gphoto2
 gvfs-mtp
-gvfs-nfs
 gvfs-smb
-hexchat
 intel-media-driver
-jre-openjdk
 libva-intel-driver
 libva-mesa-driver
 libva-utils
 libva-vdpau-driver
 lightdm-gtk-greeter-settings
 lsb-release
-mesa-demos
 mesa-vdpau
 mobile-broadband-provider-info
 modemmanager
 mousetweaks
 nemo-fileroller
-nemo-image-converter
-nemo-preview
-nemo-seahorse
 nemo-share
-networkmanager-openconnect
-networkmanager-openvpn
-networkmanager-pptp
-networkmanager-vpnc
+network-manager-applet
 nss-mdns
-numlockx
-orca
-os-prober
 papirus-icon-theme
 pavucontrol
 parcellite
-pulseaudio-bluetooth
 pulseaudio-zeroconf
-rygel
 samba
-seahorse
-simple-scan
-system-config-printer
 ttf-droid
 ttf-hack
 vdpauinfo
-vino
-virtualgl
 xdg-user-dirs-gtk
 xed
-xf86-input-elographics
 xf86-input-evdev
-xf86-input-void
-xf86-input-wacom
 xf86-video-amdgpu
 xf86-video-ati
 xf86-video-nouveau
 xf86-video-vesa
 xorg-mkfontscale
 xorg-server
-xorg-twm
 xorg-xdpyinfo
 xorg-xdriinfo
-xorg-xgamma
-xorg-xhost
 xorg-xinit
 xorg-xinput
+xorg-xsetroot
+xreader
+# Optional
+fprintd
+gnome-logs
+gnome-maps
+gnome-packagekit
+gnome-remote-desktop
+gnome-software-packagekit-plugin
+gnote
+gsmartcontrol
+gvfs-google
+gvfs-gphoto2
+gvfs-nfs
+hexchat
+jre-openjdk
+mesa-demos
+nemo-image-converter
+nemo-preview
+nemo-seahorse
+networkmanager-openvpn
+networkmanager-openconnect
+networkmanager-pptp
+networkmanager-vpnc
+numlockx
+orca
+pulseaudio-bluetooth
+rygel
+seahorse
+simple-scan
+system-config-printer
+vino
+xf86-input-elographics
+xf86-input-void
+xf86-input-wacom
+xorg-twm
+xorg-xgamma
+xorg-xhost
 xorg-xkill
 xorg-xlsclients
 xorg-xrefresh
-xorg-xsetroot
 xorg-xvinfo
 xorg-xwininfo
-xreader
 
 ### Browser
 ##
-#
+# Recommended
 #chromium
 firefox
 
-### Cups
+### Printing
 ##
-#
+# Optional
 cups-pdf cups-pk-helper
 
-### Nvidia
+### Nvidia graphics driver
 ##
 #
 #nvidia nvidia-settings bbswitch
 
 ### Office
 ##
-#
+# Optional
 #abiword
 gnumeric
 #hunspell-en_US libreoffice-fresh
@@ -241,31 +241,36 @@ gnumeric
 
 ### Virtualbox guest
 ##
-#
+# Optional
 #virtualbox-guest-modules-arch virtualbox-guest-utils
 
 ### Vulkan
 ##
-#
+# Optional
 amdvlk
 vulkan-intel
 vulkan-mesa-layers
 vulkan-radeon
 vulkan-tools
 
-### Xorg
+### Intel graphics driver
 ## The Xorg built-in modesetting driver generally performs
 ## better than Intel's driver. Use the one which works
 ## the best with your hardware (default: not installed)
 #
 #xf86-video-intel
 
-### Others
+### Aditional packages
 ##
-#
+# Required
+refind
+# Optional
+bash-completion
+binutils
 byobu
 cpio
 cpupower
+cryfs
 dmidecode
 fakeroot
 git
@@ -279,7 +284,7 @@ p7zip
 pacman-contrib
 powertop
 pwgen
-refind
+os-prober
 strace
 tree
 unrar
