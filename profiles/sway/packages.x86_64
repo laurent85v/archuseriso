@@ -1,0 +1,216 @@
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+### Archiso packages
+##
+#
+alsa-utils
+amd-ucode
+archinstall
+arch-install-scripts
+b43-fwcutter
+base
+bind-tools
+broadcom-wl
+btrfs-progs
+clonezilla
+crda
+darkhttpd
+ddrescue
+dhclient
+dhcpcd
+diffutils
+dmraid
+dnsmasq
+dosfstools
+edk2-shell
+efibootmgr
+ethtool
+exfatprogs
+f2fs-tools
+fatresize
+fsarchiver
+gnu-netcat
+gpart
+gpm
+gptfdisk
+grml-zsh-config
+hdparm
+intel-ucode
+ipw2100-fw
+ipw2200-fw
+irssi
+iwd
+jfsutils
+kitty-terminfo
+lftp
+linux
+linux-atm
+linux-firmware
+lsscsi
+lvm2
+lynx
+man-db
+man-pages
+mc
+mdadm
+memtest86+
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+modemmanager
+mtools
+nano
+nbd
+ndisc6
+nfs-utils
+nilfs-utils
+nmap
+ntfs-3g
+nvme-cli
+openconnect
+openssh
+openvpn
+partclone
+parted
+partimage
+ppp
+pptpclient
+reflector
+reiserfsprogs
+rp-pppoe
+rsync
+rxvt-unicode-terminfo
+sdparm
+sg3_utils
+smartmontools
+sof-firmware
+squashfs-tools
+sudo
+syslinux
+systemd-resolvconf
+tcpdump
+terminus-font
+termite-terminfo
+testdisk
+tmux
+udftools
+usb_modeswitch
+usbmuxd
+usbutils
+vim
+vpnc
+wireless-regdb
+wireless_tools
+wpa_supplicant
+wvdial
+xfsprogs
+xl2tpd
+zsh
+
+### Desktop packages
+##
+# Required or recommended
+acpi
+acpid
+alacritty
+alsa-firmware
+dmenu
+intel-media-driver
+libcanberra-pulse
+libva-intel-driver
+libva-mesa-driver
+libva-utils
+libva-vdpau-driver
+lsb-release
+mesa-vdpau
+mobile-broadband-provider-info
+network-manager-applet
+noto-fonts
+nss-mdns
+sway
+ttf-droid
+ttf-hack
+vdpauinfo
+weechat
+xorg-server-xwayland
+# Optional
+aspell-en
+jre-openjdk
+mesa-demos
+networkmanager-openconnect
+networkmanager-openvpn
+networkmanager-pptp
+networkmanager-vpnc
+ranger
+
+### Browser
+##
+# Recommended
+#chromium
+firefox
+
+### Printing
+##
+# Optional
+#cups-pdf cups-pk-helper
+
+### Nvidia graphics
+##
+# Proprietary drivers not supported by Sway
+#nvidia nvidia-settings bbswitch
+
+### Office
+##
+# Optional
+#abiword
+#gnumeric
+#hunspell-en_US libreoffice-fresh
+#hunspell-en_US libreoffice-still
+
+### Virtualbox guest
+##
+# Optional
+#virtualbox-guest-modules-arch virtualbox-guest-utils
+
+### Vulkan
+##
+# Optional
+amdvlk
+vulkan-intel
+vulkan-mesa-layers
+vulkan-radeon
+vulkan-tools
+
+### Additional packages
+##
+# Required
+refind
+# Optional
+bash-completion
+binutils
+byobu
+cpio
+cpupower
+dmidecode
+fakeroot
+git
+grub
+grsync
+hddtemp
+hwinfo
+neofetch
+net-tools
+os-prober
+p7zip
+pacman-contrib
+powertop
+pwgen
+strace
+tree
+unrar
+wget
+whois
+wireguard-tools
+zip
+zsh-autosuggestions

@@ -1,0 +1,17 @@
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-ro
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-ro hunspell-ro
+#libreoffice-still-ro hunspell-ro

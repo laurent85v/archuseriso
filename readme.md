@@ -39,6 +39,7 @@ Profiles
 * Kde
 * LXQt
 * Mate
+* Sway
 * Xfce
 
 Hint for gr, rs, ru and ua with two keyboard layouts: press both `Shift keys` together for switching the keyboard layout. 
