@@ -12,6 +12,7 @@ bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito' 'uefi-x64.systemd-boot.e
 arch="x86_64"
 pacman_conf="pacman.conf"
 pacman_testing_conf="pacman-testing.conf"
+airootfs_image_type="squashfs"
 airootfs_image_tool_options=('-comp' 'zstd')
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
