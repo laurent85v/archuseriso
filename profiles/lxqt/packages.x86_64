@@ -80,6 +80,7 @@ rxvt-unicode-terminfo
 sdparm
 sg3_utils
 smartmontools
+sof-firmware
 sudo
 syslinux
 systemd-resolvconf
