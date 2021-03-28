@@ -470,12 +470,14 @@ _esp() {
         cp -r -- "${WD}/${workdir}/iso/aui/liveusb/syslinux" "${WD}/${workdir}/usbesp/"
         cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
         for mediumfile in "${esp_files_settings[@]}"; do
-                sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                        s|%IMG_LABEL%|${img_label}|g;
-                        s|%ESP_LABEL%|${esp_label}|g;
-                        s|%COW_LABEL%|${cow_label}|g;
-                        s|=${iso_label}|=${img_label}|g" \
-                       "${WD}/${workdir}/usbesp/${mediumfile}"
+                if [[ -f "${WD}/${workdir}/usbesp/${mediumfile}" ]]; then
+                        sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
+                                s|%IMG_LABEL%|${img_label}|g;
+                                s|%ESP_LABEL%|${esp_label}|g;
+                                s|%COW_LABEL%|${cow_label}|g;
+                                s|=${iso_label}|=${img_label}|g" \
+                               "${WD}/${workdir}/usbesp/${mediumfile}"
+                fi
         done
         _msg_info "Done!"
 }
@@ -487,7 +489,9 @@ _persistence() {
         cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${img_label}"
         cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${iso_label}_origin"
         for mediumfile in "${cow_files_settings[@]}"; do
-                sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${mediumfile}"
+                if [[ -f "${WD}/${workdir}/usbrw/${mediumfile}" ]]; then
+                        sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${mediumfile}"
+                fi
         done
 
         _msg_info "Done!"

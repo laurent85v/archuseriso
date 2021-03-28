@@ -449,13 +449,13 @@ _esp() {
         cp -r -- "${WD}/${workdir}/iso/aui/hybrid/syslinux" "${WD}/${workdir}/usbesp/"
         for _mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
-                    sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                            s|%DESKTOP%|${desktop}|g;
-                            s|%IMG_LABEL%|${img_label}|g;
-                            s|%ESP_LABEL%|${esp_label}|g;
-                            s|%ROOT_LABEL%|${root_label}|g;
-                            s|=${iso_label}|=${img_label}|g" \
-                           "${WD}/${workdir}/usbesp/${_mediumfile}"
+                        sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
+                                s|%DESKTOP%|${desktop}|g;
+                                s|%IMG_LABEL%|${img_label}|g;
+                                s|%ESP_LABEL%|${esp_label}|g;
+                                s|%ROOT_LABEL%|${root_label}|g;
+                                s|=${iso_label}|=${img_label}|g" \
+                               "${WD}/${workdir}/usbesp/${_mediumfile}"
                 fi
         done
         _msg_info "Done!"
@@ -471,7 +471,9 @@ _settings() {
 
         # fstab
         for _mediumfile in "${root_files_settings[@]}"; do
-                sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${_mediumfile}"
+                if [[ -f "${WD}/${workdir}/usbrw/${_mediumfile}" ]]; then
+                        sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${_mediumfile}"
+                fi
         done
 
         # sshd, mirrorlist, logind.conf
