@@ -57,6 +57,7 @@ memtest86+
 mkinitcpio
 mkinitcpio-archiso
 mkinitcpio-nfs-utils
+modemmanager
 mtools
 nano
 nbd
@@ -133,7 +134,6 @@ xfce4
 xfce4-goodies
 mesa-vdpau
 mobile-broadband-provider-info
-modemmanager
 mousetweaks
 network-manager-applet
 nss-mdns

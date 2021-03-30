@@ -55,6 +55,7 @@ memtest86+
 mkinitcpio
 mkinitcpio-archiso
 mkinitcpio-nfs-utils
+modemmanager
 mtools
 nano
 nbd
@@ -123,7 +124,6 @@ lightdm-gtk-greeter
 lsb-release
 mesa-vdpau
 mobile-broadband-provider-info
-modemmanager
 network-manager-applet
 nss-mdns
 rxvt-unicode
