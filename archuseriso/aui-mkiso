@@ -828,9 +828,9 @@ _make_aui() {
                 s|%LANG%|${lang}|g" \
                 "${isofs_dir}/aui/mediumdef.sh"
     fi
-    for auifile in "${isofs_dir}/aui/liveusb/loader/entries/0aui-x86_64-linux.conf" \
+    for auifile in "${isofs_dir}/aui/liveusb/loader/entries/archiso-aui-x86_64-linux.conf" \
                    "${isofs_dir}/aui/liveusb/syslinux/archiso_sys-linux.cfg" \
-                   "${isofs_dir}/aui/hybrid/loader/entries/0aui-x86_64-linux.conf" \
+                   "${isofs_dir}/aui/hybrid/loader/entries/archiso-aui-x86_64-linux.conf" \
                    "${isofs_dir}/aui/hybrid/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${auifile}" ]]; then
             sed -i "s|%INSTALL_DIR%|${install_dir}|g;
