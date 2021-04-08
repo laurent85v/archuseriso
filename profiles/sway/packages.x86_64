@@ -137,6 +137,7 @@ xorg-server-xwayland
 # Optional
 aspell-en
 jre-openjdk
+mako
 mesa-demos
 networkmanager-openconnect
 networkmanager-openvpn
