@@ -10,28 +10,32 @@
 set -e -u
 
 appname="${0##*/}"
+btrfs="no"
+btrfs_compress=""
+btrfs_subvol=""
 desktop=""
-rootsize=""
+root_size=""
 encryption="no"
 esp_files_settings=()
 esp_label=""
-espsize=""
-ext4journal="yes"
+esp_size=""
+ext4_journal="yes"
 f2fs="no"
 # Free space required 15360 MiB
 FREESPACE=15360
 img_label=""
 iso_label=""
-isoname=""
+iso_name=""
 isosize=0
 medium_version=""
 root_files_settings=()
+root_flags="defaults"
 root_label=""
-usbdevice=""
+usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v4"
+valid_medium_version="v5"
 
 _usage() {
         echo
@@ -58,7 +62,8 @@ _help() {
         echo '-h, --help                  Command line help'
         echo '--encrypt                   Encrypt persistent partition'
         echo '--no-journal                Disable ext4 journal'
-        echo '--f2fs                      Use the F2FS file system for the persistent partition (Default Ext4)' 
+        echo '--btrfs                     Btrfs file system for the persistent partition (Default Ext4)'
+        echo '--f2fs                      F2FS file system for the persistent partition (Default Ext4)'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
         echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition, FAT)'
         echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition, Ext4/F2FS)'
@@ -109,18 +114,18 @@ _unmount() {
 _luks() {
         echo
         _msg_info "Setting up encryption, type in a passphrase of your choice"
-        if ! cryptsetup --label "${crypt_label:-AUICRYPT}" --uuid "${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usbdevice}3" > /dev/null; then
+        if ! cryptsetup --label "${crypt_label:-AUICRYPT}" --uuid "${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}3" > /dev/null; then
                echo 'Encryption setup failed, exiting!'
                exit 1
         fi
         _msg_info "Done!"
         echo
         _msg_info "LUKS setup done! type in your passphrase to unlock partition"
-        if ! cryptsetup -- open "${usbdevice}3" "${crypt_mapper:-auicrypt}"; then
+        if ! cryptsetup -- open "${usb_device}3" "${crypt_mapper:-auicrypt}"; then
                echo 'Error: Could not unlock partition! Exiting.'
                exit 1
         fi
-        rootdevice="/dev/mapper/${crypt_mapper:-auicrypt}"
+        root_device="/dev/mapper/${crypt_mapper:-auicrypt}"
         _msg_info "Done!"
         echo
 }
@@ -148,49 +153,55 @@ _checks() {
                echo 'This script must be run as root!'
                exit 1
         fi
-        isoname="${1}"
-        usbdevice="${2}"
-        if [[ ! $(stat -c %t -- "${usbdevice}" 2> /dev/null) -eq 8 ]]; then
-               echo "Error: ${usbdevice} is not a block device!"
+        iso_name="${1}"
+        usb_device="${2}"
+        if [[ ! $(stat -c %t -- "${usb_device}" 2> /dev/null) -eq 8 ]]; then
+               echo "Error: ${usb_device} is not a block device!"
                _usage 1
         fi
-        if [[ ! $(lsblk -dnro hotplug -- "${usbdevice}" 2> /dev/null) -eq 1 ]]; then
-                echo "Error: ${usbdevice} is not a removable block device!"
+        if [[ ! $(lsblk -dnro hotplug -- "${usb_device}" 2> /dev/null) -eq 1 ]]; then
+                echo "Error: ${usb_device} is not a removable block device!"
                 _usage 1
         fi
-        if [[ ! "$(lsblk -dnro tran -- "${usbdevice}" 2> /dev/null)" == 'usb' ]]; then
-                echo "Error: ${usbdevice} is not a usb device!"
+        if [[ ! "$(lsblk -dnro tran -- "${usb_device}" 2> /dev/null)" == 'usb' ]]; then
+                echo "Error: ${usb_device} is not a usb device!"
                 _usage 1
         fi
-        if grep -q -- "${usbdevice}" /proc/self/mountinfo > /dev/null; then
-                echo "Error: ${usbdevice} appears in active mounts, unmount drive partitions before proceeding!"
+        if grep -q -- "${usb_device}" /proc/self/mountinfo > /dev/null; then
+                echo "Error: ${usb_device} appears in active mounts, unmount drive partitions before proceeding!"
                 exit 1
         fi
-        if [[ ! -f "${isoname}" ]]; then
-               echo "file ${isoname} not found!"
+        if [[ ! -f "${iso_name}" ]]; then
+               echo "file ${iso_name} not found!"
                _usage 1
         fi
-        if [[ ! $(file -- "${isoname}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
-                echo "Error: ${isoname} is not an iso image!"
+        if [[ ! $(file -- "${iso_name}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+                echo "Error: ${iso_name} is not an iso image!"
                 _usage 1
         fi
         # Set efi boot partition size in MiB
-        if [[ -n "${espsize}" ]]; then
-                if ! [[ "${espsize}" =~ ^[1-9][0-9]?+$ ]]; then
-                        echo "FAT partition size error: Invalid size argument (GiB): ${espsize}"
+        if [[ -n "${esp_size}" ]]; then
+                if ! [[ "${esp_size}" =~ ^[1-9][0-9]?+$ ]]; then
+                        echo "FAT partition size error: Invalid size argument (GiB): ${esp_size}"
                         _usage 1
                 fi
-                espsize=$(( espsize * 1024 ))
+                esp_size=$(( esp_size * 1024 ))
         else
-                espsize=512
+                esp_size=512
         fi
         # Set root partition size in MiB, free space left by default
-        if [[ -n "${rootsize}" ]]; then
-                if ! [[ "${rootsize}" =~ ^[1-9][0-9]?+$ ]]; then
-                        echo "Ext4/F2FS partition size error: Invalid size argument (GiB): ${rootsize}"
+        if [[ -n "${root_size}" ]]; then
+                if ! [[ "${root_size}" =~ ^[1-9][0-9]?+$ ]]; then
+                        echo "Ext4/F2FS partition size error: Invalid size argument (GiB): ${root_size}"
                         _usage 1
                 fi
-                rootsize=$(( rootsize * 1024 ))
+                root_size=$(( root_size * 1024 ))
+        fi
+        if [[ "${btrfs}" == "yes" ]]; then
+                if ! pacman -Q btrfs-progs &> /dev/null; then
+                        echo 'btrfs-progs package not installed, aborting!'
+                        exit 0
+                fi
         fi
         if [[ "${f2fs}" == "yes" ]]; then
                 if ! pacman -Q f2fs-tools &> /dev/null; then
@@ -201,26 +212,26 @@ _checks() {
 }
 
 _init() {
-        local _espsize _rootsize
-        drivesize=$(blockdev --getsize64 "${usbdevice}")
+        local _esp_size _root_size
+        drivesize=$(blockdev --getsize64 "${usb_device}")
         # Logical sector size
-        LOGICSEC=$(blockdev --getss "${usbdevice}")
+        LOGICSEC=$(blockdev --getss "${usb_device}")
         # Drive partition #1, first sector at 1 MiB
         STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
-        isosize=$(stat -c %s -- "${isoname}")
+        isosize=$(stat -c %s -- "${iso_name}")
         # Check usb drive capacity
         if [[ ! ${drivesize} -gt $(( isosize + FREESPACE * 1024 * 1024 )) ]]; then
                echo 'Storage capacity error!'
                exit 1
         fi
         # check partitions size don't exceed drive's capacity
-        _espsize=$(( espsize * 1024 * 1024 ))
-        if [[ -n "${rootsize}" ]]; then
-                _rootsize=$(( rootsize * 1024 * 1024 ))
+        _esp_size=$(( esp_size * 1024 * 1024 ))
+        if [[ -n "${root_size}" ]]; then
+                _root_size=$(( root_size * 1024 * 1024 ))
         else
-                _rootsize=0
+                _root_size=0
         fi
-        if [[ ! ${drivesize} -gt $(( isosize + _espsize + _rootsize )) ]]; then
+        if [[ ! ${drivesize} -gt $(( isosize + _esp_size + _root_size )) ]]; then
                 echo "Size settings error: exceeds drive storage capacity!"
                 exit 1
         fi
@@ -231,11 +242,11 @@ _confirm_write() {
         echo
         _msg_info "This process may take a long time depending on the drive's write speed, be patient!"
         _msg_info ""
-        _msg_info "ISO file:   ${isoname}"
-        _msg_info "USB device: ${usbdevice}"
+        _msg_info "ISO file:   ${iso_name}"
+        _msg_info "USB device: ${usb_device}"
         _msg_info "username:   ${username}"
         echo
-        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size -- "${usbdevice}") (N/y)? "
+        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size -- "${usb_device}") (N/y)? "
         echo
         if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
                echo 'Operation canceled by user!'
@@ -267,14 +278,14 @@ _usb_prepare() {
         echo
         _msg_info 'Mounting iso'
         _msg_info "mountpoint: ${WD}/${workdir}/iso"
-        if ! mount -o ro -- "${isoname}" "${WD}/${workdir}/iso"; then
+        if ! mount -o ro -- "${iso_name}" "${WD}/${workdir}/iso"; then
                 echo "Error: mounting iso failed!"
                 exit 1
         fi
 
         # check iso
         if [[ ! -e "${WD}/${workdir}/iso/aui/mediumdef.sh" ]]; then
-                echo "Error: ${isoname} is not a compatible iso image!"
+                echo "Error: ${iso_name} is not a compatible iso image!"
                 echo
                 _usage 1
         fi
@@ -282,7 +293,7 @@ _usb_prepare() {
         # source medium def variables
         source "${WD}/${workdir}/iso/aui/mediumdef.sh"
         if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-                echo "Error: ${isoname} is not a compatible iso image!"
+                echo "Error: ${iso_name} is not a compatible iso image!"
                 echo
                 _usage 1
         fi
@@ -306,62 +317,71 @@ _partitions() {
         _size_ro_part=$(( isosize + 128 * 1024 * 1024 ))
         _sectors_ro_part=$(( _size_ro_part / LOGICSEC ))
         _start_esp_part=$(( _start_ro_part + _sectors_ro_part ))
-        _size_esp_part=$(( espsize * 1024 * 1024 ))
+        _size_esp_part=$(( esp_size * 1024 * 1024 ))
         _sectors_esp_part=$(( _size_esp_part / LOGICSEC ))
         _start_rw_part=$(( _start_esp_part + _sectors_esp_part ))
-        if [[ -n "${rootsize}" ]]; then
-                _size_rw_part=$(( rootsize * 1024 * 1024 ))
+        if [[ -n "${root_size}" ]]; then
+                _size_rw_part=$(( root_size * 1024 * 1024 ))
                 _sectors_rw_part=$(( _size_rw_part / LOGICSEC ))
         else
                 _size_rw_part=$(( drivesize - _size_esp_part - _size_ro_part - (STARTSEC * LOGICSEC) ))
         fi
 
         # Wipe drive
-        flock -- "${usbdevice}" wipefs --all --force -- "${usbdevice}"* > /dev/null
-        partprobe -- "${usbdevice}"
-        sleep 2
+        flock -- "${usb_device}" wipefs --all --force -- "${usb_device}"* > /dev/null
+        sleep 5
+        partprobe -- "${usb_device}"
         echo
 
         # New gpt partition table
         _msg_info "Partitioning drive"
         _msg_info "Creating partitions: new gpt label"
-        if ! echo 'label: gpt' | sfdisk -W always -- "${usbdevice}" > /dev/null; then
+        if ! echo 'label: gpt' | sfdisk -W always -- "${usb_device}" > /dev/null; then
                 echo 'Failed to create new gpt partition table!'
                 exit 1
         fi
-        sleep 2
+        sleep 5
+        partprobe -- "${usb_device}"
 
         # partition #1 iso data
         _msg_info "partition #1, live partition:  $(( _size_ro_part / 1024 / 1024 )) MiB"
-        if ! echo "$(( _start_ro_part )),$(( _sectors_ro_part )),${_part_type_linux}," | sfdisk -W always -- "${usbdevice}" > /dev/null; then
+        if ! echo "$(( _start_ro_part )),$(( _sectors_ro_part )),${_part_type_linux}," | sfdisk -W always -- "${usb_device}" > /dev/null; then
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
-        sleep 2
+        sleep 5
 
         # partition #2 boot & efi partition
         _msg_info "partition #2, boot partition: $(( _size_esp_part / 1024 / 1024 )) MiB"
-        if ! echo "$(( _start_esp_part )),$(( _sectors_esp_part )),${_part_type_msft}," | sfdisk --append -W always -- "${usbdevice}" > /dev/null; then
+        if ! echo "$(( _start_esp_part )),$(( _sectors_esp_part )),${_part_type_msft}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
-        sleep 2
+        sleep 5
 
         # partition #3 root partition
         _msg_info "partition #3, root partition: $(( _size_rw_part / 1024 / 1024 )) MiB"
-        if ! echo "$(( _start_rw_part )),${_sectors_rw_part:-},${_part_type_linux}," | sfdisk --append -W always -- "${usbdevice}" > /dev/null; then
+        if ! echo "$(( _start_rw_part )),${_sectors_rw_part:-},${_part_type_linux}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
                 echo 'Failed to create new partition layout!'
                 exit 1
         fi
-        sleep 2
+        sleep 5
 
-        partprobe -- "${usbdevice}"
+        partprobe -- "${usb_device}"
         _msg_info "Done!"
+}
+
+_format_btrfs() {
+        _msg_info "partition #3: type Btrfs, label ${root_label}"
+        if ! flock -- "${root_device}" mkfs.btrfs -L "${root_label}" -- "${root_device}" > /dev/null; then
+               echo 'Formatting partition failed!'
+               exit 1
+        fi
 }
 
 _format_f2fs() {
         _msg_info "partition #3: type F2FS, label ${root_label}"
-        if ! flock -- "${rootdevice}" mkfs.f2fs -l "${root_label}" -O encrypt,extra_attr,compression -- "${rootdevice}" > /dev/null; then
+        if ! flock -- "${root_device}" mkfs.f2fs -l "${root_label}" -O encrypt,extra_attr,compression -- "${root_device}" > /dev/null; then
                echo 'Formatting partition failed!'
                exit 1
         fi
@@ -369,15 +389,15 @@ _format_f2fs() {
 
 _format_ext4() {
         _msg_info "partition #3: type Ext4, label ${root_label}"
-        if ! flock -- "${rootdevice}" mkfs.ext4 -L "${root_label}" -O encrypt -q -- "${rootdevice}" > /dev/null; then
+        if ! flock -- "${root_device}" mkfs.ext4 -L "${root_label}" -O encrypt -q -- "${root_device}" > /dev/null; then
                echo 'Formatting partition failed!'
                exit 1
         fi
         # disable ext4 journal
-        if [[ "${ext4journal}" == "no" ]]; then
+        if [[ "${ext4_journal}" == "no" ]]; then
                 _msg_info "Ext4 partitions: disable journal"
-                tune2fs -O '^has_journal' -- "${usbdevice}1" &> /dev/null
-                tune2fs -O '^has_journal' -- "${rootdevice}" &> /dev/null
+                tune2fs -O '^has_journal' -- "${usb_device}1" &> /dev/null
+                tune2fs -O '^has_journal' -- "${root_device}" &> /dev/null
         fi
 }
 
@@ -385,22 +405,24 @@ _format() {
         echo
         _msg_info "Formatting partitions"
         _msg_info "partition #1: type Ext4, label ${img_label}"
-        if ! flock -- "${usbdevice}1" mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usbdevice}1" > /dev/null; then
+        if ! flock -- "${usb_device}1" mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usb_device}1" > /dev/null; then
                echo 'Partition format failed!'
                exit 1
         fi
         _msg_info "partition #2: type FAT, label ${esp_label}"
-        if ! flock -- "${usbdevice}2" mkfs.fat -F32 -n "${esp_label}" -- "${usbdevice}2" &> /dev/null; then
+        if ! flock -- "${usb_device}2" mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}2" &> /dev/null; then
                echo 'Partition format failed!'
                exit 1
         fi
-        rootdevice="${usbdevice}3"
+        root_device="${usb_device}3"
         if [[ "${encryption}" == "yes" ]]; then
                _luks
         fi
         # root partition, filesystem type
         # Default ext4
-        if [[ "${f2fs}" == "yes" ]]; then
+        if [[ "${btrfs}" == "yes" ]]; then
+                _format_btrfs
+        elif [[ "${f2fs}" == "yes" ]]; then
                 _format_f2fs
         else
                 _format_ext4
@@ -412,12 +434,18 @@ _mount() {
         # Mount usb device
         echo
         _msg_info "Mounting usb partitions"
-        _msg_info "device: ${usbdevice}1, mountpoint: ${WD}/${workdir}/usbro"
-        mount -- "${usbdevice}1" "${WD}/${workdir}/usbro"
-        _msg_info "device: ${usbdevice}2, mountpoint: ${WD}/${workdir}/usbesp"
-        mount -- "${usbdevice}2" "${WD}/${workdir}/usbesp"
-        _msg_info "device: ${rootdevice}, mountpoint: ${WD}/${workdir}/usbrw"
-        mount -- "${rootdevice}" "${WD}/${workdir}/usbrw"
+        _msg_info "device: ${usb_device}1, mountpoint: ${WD}/${workdir}/usbro"
+        mount -- "${usb_device}1" "${WD}/${workdir}/usbro"
+        _msg_info "device: ${usb_device}2, mountpoint: ${WD}/${workdir}/usbesp"
+        mount -- "${usb_device}2" "${WD}/${workdir}/usbesp"
+        _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
+        mount -- "${root_device}" "${WD}/${workdir}/usbrw"
+        if [[ "${btrfs}" == "yes" ]]; then
+                btrfs subvolume create "${WD}/${workdir}/usbrw/${btrfs_subvol}" > /dev/null
+                umount "${WD}/${workdir}/usbrw"
+                sleep 5
+                mount -o "${root_flags}" -- "${root_device}" "${WD}/${workdir}/usbrw"
+        fi
         _msg_info "Done!"
         # Mount squashfs
         _msg_info "Mounting live image: mountpoint ${WD}/${workdir}/squashfs"
@@ -454,6 +482,7 @@ _esp() {
                                 s|%IMG_LABEL%|${img_label}|g;
                                 s|%ESP_LABEL%|${esp_label}|g;
                                 s|%ROOT_LABEL%|${root_label}|g;
+                                s|%ROOT_FLAGS%|${root_flags}|g;
                                 s|=${iso_label}|=${img_label}|g" \
                                "${WD}/${workdir}/usbesp/${_mediumfile}"
                 fi
@@ -533,15 +562,15 @@ _settings() {
 
 _biosbootloader() {
         _msg_info "Installing boot loader"
-        if ! syslinux --directory syslinux --install -- "${usbdevice}2" > /dev/null; then
+        if ! syslinux --directory syslinux --install -- "${usb_device}2" > /dev/null; then
                 echo 'Boot loader installation failed!'
                 exit 1
         fi
-        if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usbdevice}" 2> /dev/null; then
+        if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usb_device}" 2> /dev/null; then
                 echo 'Boot loader installation failed!'
                 exit 1
         fi
-        if ! sfdisk --part-attrs "${usbdevice}" 2 LegacyBIOSBootable &> /dev/null; then
+        if ! sfdisk --part-attrs "${usb_device}" 2 LegacyBIOSBootable &> /dev/null; then
                 echo 'Boot loader installation failed!'
                 exit 1
         fi
@@ -549,7 +578,7 @@ _biosbootloader() {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,help,no-journal,f2fs,size-part2:,size-part3:,username:' \
+OPTS=$(getopt -o 'h' --long 'encrypt,help,no-journal,btrfs,f2fs,size-part2:,size-part3:,username:' \
                      --long 'nojournal,sizepart2:,sizepart3:' \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
@@ -565,16 +594,24 @@ while true; do
                         encryption="yes"
                         shift ;;
                 '--no-journal'|'--nojournal')
-                        ext4journal="no"
+                        ext4_journal="no"
+                        shift ;;
+                '--btrfs')
+                        btrfs="yes"
+                        btrfs_compress="zstd"
+                        btrfs_subvol="/root"
+                        root_flags="subvol=${btrfs_subvol},compress=${btrfs_compress}"
+                        f2fs="no"
                         shift ;;
                 '--f2fs')
                         f2fs="yes"
+                        btrfs="no"
                         shift ;;
                 '--size-part2'|'--sizepart2')
-                        espsize="${2/[gG]}"
+                        esp_size="${2/[gG]}"
                         shift 2;;
                 '--size-part3'|'--sizepart3')
-                        rootsize="${2/[gG]}"
+                        root_size="${2/[gG]}"
                         shift 2;;
                 '--username')
                         username="${2}"
