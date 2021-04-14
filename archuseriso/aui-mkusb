@@ -29,6 +29,7 @@ iso_label=""
 iso_file=""
 medium_version=""
 raw_write="no"
+refind="yes"
 usb_device=""
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
@@ -57,10 +58,11 @@ _help() {
         echo
         echo 'Options:'
         echo '-h, --help                  Command line help'
-        echo '--encrypt                   Encrypt persistent partition'
-        echo '--no-journal                Disable ext4 journal'
         echo '--btrfs                     Btrfs file system for the persistent partition (Default Ext4)'
+        echo '--encrypt                   Encrypt persistent partition'
         echo '--f2fs                      F2FS file system for the persistent partition (Default Ext4)'
+        echo '--no-journal                Disable ext4 journal'
+        echo '--no-refind                 Bypass rEFInd boot manager'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
         echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition, FAT)'
         echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition, Ext4/F2FS)'
@@ -496,6 +498,21 @@ _copy() {
         _msg_info "Done!"
 }
 
+_no_refind() {
+        if [[ -f "${WD}/${workdir}/usbesp/EFI/live/livedisk.efi" ]]; then
+                if [[ -f "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.efi" ]]; then
+                        mv -- "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.efi" \
+                              "${WD}/${workdir}/usbesp/EFI/BOOT/refind_x64.efi"
+                        mv -- "${WD}/${workdir}/usbesp/EFI/BOOT/" \
+                              "${WD}/${workdir}/usbesp/EFI/refind/"
+                fi
+                mv -- "${WD}/${workdir}/usbesp/EFI/live/livedisk.efi" \
+                      "${WD}/${workdir}/usbesp/EFI/live/BOOTx64.efi"
+                mv -- "${WD}/${workdir}/usbesp/EFI/live/" \
+                      "${WD}/${workdir}/usbesp/EFI/BOOT/"
+        fi
+}
+
 _esp() {
         echo
         _msg_info "Setting up esp"
@@ -514,6 +531,9 @@ _esp() {
                                "${WD}/${workdir}/usbesp/${mediumfile}"
                 fi
         done
+        if [[ "${refind}" == "no" ]]; then
+                _no_refind
+        fi
         _msg_info "Done!"
 }
 
@@ -554,8 +574,8 @@ _biosbootloader() {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,btrfs,f2fs,raw-write,size-part2:,size-part3:,help' \
-                     --long 'nojournal,raw_write,sizepart2:,sizepart3:' \
+OPTS=$(getopt -o 'h' --long 'btrfs,encrypt,f2fs,help,no-journal,no-refind,raw-write,size-part2:,size-part3:' \
+                     --long 'nojournal,norefind,raw_write,sizepart2:,sizepart3:' \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -566,12 +586,6 @@ while true; do
         case "$1" in
                 '-h'|'--help')
                         _help 0 ;;
-                '--encrypt')
-                        encryption="yes"
-                        shift ;;
-                '--no-journal'|'--nojournal')
-                        ext4_journal="no"
-                        shift ;;
                 '--btrfs')
                         btrfs="yes"
                         btrfs_compress="zstd"
@@ -579,9 +593,18 @@ while true; do
                         cow_flags="subvol=${btrfs_subvol},compress=${btrfs_compress}"
                         f2fs="no"
                         shift ;;
+                '--encrypt')
+                        encryption="yes"
+                        shift ;;
                 '--f2fs')
                         f2fs="yes"
                         btrfs="no"
+                        shift ;;
+                '--no-journal'|'--nojournal')
+                        ext4_journal="no"
+                        shift ;;
+                '--no-refind'|'--norefind')
+                        refind="no"
                         shift ;;
                 '--raw-write'|'--raw_write')
                         raw_write="yes"
