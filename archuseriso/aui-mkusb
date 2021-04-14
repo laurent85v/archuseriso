@@ -26,7 +26,7 @@ f2fs="no"
 img_label=""
 install_dir=""
 iso_label=""
-iso_name=""
+iso_file=""
 medium_version=""
 raw_write="no"
 usb_device=""
@@ -159,12 +159,12 @@ _checks() {
                echo 'This script must be run as root!'
                exit 1
         fi
-        iso_name="${1}"
+        iso_file="${1}"
         usb_device="${2}"
         # command arguments reverse order compatibility
         if [[ $(file -- "${usb_device}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
                 # reverse order compatibility
-                iso_name="${2}"
+                iso_file="${2}"
                 usb_device="${1}"
         fi
         if [[ ! $(stat -c %t -- "${usb_device}" 2> /dev/null) -eq 8 ]]; then
@@ -183,12 +183,12 @@ _checks() {
                 echo "Error: ${usb_device} appears in active mounts, unmount drive partitions before proceeding!"
                 exit 1
         fi
-        if [[ ! -f "${iso_name}" ]]; then
-               echo "file ${iso_name} not found!"
+        if [[ ! -f "${iso_file}" ]]; then
+               echo "file ${iso_file} not found!"
                _usage 1
         fi
-        if [[ ! $(file -- "${iso_name}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
-                echo "Error: ${iso_name} is not an iso image!"
+        if [[ ! $(file -- "${iso_file}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+                echo "Error: ${iso_file} is not an iso image!"
                 _usage 1
         fi
         if [[ "${raw_write}" == "yes" ]]; then
@@ -238,7 +238,7 @@ _init() {
         # Drive partition #1, first sector at 1 MiB
         STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
         FREESPACE=1024 # 1024 MiB
-        isosize=$(stat -c %s -- "${iso_name}")
+        isosize=$(stat -c %s -- "${iso_file}")
         # USB Medium type isohybrid / FAT
         if [[ "${raw_write}" == "yes" ]]; then
                 esp_size=0
@@ -265,7 +265,7 @@ _init() {
 _confirm_write() {
         # Confim write
         echo
-        _msg_info "ISO file:   ${iso_name}"
+        _msg_info "ISO file:   ${iso_file}"
         _msg_info "USB device: ${usb_device}"
         echo
         read -r -n1 -p "Confirm write to $(lsblk -dnro model,size -- "${usb_device}") (N/y)? "
@@ -279,7 +279,7 @@ _confirm_write() {
 _raw_write() {
         echo
         _msg_info "Creating live's medium, raw copy (dd like mode), no persistence"
-        if ! cp -v -- "${iso_name}" "${usb_device}"; then
+        if ! cp -v -- "${iso_file}" "${usb_device}"; then
                 echo 'Write failed!'
                 exit 1
         fi
@@ -310,7 +310,7 @@ _usb_prepare() {
         echo
         _msg_info 'Mounting iso'
         _msg_info "mountpoint: ${WD}/${workdir}/iso"
-        if ! mount -o ro -- "${iso_name}" "${WD}/${workdir}/iso"; then
+        if ! mount -o ro -- "${iso_file}" "${WD}/${workdir}/iso"; then
                 echo "Error: mounting iso failed!"
                 rmdir -- "${WD}/${workdir}/usb"{ro,esp,rw} "${WD}/${workdir}/iso" "${WD}/${workdir}"
                 exit 1
@@ -318,7 +318,7 @@ _usb_prepare() {
 
         # check iso
         if [[ ! -e "${WD}/${workdir}/iso/aui/mediumdef.sh" ]]; then
-                echo "Error: ${iso_name} is not a compatible iso image!"
+                echo "Error: ${iso_file} is not a compatible iso image!"
                 echo
                 _usage 1
         fi
@@ -326,7 +326,13 @@ _usb_prepare() {
         # source medium def variables
         source "${WD}/${workdir}/iso/aui/mediumdef.sh"
         if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-                echo "Error: ${iso_name} is not a compatible iso image!"
+                echo "Error: ${iso_file} is not a compatible iso image!"
+                echo
+                _usage 1
+        fi
+
+        if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
+                echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
                 echo
                 _usage 1
         fi

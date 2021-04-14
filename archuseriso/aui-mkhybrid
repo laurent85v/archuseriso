@@ -25,7 +25,7 @@ f2fs="no"
 FREESPACE=15360
 img_label=""
 iso_label=""
-iso_name=""
+iso_file=""
 isosize=0
 medium_version=""
 root_files_settings=()
@@ -153,7 +153,7 @@ _checks() {
                echo 'This script must be run as root!'
                exit 1
         fi
-        iso_name="${1}"
+        iso_file="${1}"
         usb_device="${2}"
         if [[ ! $(stat -c %t -- "${usb_device}" 2> /dev/null) -eq 8 ]]; then
                echo "Error: ${usb_device} is not a block device!"
@@ -171,12 +171,12 @@ _checks() {
                 echo "Error: ${usb_device} appears in active mounts, unmount drive partitions before proceeding!"
                 exit 1
         fi
-        if [[ ! -f "${iso_name}" ]]; then
-               echo "file ${iso_name} not found!"
+        if [[ ! -f "${iso_file}" ]]; then
+               echo "file ${iso_file} not found!"
                _usage 1
         fi
-        if [[ ! $(file -- "${iso_name}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
-                echo "Error: ${iso_name} is not an iso image!"
+        if [[ ! $(file -- "${iso_file}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+                echo "Error: ${iso_file} is not an iso image!"
                 _usage 1
         fi
         # Set efi boot partition size in MiB
@@ -218,7 +218,7 @@ _init() {
         LOGICSEC=$(blockdev --getss "${usb_device}")
         # Drive partition #1, first sector at 1 MiB
         STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
-        isosize=$(stat -c %s -- "${iso_name}")
+        isosize=$(stat -c %s -- "${iso_file}")
         # Check usb drive capacity
         if [[ ! ${drivesize} -gt $(( isosize + FREESPACE * 1024 * 1024 )) ]]; then
                echo 'Storage capacity error!'
@@ -242,7 +242,7 @@ _confirm_write() {
         echo
         _msg_info "This process may take a long time depending on the drive's write speed, be patient!"
         _msg_info ""
-        _msg_info "ISO file:   ${iso_name}"
+        _msg_info "ISO file:   ${iso_file}"
         _msg_info "USB device: ${usb_device}"
         _msg_info "username:   ${username}"
         echo
@@ -278,14 +278,14 @@ _usb_prepare() {
         echo
         _msg_info 'Mounting iso'
         _msg_info "mountpoint: ${WD}/${workdir}/iso"
-        if ! mount -o ro -- "${iso_name}" "${WD}/${workdir}/iso"; then
+        if ! mount -o ro -- "${iso_file}" "${WD}/${workdir}/iso"; then
                 echo "Error: mounting iso failed!"
                 exit 1
         fi
 
         # check iso
         if [[ ! -e "${WD}/${workdir}/iso/aui/mediumdef.sh" ]]; then
-                echo "Error: ${iso_name} is not a compatible iso image!"
+                echo "Error: ${iso_file} is not a compatible iso image!"
                 echo
                 _usage 1
         fi
@@ -293,7 +293,13 @@ _usb_prepare() {
         # source medium def variables
         source "${WD}/${workdir}/iso/aui/mediumdef.sh"
         if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-                echo "Error: ${iso_name} is not a compatible iso image!"
+                echo "Error: ${iso_file} is not a compatible iso image!"
+                echo
+                _usage 1
+        fi
+
+        if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
+                echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
                 echo
                 _usage 1
         fi
