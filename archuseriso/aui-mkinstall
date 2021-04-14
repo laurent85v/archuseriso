@@ -59,10 +59,11 @@ _help () {
         echo
         echo 'Options:'
         echo '-h, --help                  command line help'
-        echo '--encrypt                   encrypt persistent partition'
-        echo '--no-journal                disable ext4 journal'
         echo '--btrfs                     Btrfs file system for the root partition (Default Ext4)'
+        echo '--btrfs-compress algo       Btrfs compression algorithm: lzo, none, zlib, zstd (Default)'
+        echo '--encrypt                   encrypt persistent partition'
         echo '--f2fs                      F2FS file system for the root partition (Default Ext4)'
+        echo '--no-journal                disable ext4 journal'
         echo '--size-part1 integer[g|G]   1st partition size in GiB (Boot & efi partition, FAT)'
         echo '--size-part2 integer[g|G]   2nd partition size in GiB (Root partition, Ext4/F2FS)'
         echo "--username <user>           set a custom username, default username is 'archie'"
@@ -559,9 +560,8 @@ _biosbootloader() {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'encrypt,no-journal,btrfs,f2fs,help,username:' \
-                     --long 'nojournal' \
-                     --long 'size-part1:,sizepart1:,size-part2:,sizepart2:' \
+OPTS=$(getopt -o 'h' --long 'btrfs,encrypt,f2fs,help,no-journal,nojournal' \
+                     --long 'size-part1:,sizepart1:,size-part2:,sizepart2:,username:'
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -580,11 +580,19 @@ while true; do
                         shift ;;
                 '--btrfs')
                         btrfs="yes"
-                        btrfs_compress="zstd"
                         btrfs_subvol="/root"
-                        root_flags="subvol=${btrfs_subvol},compress=${btrfs_compress}"
+                        root_flags="subvol=${btrfs_subvol},compress=${btrfs_compress:-zstd}"
                         f2fs="no"
                         shift ;;
+                '--btrfs-compress')
+                        if [[ "${2}" == 'lzo'  || \
+                              "${2}" == 'no'   || \
+                              "${2}" == 'none' || \
+                              "${2}" == 'zlib' || \
+                              "${2}" == 'zstd'      ]]; then
+                                btrfs_compress="${2}"
+                        fi
+                        shift 2 ;;
                 '--f2fs')
                         f2fs="yes"
                         btrfs="no"
