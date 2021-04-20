@@ -65,7 +65,7 @@ _help () {
         echo '--f2fs                      F2FS file system for the root partition (Default Ext4)'
         echo '--no-journal                disable ext4 journal'
         echo '--size-part1 integer[g|G]   1st partition size in GiB (Boot & efi partition, FAT)'
-        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Root partition, Ext4/F2FS)'
+        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Root partition, Brtfs/Ext4/F2FS)'
         echo "--username <user>           set a custom username, default username is 'archie'"
         echo
         echo 'Example:'

@@ -66,7 +66,7 @@ _help() {
         echo '--no-refind                 Bypass rEFInd boot manager'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
         echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition, FAT)'
-        echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition, Ext4/F2FS)'
+        echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition, Brtfs/Ext4/F2FS)'
         echo
         echo 'Example:'
         echo "sudo ${appname} aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc"
