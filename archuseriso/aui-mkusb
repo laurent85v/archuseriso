@@ -54,7 +54,7 @@ _help() {
         echo 'Live usb with persistence.'
         echo
         echo 'Synopsis:'
-        echo "${appname} [options] <usb device> <iso image>"
+        echo "${appname} [options] <iso image> <usb device>"
         echo
         echo 'Options:'
         echo '-h, --help                  Command line help'

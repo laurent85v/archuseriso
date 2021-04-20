@@ -561,7 +561,7 @@ _biosbootloader() {
 
 # arguments
 OPTS=$(getopt -o 'h' --long 'btrfs,encrypt,f2fs,help,no-journal,nojournal' \
-                     --long 'size-part1:,sizepart1:,size-part2:,sizepart2:,username:'
+                     --long 'size-part1:,sizepart1:,size-part2:,sizepart2:,username:' \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
