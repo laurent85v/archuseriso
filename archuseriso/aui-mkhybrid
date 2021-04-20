@@ -620,7 +620,7 @@ while true; do
                         _help 0 ;;
                 '--btrfs')
                         btrfs="yes"
-                        btrfs_subvol="/root"
+                        btrfs_subvol="/rootfs"
                         root_flags="subvol=${btrfs_subvol},compress=${btrfs_compress:-zstd}"
                         f2fs="no"
                         shift ;;
