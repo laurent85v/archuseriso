@@ -17,6 +17,7 @@
 set -eu
 
 isoimage=''
+ramsize=''
 usbdrive=''
 
 print_help() {
@@ -26,15 +27,16 @@ Usage:
     aui-run [options]
 
 Options:
-    -a                      set accessibility support using brltty (console profile only)
-    -b, --bios              set boot type to 'BIOS' (default)
-    -d, --device [device]   set usb block device to boot from
-    -h, --help              print help
-    -i, --iso [image]       image to boot into
-    --hd                    set image type to hard disk instead of optical disc
-    -s, --sb                use Secure Boot (only relevant when using UEFI)
-    -u, --uefi              set boot type to 'UEFI'
-    -v, --vnc               use VNC display (instead of default SDL)
+    -a                         set accessibility support using brltty (console profile only)
+    -b, --bios                 set boot type to 'BIOS' (default)
+    -d, --device device_name   set usb block device to boot from
+    -h, --help                 print help
+    -i, --iso image_name       image to boot into
+    --hd                       set image type to hard disk instead of optical disc
+    -r, --ram integer[g/G]     set vm ram size in GiB (Default: 3)
+    -s, --sb                   use Secure Boot (only relevant when using UEFI)
+    -u, --uefi                 set boot type to 'UEFI'
+    -v, --vnc                  use VNC display (instead of default SDL)
 
 Examples:
     Run an image using UEFI:
@@ -87,6 +89,15 @@ _checks() {
     if ! pacman -Q qemu &> /dev/null; then
         echo 'qemu not installed, aborting!'
         exit 0
+    fi
+    if [[ -n "${ramsize}" ]]; then
+        if ! [[ "${ramsize}" =~ ^[1-9][0-9]?+$ ]]; then
+            echo "RAM size invalid argument (GiB): ${ramsize}"
+            exit 1
+        fi
+        ramsize=$(( ramsize * 1024 ))
+    else
+        ramsize=3072
     fi
 }
 
@@ -141,7 +152,7 @@ _run() {
 
     qemu-system-x86_64 \
         -boot order=d,menu=on,reboot-timeout=5000 \
-        -m "size=3072,slots=0,maxmem=$((3072*1024*1024))" \
+        -m "size=${ramsize},slots=0,maxmem=$((ramsize*1024*1024))" \
         -k en-us \
         -name archiso,process=archiso_0 \
         -display "${display}" \
@@ -168,8 +179,8 @@ secure_boot='off'
 working_dir="$(mktemp -dt auirun.XXXXXXXX)"
 trap cleanup_working_dir EXIT
 
-OPTS=$(getopt -o     'abd:hi:suv' \
-	      --long 'bios,device:,hd,help,iso:,sb,uefi,vnc' \
+OPTS=$(getopt -o     'abd:hi:r:suv' \
+	      --long 'bios,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
 	      -n 'aui-run' -- "$@")
 [[ $? -eq 0 ]] || { print_help; exit 1; }
 eval set -- "${OPTS}"
@@ -200,6 +211,9 @@ while true; do
             '--hd')
                 mediatype='hd'
                 shift ;;
+            '-r'|'--ram')
+                ramsize="${2/[gG]}"
+                shift 2 ;;
             '-s'|'--sb')
                 secure_boot='on'
                 shift ;;
