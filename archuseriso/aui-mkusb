@@ -143,7 +143,7 @@ _encryption_settings() {
         _msg_info "Done!"
         sed -i -- "s|persistence$|& encrypted|
                   s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/overlay/boot/loader/entries/archiso-aui-x86_64-linux.conf"
+                  "${WD}/${workdir}/overlay/boot/loader/entries/"*.conf
         sed -i -- "s|persistence$|& encrypted|
                   s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"

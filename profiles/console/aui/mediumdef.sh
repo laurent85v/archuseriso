@@ -21,7 +21,8 @@ cow_files_settings=(
         "persistent_${iso_label}_origin/x86_64/upperdir/etc/fstab")
 esp_files_settings=(
         'EFI/BOOT/refind.conf'
-        'loader/entries/archiso-aui-x86_64-linux.conf'
+        'loader/entries/archiso-aui-0-x86_64-linux.conf'
+        'loader/entries/archiso-aui-1-x86_64-linux.conf'
         'loader/entries/archiso-x86_64-linux.conf'
         'loader/entries/archiso_3_ram-x86_64-linux.conf'
         'syslinux/archiso_pxe-linux.cfg'
