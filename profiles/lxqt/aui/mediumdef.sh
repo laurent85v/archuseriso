@@ -4,8 +4,8 @@
 
 aui_suffix="$(mktemp -u _XXX)"
 cow_label="COW${aui_suffix:-}"
-crypt_label="CRYPT${aui_suffix:-}"
-crypt_mapper="crypt${aui_suffix:-}"
+crypt_label="LUKS${aui_suffix:-}"
+crypt_mapper="LUKS${aui_suffix:-}"
 esp_label="ESP${aui_suffix:-}"
 desktop="%DESKTOP%"
 img_label="%ARCHISO_LABEL%${aui_suffix:-}"

@@ -110,7 +110,7 @@ _unmount() {
 _luks() {
         echo
         _msg_info "Setting up encryption, type in a passphrase of your choice"
-        if ! cryptsetup --type=luks2 --label="${crypt_label:-AUICRYPT}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}2" > /dev/null; then
+        if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}2" > /dev/null; then
                echo 'Encryption setup failed, exiting!'
                exit 1
         fi
