@@ -13,6 +13,7 @@ appname="${0##*/}"
 btrfs="no"
 btrfs_compress=""
 btrfs_subvol=""
+copytoram_size=""
 cow_files_settings=()
 cow_flags="defaults"
 cow_label=""
@@ -334,6 +335,11 @@ _usb_prepare() {
                 _usage 1
         fi
 
+        if [[ -f "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" ]]; then
+                copytoram_size=$(( $(stat -c %s "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs") + \
+                                     1024 * 64 ))
+        fi
+
         if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
                 echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
                 echo
@@ -524,12 +530,16 @@ _esp() {
         for mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${mediumfile}" ]]; then
                         sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                                s|%IMG_LABEL%|${img_label}|g;
-                                s|%ESP_LABEL%|${esp_label}|g;
                                 s|%COW_LABEL%|${cow_label}|g;
                                 s|%COW_FLAGS%|${cow_flags}|g;
+                                s|%ESP_LABEL%|${esp_label}|g;
+                                s|%IMG_LABEL%|${img_label}|g;
                                 s|=${iso_label}|=${img_label}|g" \
                                "${WD}/${workdir}/usbesp/${mediumfile}"
+                        if [[ -n "${copytoram_size}" ]]; then
+                                sed -i "s|copytoram|copytoram_size=${copytoram_size} &|" \
+                                       "${WD}/${workdir}/usbesp/${mediumfile}"
+                        fi
                 fi
         done
         if [[ "${refind}" == "no" ]]; then
