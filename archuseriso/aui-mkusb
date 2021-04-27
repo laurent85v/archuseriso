@@ -12,7 +12,8 @@ set -e -u
 appname="${0##*/}"
 btrfs="no"
 btrfs_compress=""
-btrfs_subvol=""
+btrfs_subvol_home=""
+btrfs_subvol_root=""
 copytoram_size=""
 cow_files_settings=()
 cow_flags="defaults"
@@ -85,7 +86,7 @@ _msg_info() {
 
 _cleanup() {
         local _workdirs
-        _workdirs=('overlay/boot' 'overlay' 'squashfs' 'iso' 'usbro' 'usbesp' 'usbrw')
+        _workdirs=('overlay/boot' 'overlay' 'squashfs' 'home' 'iso' 'usbro' 'usbesp' 'usbrw')
         for _workdir in ${_workdirs[*]}; do
                 if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
                         umount -- "${WD}/${workdir}/${_workdir}"
@@ -133,9 +134,9 @@ _luks() {
 _encryption_settings() {
         echo
         _msg_info "Setting up encryption"
-        mkdir -- "${WD}/${workdir}/"{overlay,squashfs}
+        mkdir -p -- "${WD}/${workdir}/"{overlay,squashfs}
         mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
-        mkdir -- "${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir"
+        mkdir -p -- "${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir"
         mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
         mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/overlay/boot"
         sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
@@ -478,6 +479,12 @@ _format() {
         _msg_info "Done!"
 }
 
+_btrfs_subvolumes() {
+        # rootfs and home subvolumes creation for persistence
+        btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_root}" > /dev/null
+        btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_home}" > /dev/null
+}
+
 _mount() {
         # Mount usb device
         echo
@@ -489,9 +496,10 @@ _mount() {
         _msg_info "device: ${cow_device}, mountpoint: ${WD}/${workdir}/usbrw"
         mount -- "${cow_device}" "${WD}/${workdir}/usbrw"
         if [[ "${btrfs}" == "yes" ]]; then
-                btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol}" > /dev/null
+                _btrfs_subvolumes
                 umount "${WD}/${workdir}/usbrw"
                 sleep 5
+                # Mount rootfs subvolume
                 mount -o "${cow_flags}" -- "${cow_device}" "${WD}/${workdir}/usbrw"
         fi
         _msg_info "Done!"
@@ -529,16 +537,16 @@ _esp() {
         cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
         for mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${mediumfile}" ]]; then
-                        sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                                s|%COW_LABEL%|${cow_label}|g;
-                                s|%COW_FLAGS%|${cow_flags}|g;
-                                s|%ESP_LABEL%|${esp_label}|g;
-                                s|%IMG_LABEL%|${img_label}|g;
-                                s|=${iso_label}|=${img_label}|g" \
-                               "${WD}/${workdir}/usbesp/${mediumfile}"
+                        sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
+                                   s|%COW_LABEL%|${cow_label}|g;
+                                   s|%COW_FLAGS%|${cow_flags}|g;
+                                   s|%ESP_LABEL%|${esp_label}|g;
+                                   s|%IMG_LABEL%|${img_label}|g;
+                                   s|=${iso_label}|=${img_label}|g" \
+                                  "${WD}/${workdir}/usbesp/${mediumfile}"
                         if [[ -n "${copytoram_size}" ]]; then
-                                sed -i "s|copytoram|copytoram_size=${copytoram_size} &|" \
-                                       "${WD}/${workdir}/usbesp/${mediumfile}"
+                                sed -i -- "s|copytoram|copytoram_size=${copytoram_size} &|" \
+                                          "${WD}/${workdir}/usbesp/${mediumfile}"
                         fi
                 fi
         done
@@ -548,19 +556,39 @@ _esp() {
         _msg_info "Done!"
 }
 
+_persistence_btrfs_home() {
+        _msg_info "copying squashfs home to btrfs home subvolume"
+        # copy squashfs home to btrfs home subvolume
+        mkdir -p -- "${WD}/${workdir}/"{squashfs,home}
+        mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
+        mount -o subvol="${btrfs_subvol_home}" -- "${cow_device}" "${WD}/${workdir}/home"
+        cp -aT -- "${WD}/${workdir}/squashfs/home/" "${WD}/${workdir}/home/"
+        umount "${WD}/${workdir}/"{squashfs,home}
+        sleep 5
+}
+
 _persistence() {
         echo
         _msg_info "Setting up persistence"
         _msg_info "copying persistence settings to ${WD}/${workdir}/usbrw"
         cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${img_label}"
-        cp -a -- "${WD}/${workdir}/iso/aui/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${iso_label}_origin"
         for mediumfile in "${cow_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbrw/${mediumfile}" ]]; then
-                        sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${mediumfile}"
+                        sed -i -- "s|%ESP_LABEL%|${esp_label}|g;
+                                   s|%COW_LABEL%|${cow_label}|g;
+                                   s|%BTRFS_SUBVOL_HOME%|${btrfs_subvol_home}|g" \
+                                  "${WD}/${workdir}/usbrw/${mediumfile}"
+                        if [[ "${btrfs}" == "no" && "${mediumfile}" =~ 'fstab' ]]; then
+                                # remove unused btrfs line in fstab
+                                sed -i -- '/btrfs/d' "${WD}/${workdir}/usbrw/${mediumfile}"
+                        fi
                 fi
         done
-
+        if [[ "${btrfs}" == "yes" ]]; then
+                _persistence_btrfs_home
+        fi
         _msg_info "Done!"
+
         if [[ "${encryption}" == "yes" ]]; then
                _encryption_settings
         fi
@@ -600,8 +628,9 @@ while true; do
                         _help 0 ;;
                 '--btrfs')
                         btrfs="yes"
-                        btrfs_subvol="/rootfs"
-                        cow_flags="subvol=${btrfs_subvol},compress=${btrfs_compress:-zstd}"
+                        btrfs_subvol_home="/home"
+                        btrfs_subvol_root="/rootfs"
+                        cow_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-zstd}"
                         f2fs="no"
                         shift ;;
                 '--btrfs-compress')

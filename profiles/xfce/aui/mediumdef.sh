@@ -17,8 +17,7 @@ lang="%LANG%"
 medium_version='v5'
 root_label=ROOT${aui_suffix:-}
 cow_files_settings=(
-        "persistent_${img_label}/x86_64/upperdir/etc/fstab"
-        "persistent_${iso_label}_origin/x86_64/upperdir/etc/fstab")
+	"persistent_${img_label}/x86_64/upperdir/etc/fstab")
 esp_files_settings=(
         'EFI/BOOT/refind.conf'
         'loader/entries/archiso-aui-0-x86_64-linux.conf'

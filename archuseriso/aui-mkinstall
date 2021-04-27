@@ -12,7 +12,8 @@ set -e -u
 appname="${0##*/}"
 btrfs="no"
 btrfs_compress=""
-btrfs_subvol=""
+btrfs_subvol_home=""
+btrfs_subvol_root=""
 desktop=""
 encryption="no"
 esp_files_settings=()
@@ -81,7 +82,7 @@ _msg_info () {
 
 _cleanup() {
         local _workdirs
-        _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/boot' 'usbesp' 'usbrw')
+        _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/home' 'usbrw/boot' 'usbesp' 'usbrw')
         for _workdir in ${_workdirs[*]}; do
                 if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
                         umount -- "${WD}/${workdir}/${_workdir}"
@@ -414,6 +415,20 @@ _format() {
         _msg_info "Done!"
 }
 
+_btrfs_subvolumes() {
+       # rootfs and home subvolumes creation for persistence
+        btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_root}" > /dev/null
+        btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_home}" > /dev/null
+}
+
+_mount_subvolumes() {
+        umount "${WD}/${workdir}/usbrw"
+        sleep 5
+        mount -o "${root_flags}" -- "${root_device}" "${WD}/${workdir}/usbrw"
+        mkdir -p -- "${WD}/${workdir}/usbrw/home"
+        mount -o subvol="${btrfs_subvol_home}" -- "${root_device}" "${WD}/${workdir}/usbrw/home"
+}
+
 _mount() {
         # Mount usb device
         echo
@@ -423,10 +438,8 @@ _mount() {
         _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
         mount -- "${root_device}" "${WD}/${workdir}/usbrw"
         if [[ "${btrfs}" == "yes" ]]; then
-                btrfs subvolume create "${WD}/${workdir}/usbrw/${btrfs_subvol}" > /dev/null
-                umount "${WD}/${workdir}/usbrw"
-                sleep 5
-                mount -o "${root_flags}" -- "${root_device}" "${WD}/${workdir}/usbrw"
+                _btrfs_subvolumes
+                _mount_subvolumes
         fi
         _msg_info "Done!"
         # Mount squashfs
@@ -457,18 +470,19 @@ _esp() {
         cp -r -- "${WD}/${workdir}/iso/aui/install/syslinux" "${WD}/${workdir}/usbesp/"
         for _mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
-                        sed -i "s|%ARCHISO_LABEL%|${iso_label}|g;
-                                s|%DESKTOP%|${desktop}|g;
-                                s|%ESP_LABEL%|${esp_label}|g;
-                                s|%ROOT_LABEL%|${root_label}|g;
-                                s|%ROOT_FLAGS%|${root_flags}|g;
-                                s|=${iso_label}|=${img_label}|g" \
-                               "${WD}/${workdir}/usbesp/${_mediumfile}"
+                        sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
+                                   s|%DESKTOP%|${desktop}|g;
+                                   s|%ESP_LABEL%|${esp_label}|g;
+                                   s|%ROOT_LABEL%|${root_label}|g;
+                                   s|%ROOT_FLAGS%|${root_flags}|g;
+                                   s|=${iso_label}|=${img_label}|g" \
+                                  "${WD}/${workdir}/usbesp/${_mediumfile}"
                 fi
         done
         cp -- "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" "${WD}/${workdir}/usbesp/vmlinuz-linux.png"
-        sed -- "s|%ROOT_LABEL%|${root_label}|g; s|%ROOT_FLAGS%|${root_flags}|g" "${WD}/${workdir}/iso/aui/install/refind_linux.conf" \
-                > "${WD}/${workdir}/usbesp/refind_linux.conf"
+        sed -- "s|%ROOT_LABEL%|${root_label}|g; s|%ROOT_FLAGS%|${root_flags}|g" \
+               "${WD}/${workdir}/iso/aui/install/refind_linux.conf" \
+             > "${WD}/${workdir}/usbesp/refind_linux.conf"
         _msg_info "Done!"
 }
 
@@ -483,7 +497,14 @@ _settings() {
         # fstab
         for _mediumfile in "${root_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbrw/${_mediumfile}" ]]; then
-                        sed -i "s|%ESP_LABEL%|${esp_label}|g" "${WD}/${workdir}/usbrw/${_mediumfile}"
+                        sed -i -- "s|%ESP_LABEL%|${esp_label}|g;
+                                   s|%ROOT_LABEL%|${root_label}|g;
+                                   s|%BTRFS_SUBVOL_HOME%|${btrfs_subvol_home}|g" \
+                                  "${WD}/${workdir}/usbrw/${_mediumfile}"
+                        if [[ "${btrfs}" == "no" && "${_mediumfile}" =~ 'fstab' ]]; then
+                                # remove unused btrfs line in fstab
+                                sed -i -- '/btrfs/d' "${WD}/${workdir}/usbrw/${_mediumfile}"
+                        fi
                 fi
         done
 
@@ -580,8 +601,9 @@ while true; do
                         shift ;;
                 '--btrfs')
                         btrfs="yes"
-                        btrfs_subvol="/rootfs"
-                        root_flags="subvol=${btrfs_subvol},compress=${btrfs_compress:-zstd}"
+                        btrfs_subvol_home="/home"
+                        btrfs_subvol_root="/rootfs"
+                        root_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-zstd}"
                         f2fs="no"
                         shift ;;
                 '--btrfs-compress')
