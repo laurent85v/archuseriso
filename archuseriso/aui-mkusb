@@ -60,15 +60,15 @@ _help() {
         echo
         echo 'Options:'
         echo '-h, --help                  Command line help'
-        echo '--btrfs                     Btrfs file system for the persistent partition (Default Ext4)'
+        echo '--btrfs                     Btrfs file system for the persistent partition'
         echo '--btrfs-compress algo       Btrfs compression algorithm: lzo, none, zlib, zstd (Default)'
         echo '--encrypt                   Encrypt persistent partition'
-        echo '--f2fs                      F2FS file system for the persistent partition (Default Ext4)'
+        echo '--f2fs                      F2FS file system for the persistent partition'
         echo '--no-journal                Disable ext4 journal'
         echo '--no-refind                 Bypass rEFInd boot manager'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
-        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition, FAT)'
-        echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition, Brtfs/Ext4/F2FS)'
+        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition)'
+        echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition)'
         echo
         echo 'Example:'
         echo "sudo ${appname} aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc"
@@ -216,7 +216,7 @@ _checks() {
         # Set persistent partition size in MiB, free space left by default
         if [[ -n "${cow_size}" ]]; then
                 if ! [[ "${cow_size}" =~ ^[1-9][0-9]?+$ ]]; then
-                        echo "Ext4/F2FS partition size error: Invalid size argument (GiB): ${cow_size}"
+                        echo "Persistent partition size error: Invalid size argument (GiB): ${cow_size}"
                         _usage 1
                 fi
                 cow_size=$(( cow_size * 1024 ))
