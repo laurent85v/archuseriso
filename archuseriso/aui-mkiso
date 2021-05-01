@@ -107,7 +107,7 @@ usage: ${app_name} [options] <profile_dir>
                                         NOTE: Max 8 characters, use only [a-z0-9]
      --embed-dir <path>                 Embed directory contents in the iso image,
                                         data available from the live's session.
-     -g <gpg_key>                       Set the GPG key to be used for signing the sqashfs image
+     -g <gpg_key>                       Set the GPG key ID to be used for signing the rootfs image
      -h                                 This message
      -L <label>                         Set the ISO volume label
                                         Default: '${iso_label}'
@@ -269,7 +269,7 @@ _mkchecksum() {
 }
 
 _mksignature() {
-    _msg_info "Signing SquashFS image..."
+    _msg_info "Signing rootfs image..."
     cd -- "${isofs_dir}/${install_dir}/${arch}"
     # always use the .sig file extension, as that is what mkinitcpio-archiso's hooks expect
     if [[ -e "${isofs_dir}/${install_dir}/${arch}/airootfs.sfs" ]]; then
