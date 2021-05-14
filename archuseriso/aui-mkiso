@@ -18,12 +18,15 @@ airootfs_image_type="squashfs"
 airootfs_image_tool_options=()
 arch="$(uname -m)"
 bootmodes=()
+bootstrap_packages=""
+bootstrap_pkg_list=()
+buildmodes=()
 build_zfs_packages="n"
 directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
 embed_dir=""
 gpg_key=""
-img_name=""
+image_name=""
 install_dir=""
 iso_application=""
 iso_label=""
@@ -37,6 +40,7 @@ packages=""
 packages_locales=""
 pacman_conf=""
 pacman_testing_conf=""
+pacstrap_dir=""
 pkg_list=()
 pkg_list_additions=()
 pkg_testing_list=()
@@ -75,8 +79,8 @@ _msg_error() {
 _mount_airootfs() {
     trap "_umount_airootfs" EXIT HUP INT TERM
     install -d -m 0755 -- "${work_dir}/mnt/airootfs"
-	_msg_info "Mounting '${airootfs_dir}.img' on '${work_dir}/mnt/airootfs'..."
-    mount -- "${airootfs_dir}.img" "${work_dir}/mnt/airootfs"
+	_msg_info "Mounting '${pacstrap_dir}.img' on '${work_dir}/mnt/airootfs'..."
+    mount -- "${pacstrap_dir}.img" "${work_dir}/mnt/airootfs"
     _msg_info "Done!"
 }
 
@@ -113,6 +117,8 @@ usage: ${app_name} [options] <profile_dir>
                                         Default: '${iso_label}'
      -l, --language <lang>              Set default language, select one from:
                                         cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
+     -m, --build-modes [build modes]    Build modes to use (valid modes are: 'bootstrap' and 'iso').
+                                        Multiple build modes are provided as quoted, comma delimited list.
      --nvidia                           Nvidia graphics driver setup
      --optimus                          For Optimus hardware, set Intel iGPU default and Nvidia dGPU
                                         configured for PRIME render offload (prime-run <application>)
@@ -155,6 +161,8 @@ _show_config() {
     _msg_info "   Installation directory:   ${install_dir}"
     _msg_info "               Build date:   ${build_date}"
     _msg_info "         Output directory:   ${out_dir}"
+    _msg_info "       Current build mode:   ${buildmode}"
+    _msg_info "              Build modes:   ${buildmodes[*]}"
     _msg_info "                  GPG key:   ${gpg_key:-None}"
     _msg_info "                  Profile:   ${profile}"
     _msg_info "Pacman configuration file:   ${pacman_conf}"
@@ -165,30 +173,31 @@ _show_config() {
     _msg_info "               Boot modes:   ${bootmodes[*]}"
     _msg_info "    Packages from testing:   ${pkg_testing_list[*]}"
     _msg_info "  User packages directory:   ${user_pkg_dir}"
-    _msg_info "                 Packages:   ${pkg_list[*]}"
+    _msg_info "            Packages File:   ${buildmode_packages}"
+    _msg_info "                 Packages:   ${buildmode_pkg_list[*]}"
 }
 
 # Cleanup airootfs
-_cleanup_airootfs() {
-    _msg_info "Cleaning up what we can on airootfs..."
+_cleanup_pacstrap_dir() {
+    _msg_info "Cleaning up in pacstrap location..."
 
     # Delete all files in /boot
-    [[ -d "${airootfs_dir}/boot" ]] && find "${airootfs_dir}/boot" -mindepth 1 -delete
+    [[ -d "${pacstrap_dir}/boot" ]] && find "${pacstrap_dir}/boot" -mindepth 1 -delete
     # Delete pacman database sync cache files (*.tar.gz)
-    [[ -d "${airootfs_dir}/var/lib/pacman" ]] && find "${airootfs_dir}/var/lib/pacman" -maxdepth 1 -type f -delete
+    [[ -d "${pacstrap_dir}/var/lib/pacman" ]] && find "${pacstrap_dir}/var/lib/pacman" -maxdepth 1 -type f -delete
     # Delete pacman database sync cache
-    [[ -d "${airootfs_dir}/var/lib/pacman/sync" ]] && find "${airootfs_dir}/var/lib/pacman/sync" -delete
+    [[ -d "${pacstrap_dir}/var/lib/pacman/sync" ]] && find "${pacstrap_dir}/var/lib/pacman/sync" -delete
     # Delete pacman package cache
-    [[ -d "${airootfs_dir}/var/cache/pacman/pkg" ]] && find "${airootfs_dir}/var/cache/pacman/pkg" -type f -delete
+    [[ -d "${pacstrap_dir}/var/cache/pacman/pkg" ]] && find "${pacstrap_dir}/var/cache/pacman/pkg" -type f -delete
     # Delete all log files, keeps empty dirs.
-    [[ -d "${airootfs_dir}/var/log" ]] && find "${airootfs_dir}/var/log" -type f -delete
+    [[ -d "${pacstrap_dir}/var/log" ]] && find "${pacstrap_dir}/var/log" -type f -delete
     # Delete all temporary files and dirs
-    [[ -d "${airootfs_dir}/var/tmp" ]] && find "${airootfs_dir}/var/tmp" -mindepth 1 -delete
+    [[ -d "${pacstrap_dir}/var/tmp" ]] && find "${pacstrap_dir}/var/tmp" -mindepth 1 -delete
     # Delete package pacman related files.
     find "${work_dir}" \( -name '*.pacnew' -o -name '*.pacsave' -o -name '*.pacorig' \) -delete
     # Create an empty /etc/machine-id
-    rm -f -- "${airootfs_dir}/etc/machine-id"
-    printf '' > "${airootfs_dir}/etc/machine-id"
+    rm -f -- "${pacstrap_dir}/etc/machine-id"
+    printf '' > "${pacstrap_dir}/etc/machine-id"
 
     _msg_info "Done!"
 }
@@ -205,54 +214,54 @@ _run_mksquashfs() {
 
 # Makes a ext4 filesystem inside a SquashFS from a source directory.
 _mkairootfs_ext4+squashfs() {
-    [[ -e "${airootfs_dir}" ]] || _msg_error "The path '${airootfs_dir}' does not exist" 1
+    [[ -e "${pacstrap_dir}" ]] || _msg_error "The path '${pacstrap_dir}' does not exist" 1
 
     _msg_info "Creating ext4 image of 32 GiB..."
     if [[ "${quiet}" == "y" ]]; then
-        mkfs.ext4 -q -O '^has_journal,^resize_inode' -E 'lazy_itable_init=0' -m 0 -F -- "${airootfs_dir}.img" 32G
+        mkfs.ext4 -q -O '^has_journal,^resize_inode' -E 'lazy_itable_init=0' -m 0 -F -- "${pacstrap_dir}.img" 32G
     else
-        mkfs.ext4 -O '^has_journal,^resize_inode' -E 'lazy_itable_init=0' -m 0 -F -- "${airootfs_dir}.img" 32G
+        mkfs.ext4 -O '^has_journal,^resize_inode' -E 'lazy_itable_init=0' -m 0 -F -- "${pacstrap_dir}.img" 32G
     fi
-    tune2fs -c 0 -i 0 -- "${airootfs_dir}.img" > /dev/null
+    tune2fs -c 0 -i 0 -- "${pacstrap_dir}.img" > /dev/null
     _msg_info "Done!"
     _mount_airootfs
-    _msg_info "Copying '${airootfs_dir}/' to '${work_dir}/mnt/airootfs/'..."
-    cp -aT -- "${airootfs_dir}/" "${work_dir}/mnt/airootfs/"
+    _msg_info "Copying '${pacstrap_dir}/' to '${work_dir}/mnt/airootfs/'..."
+    cp -aT -- "${pacstrap_dir}/" "${work_dir}/mnt/airootfs/"
     chown -- 0:0 "${work_dir}/mnt/airootfs/"
     _msg_info "Done!"
     _umount_airootfs
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     echo
     _msg_info "Creating SquashFS image, this may take some time..."
-    _run_mksquashfs "${airootfs_dir}.img"
+    _run_mksquashfs "${pacstrap_dir}.img"
     _msg_info "Done!"
-    rm -- "${airootfs_dir}.img"
+    rm -- "${pacstrap_dir}.img"
 }
 
 # Makes a SquashFS filesystem from a source directory.
 _mkairootfs_squashfs() {
-    if [[ ! -e "${airootfs_dir}" ]]; then
-        _msg_error "The path '${airootfs_dir}' does not exist" 1
+    if [[ ! -e "${pacstrap_dir}" ]]; then
+        _msg_error "The path '${pacstrap_dir}' does not exist" 1
     fi
 
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     echo
     _msg_info "Creating SquashFS image, this may take some time..."
-    _run_mksquashfs "${airootfs_dir}"
+    _run_mksquashfs "${pacstrap_dir}"
     _msg_info "Done!"
 }
 
 # Makes an EROFS file system from a source directory.
 _mkairootfs_erofs() {
     local fsuuid
-    [[ -e "${airootfs_dir}" ]] || _msg_error "The path '${airootfs_dir}' does not exist" 1
+    [[ -e "${pacstrap_dir}" ]] || _msg_error "The path '${pacstrap_dir}' does not exist" 1
 
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     local image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.erofs"
     # Generate reproducible file system UUID from SOURCE_DATE_EPOCH
     fsuuid="$(uuidgen --sha1 --namespace 93a870ff-8565-4cf3-a67b-f47299271a96 --name "${SOURCE_DATE_EPOCH}")"
     _msg_info "Creating EROFS image, this may take some time..."
-    mkfs.erofs -U "${fsuuid}" "${airootfs_image_tool_options[@]}" -- "${image_path}" "${airootfs_dir}"
+    mkfs.erofs -U "${fsuuid}" "${airootfs_image_tool_options[@]}" -- "${image_path}" "${pacstrap_dir}"
     _msg_info "Done!"
 }
 
@@ -284,7 +293,7 @@ _mksignature() {
 _mkchecksum_iso() {
     _msg_info "Creating iso image checksum file..."
     cd -- "${out_dir}"
-    sha512sum "${img_name}" > "${img_name}.sha512"
+    sha512sum "${image_name}" > "${image_name}.sha512"
     cd -- "${OLDPWD}"
     _msg_info "Done!"
 }
@@ -292,16 +301,16 @@ _mkchecksum_iso() {
 _mksignature_iso() {
     _msg_info "Signing iso image..."
     cd -- "${out_dir}"
-    gpg --detach-sign --default-key "${gpg_key}" "${img_name}"
+    gpg --detach-sign --default-key "${gpg_key}" "${image_name}"
     cd -- "${OLDPWD}"
     _msg_info "Done!"
 }
 
 # Helper function to run functions only one time.
 _run_once() {
-    if [[ ! -e "${work_dir}/build.${1}" ]]; then
+    if [[ ! -e "${work_dir}/${run_once_mode}.${1}" ]]; then
         "$1"
-        touch "${work_dir}/build.${1}"
+        touch "${work_dir}/${run_once_mode}.${1}"
     fi
 }
 
@@ -324,15 +333,15 @@ _make_pacman_conf() {
     # take the profile pacman.conf and strip all settings that would break in chroot when using pacman -r
     # see `man 8 pacman` for further info
     pacman-conf --config "${pacman_conf}" | \
-        sed '/CacheDir/d;/DBPath/d;/HookDir/d;/LogFile/d;/RootDir/d' > "${work_dir}/pacman.conf"
+        sed '/CacheDir/d;/DBPath/d;/HookDir/d;/LogFile/d;/RootDir/d' > "${work_dir}/${buildmode}.pacman.conf"
     _msg_info "Done!"
 
     _msg_info "Using pacman CacheDir: ${_cache_dirs}"
     # append CacheDir and HookDir to [options] section
     # HookDir is *always* set to the airootfs' override directory
     sed "/\[options\]/a CacheDir = ${_cache_dirs}
-        /\[options\]/a HookDir = ${airootfs_dir}/etc/pacman.d/hooks/" \
-        -i "${work_dir}/pacman.conf"
+        /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
+        -i "${work_dir}/${buildmode}.pacman.conf"
     _msg_info "Done!"
 }
 
@@ -361,7 +370,7 @@ _make_pacman_testing_conf() {
     # append CacheDir and HookDir to [options] section
     # HookDir is *always* set to the airootfs' override directory
     sed "/\[options\]/a CacheDir = ${_cache_dirs}
-        /\[options\]/a HookDir = ${airootfs_dir}/etc/pacman.d/hooks/" \
+        /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
         -i "${work_dir}/pacman-testing.conf"
     _msg_info "Done!"
 }
@@ -371,31 +380,31 @@ _make_custom_airootfs() {
     local passwd=()
     local filename permissions
 
-    install -d -m 0755 -o 0 -g 0 -- "${airootfs_dir}"
+    install -d -m 0755 -o 0 -g 0 -- "${pacstrap_dir}"
 
     if [[ -d "${profile}/airootfs" ]]; then
         _msg_info "Copying custom airootfs files..."
-        cp -af --no-preserve=ownership -- "${profile}/airootfs/." "${airootfs_dir}"
+        cp -af --no-preserve=ownership -- "${profile}/airootfs/." "${pacstrap_dir}"
         # airootfs localization
         if [[ -n "${lang}" ]]; then
-            cp -af --no-preserve=ownership -- "${profile}/lang/${lang}/airootfs/." "${airootfs_dir}"
+            cp -af --no-preserve=ownership -- "${profile}/lang/${lang}/airootfs/." "${pacstrap_dir}"
         fi
         # Set ownership and mode for files and directories
         for filename in "${!file_permissions[@]}"; do
             IFS=':' read -ra permissions <<< "${file_permissions["${filename}"]}"
-            # Prevent file path traversal outside of $airootfs_dir
-            if [[ "$(realpath -q -- "${airootfs_dir}${filename}")" != "${airootfs_dir}"* ]]; then
-                _msg_error "Failed to set permissions on '${airootfs_dir}${filename}'. Outside of valid path." 1
+            # Prevent file path traversal outside of $pacstrap_dir
+            if [[ "$(realpath -q -- "${pacstrap_dir}${filename}")" != "${pacstrap_dir}"* ]]; then
+                _msg_error "Failed to set permissions on '${pacstrap_dir}${filename}'. Outside of valid path." 1
             # Warn if the file does not exist
-            elif [[ ! -e "${airootfs_dir}${filename}" ]]; then
-                _msg_warning "Cannot change permissions of '${airootfs_dir}${filename}'. The file or directory does not exist."
+            elif [[ ! -e "${pacstrap_dir}${filename}" ]]; then
+                _msg_warning "Cannot change permissions of '${pacstrap_dir}${filename}'. The file or directory does not exist."
             else
                 if [[ "${filename: -1}" == "/" ]]; then
-                    chown -fhR -- "${permissions[0]}:${permissions[1]}" "${airootfs_dir}${filename}"
-                    chmod -fR -- "${permissions[2]}" "${airootfs_dir}${filename}"
+                    chown -fhR -- "${permissions[0]}:${permissions[1]}" "${pacstrap_dir}${filename}"
+                    chmod -fR -- "${permissions[2]}" "${pacstrap_dir}${filename}"
                 else
-                    chown -fh -- "${permissions[0]}:${permissions[1]}" "${airootfs_dir}${filename}"
-                    chmod -f -- "${permissions[2]}" "${airootfs_dir}${filename}"
+                    chown -fh -- "${permissions[0]}:${permissions[1]}" "${pacstrap_dir}${filename}"
+                    chmod -f -- "${permissions[2]}" "${pacstrap_dir}${filename}"
                 fi
             fi
         done
@@ -409,16 +418,16 @@ _make_custom_airootfs() {
 
 # Install desired packages to airootfs
 _make_packages() {
-     _msg_info "Installing packages to '${airootfs_dir}/'..."
+     _msg_info "Installing packages to '${pacstrap_dir}/'..."
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
     fi
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -- "${airootfs_dir}" "${pkg_list[@]}" &> /dev/null
+        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}" &> /dev/null
     else
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -- "${airootfs_dir}" "${pkg_list[@]}"
+        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}"
     fi
 
     if [[ -n "${gpg_key}" ]]; then
@@ -431,7 +440,7 @@ _make_packages() {
 
 # Packages in testing (airootfs)
 _make_packages_testing () {
-    _msg_info "Installing testing packages to '${airootfs_dir}/'..."
+    _msg_info "Installing testing packages to '${pacstrap_dir}/'..."
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
@@ -439,9 +448,9 @@ _make_packages_testing () {
     fi
 
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${airootfs_dir}" "${pkg_testing_list[@]}" &> /dev/null
+        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}" &> /dev/null
     else
-        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${airootfs_dir}" "${pkg_testing_list[@]}"
+        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}"
     fi
 
     if [[ -n "${gpg_key}" ]]; then
@@ -457,7 +466,7 @@ _make_packages_upgrade() {
     local _pkg_upgrade
     mapfile -t _pkg_upgrade < <(find "${user_pkg_dir}" -maxdepth 1 \( -name "*.pkg.tar.xz" -o -name "*.pkg.tar.zst" \))
 
-    _msg_info "Installing user packages to '${airootfs_dir}/'..."
+    _msg_info "Installing user packages to '${pacstrap_dir}/'..."
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
@@ -465,9 +474,9 @@ _make_packages_upgrade() {
     fi
 
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${airootfs_dir}" "${_pkg_upgrade[@]}" &> /dev/null
+        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}" &> /dev/null
     else
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${airootfs_dir}" "${_pkg_upgrade[@]}"
+        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}"
     fi
 
     if [[ -n "${gpg_key}" ]]; then
@@ -491,40 +500,40 @@ _make_customize_airootfs() {
             # Skip invalid home directories
             [[ "${passwd[5]}" == '/' ]] && continue
 	        [[ -z "${passwd[5]}" ]] && continue
-            # Prevent path traversal outside of $airootfs_dir
-            if [[ "$(realpath -q -- "${airootfs_dir}${passwd[5]}")" == "${airootfs_dir}"* ]]; then
-                if [[ ! -d "${airootfs_dir}${passwd[5]}" ]]; then
-                    install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${airootfs_dir}${passwd[5]}"
+            # Prevent path traversal outside of $pacstrap_dir
+            if [[ "$(realpath -q -- "${pacstrap_dir}${passwd[5]}")" == "${pacstrap_dir}"* ]]; then
+                if [[ ! -d "${pacstrap_dir}${passwd[5]}" ]]; then
+                    install -d -m 0750 -o "${passwd[2]}" -g "${passwd[3]}" -- "${pacstrap_dir}${passwd[5]}"
                 fi
-                cp -dnRT --preserve=mode,timestamps,links -- "${airootfs_dir}/etc/skel/." "${airootfs_dir}${passwd[5]}"
-                chown -hR -- "${passwd[2]}:${passwd[3]}" "${airootfs_dir}${passwd[5]}"
+                cp -dnRT --preserve=mode,timestamps,links -- "${pacstrap_dir}/etc/skel/." "${pacstrap_dir}${passwd[5]}"
+                chown -hR -- "${passwd[2]}:${passwd[3]}" "${pacstrap_dir}${passwd[5]}"
             else
-                _msg_error "Failed to set permissions on '${airootfs_dir}${passwd[5]}'. Outside of valid path." 1
+                _msg_error "Failed to set permissions on '${pacstrap_dir}${passwd[5]}'. Outside of valid path." 1
             fi
         done < "${profile}/airootfs/etc/passwd" 
         _msg_info "Done!"
     fi
 
-    if [[ -e "${airootfs_dir}/root/customize_airootfs_lang.sh" ]]; then
-        _msg_info "Running customize_airootfs_lang.sh in '${airootfs_dir}' chroot..."
-        chmod -f -- +x "${airootfs_dir}/root/customize_airootfs_lang.sh"
+    if [[ -e "${pacstrap_dir}/root/customize_airootfs_lang.sh" ]]; then
+        _msg_info "Running customize_airootfs_lang.sh in '${pacstrap_dir}' chroot..."
+        chmod -f -- +x "${pacstrap_dir}/root/customize_airootfs_lang.sh"
         if [[ "${quiet}" == "y" ]]; then
-            arch-chroot "${airootfs_dir}" "/root/customize_airootfs_lang.sh" &> /dev/null
+            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh" &> /dev/null
         else
-            arch-chroot "${airootfs_dir}" "/root/customize_airootfs_lang.sh"
+            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh"
         fi
-        rm -- "${airootfs_dir}/root/customize_airootfs_lang.sh"
+        rm -- "${pacstrap_dir}/root/customize_airootfs_lang.sh"
         _msg_info "Done!"
     fi
-    if [[ -e "${airootfs_dir}/root/customize_airootfs.sh" ]]; then
-        _msg_info "Running customize_airootfs.sh in '${airootfs_dir}' chroot..."
-        chmod -f -- +x "${airootfs_dir}/root/customize_airootfs.sh"
+    if [[ -e "${pacstrap_dir}/root/customize_airootfs.sh" ]]; then
+        _msg_info "Running customize_airootfs.sh in '${pacstrap_dir}' chroot..."
+        chmod -f -- +x "${pacstrap_dir}/root/customize_airootfs.sh"
         if [[ "${quiet}" == "y" ]]; then
-            arch-chroot "${airootfs_dir}" "/root/customize_airootfs.sh" &> /dev/null
+            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh" &> /dev/null
         else
-            arch-chroot "${airootfs_dir}" "/root/customize_airootfs.sh"
+            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh"
         fi
-        rm -- "${airootfs_dir}/root/customize_airootfs.sh"
+        rm -- "${pacstrap_dir}/root/customize_airootfs.sh"
         _msg_info "Done!"
     fi
 }
@@ -533,7 +542,7 @@ _make_customize_airootfs() {
 _make_setup_mkinitcpio() {
     if [[ "${iso_version}" =~ (nvidia|optimus) ]]; then
         # add nvidia modules to initramfs
-        sed -i 's/MODULES=(/&nvidia nvidia_drm nvidia_modeset/' "${airootfs_dir}/etc/mkinitcpio.conf"
+        sed -i 's/MODULES=(/&nvidia nvidia_drm nvidia_modeset/' "${pacstrap_dir}/etc/mkinitcpio.conf"
     fi
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
@@ -541,9 +550,9 @@ _make_setup_mkinitcpio() {
     fi
 
     if [[ "${quiet}" = "y" ]]; then
-        arch-chroot "${airootfs_dir}" mkinitcpio -P &> /dev/null
+        arch-chroot "${pacstrap_dir}" mkinitcpio -P &> /dev/null
     else
-        arch-chroot "${airootfs_dir}" mkinitcpio -P
+        arch-chroot "${pacstrap_dir}" mkinitcpio -P
     fi
 
     if [[ -n "${gpg_key}" ]]; then
@@ -564,15 +573,15 @@ _make_bootmodes() {
 _make_boot_on_iso9660() {
     _msg_info "Preparing kernel and initramfs for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/${arch}"
-    install -m 0644 -- "${airootfs_dir}/boot/initramfs-"*".img" "${isofs_dir}/${install_dir}/boot/${arch}/"
-    install -m 0644 -- "${airootfs_dir}/boot/vmlinuz-"* "${isofs_dir}/${install_dir}/boot/${arch}/"
+    install -m 0644 -- "${pacstrap_dir}/boot/initramfs-"*".img" "${isofs_dir}/${install_dir}/boot/${arch}/"
+    install -m 0644 -- "${pacstrap_dir}/boot/vmlinuz-"* "${isofs_dir}/${install_dir}/boot/${arch}/"
 
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
-        if [[ -e "${airootfs_dir}/boot/${_ucode_image}" ]]; then
-            install -m 0644 -- "${airootfs_dir}/boot/${_ucode_image}" "${isofs_dir}/${install_dir}/boot/"
-            if [[ -e "${airootfs_dir}/usr/share/licenses/${_ucode_image%.*}/" ]]; then
+        if [[ -e "${pacstrap_dir}/boot/${_ucode_image}" ]]; then
+            install -m 0644 -- "${pacstrap_dir}/boot/${_ucode_image}" "${isofs_dir}/${install_dir}/boot/"
+            if [[ -e "${pacstrap_dir}/usr/share/licenses/${_ucode_image%.*}/" ]]; then
                 install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/licenses/${_ucode_image%.*}/"
-                install -m 0644 -- "${airootfs_dir}/usr/share/licenses/${_ucode_image%.*}/"* \
+                install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/${_ucode_image%.*}/"* \
                     "${isofs_dir}/${install_dir}/boot/licenses/${_ucode_image%.*}/"
             fi
         fi
@@ -602,20 +611,20 @@ _make_bootmode_bios.syslinux.mbr() {
 
     if [[ -e "${isofs_dir}/syslinux/hdt.c32" ]]; then
         install -d -m 0755 -- "${isofs_dir}/syslinux/hdt"
-        if [[ -e "${airootfs_dir}/usr/share/hwdata/pci.ids" ]]; then
-            gzip -cn9 "${airootfs_dir}/usr/share/hwdata/pci.ids" > \
+        if [[ -e "${pacstrap_dir}/usr/share/hwdata/pci.ids" ]]; then
+            gzip -cn9 "${pacstrap_dir}/usr/share/hwdata/pci.ids" > \
                 "${isofs_dir}/syslinux/hdt/pciids.gz"
         fi
-        find "${airootfs_dir}/usr/lib/modules" -name 'modules.alias' -print -exec gzip -cn9 '{}' ';' -quit > \
+        find "${pacstrap_dir}/usr/lib/modules" -name 'modules.alias' -print -exec gzip -cn9 '{}' ';' -quit > \
             "${isofs_dir}/syslinux/hdt/modalias.gz"
     fi
 
     # Add other aditional/extra files to ${install_dir}/boot/
-    if [[ -e "${airootfs_dir}/boot/memtest86+/memtest.bin" ]]; then
+    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.bin" ]]; then
         # rename for PXE: https://wiki.archlinux.org/index.php/Syslinux#Using_memtest
-        install -m 0644 -- "${airootfs_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/${install_dir}/boot/memtest"
+        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/${install_dir}/boot/memtest"
         install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/" 
-        install -m 0644 -- "${airootfs_dir}/usr/share/licenses/common/GPL2/license.txt" \
+        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/common/GPL2/license.txt" \
             "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
     fi
     _msg_info "Done!"
@@ -625,8 +634,8 @@ _make_bootmode_bios.syslinux.mbr() {
 _make_bootmode_bios.syslinux.eltorito() {
     _msg_info "Setting up SYSLINUX for BIOS booting from an optical disc..."
     install -d -m 0755 -- "${isofs_dir}/syslinux"
-    install -m 0644 -- "${airootfs_dir}/usr/lib/syslinux/bios/isolinux.bin" "${isofs_dir}/syslinux/"
-    install -m 0644 -- "${airootfs_dir}/usr/lib/syslinux/bios/isohdpfx.bin" "${isofs_dir}/syslinux/"
+    install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isolinux.bin" "${isofs_dir}/syslinux/"
+    install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isohdpfx.bin" "${isofs_dir}/syslinux/"
 
     # ISOLINUX and SYSLINUX installation is shared
     _run_once _make_bootmode_bios.syslinux.mbr
@@ -663,7 +672,7 @@ _make_efi_dir_on_iso9660() {
 
     # EFI Shell 2.0 for UEFI 2.3+
     # shellx64.efi is picked up automatically when on /
-    if [[ -e "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
+    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
         install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/edk2-shell/x64/Shell_Full.efi" "${isofs_dir}/shellx64.efi"
     fi
     _msg_info "Done!"
@@ -674,10 +683,10 @@ _make_boot_on_fat() {
     _msg_info "Preparing kernel and initramfs for the FAT file system..."
     mmd -i "${work_dir}/efiboot.img" \
         "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}"
-    mcopy -i "${work_dir}/efiboot.img" "${airootfs_dir}/boot/vmlinuz-"* \
-        "${airootfs_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
+    mcopy -i "${work_dir}/efiboot.img" "${pacstrap_dir}/boot/vmlinuz-"* \
+        "${pacstrap_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
     for _ucode_image in \
-        "${airootfs_dir}/boot/"{intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}
+        "${pacstrap_dir}/boot/"{intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}
     do
         if [[ -e "${_ucode_image}" ]]; then
             _all_ucode_images+=("${_ucode_image}")
@@ -696,13 +705,13 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
 
     # the required image size in KiB (rounded up to the next full MiB with an additional MiB for reserved sectors)
     _efiboot_imgsize="$(du -bc \
-        "${airootfs_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi" \
-        "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" \
+        "${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi" \
+        "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" \
         "${profile}/efiboot/" \
-        "${airootfs_dir}/boot/vmlinuz-"* \
-        "${airootfs_dir}/boot/initramfs-"*".img" \
-        "${airootfs_dir}/boot/"{intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio} \
-        "${airootfs_dir}/usr/share/refind" \
+        "${pacstrap_dir}/boot/vmlinuz-"* \
+        "${pacstrap_dir}/boot/initramfs-"*".img" \
+        "${pacstrap_dir}/boot/"{intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio} \
+        "${pacstrap_dir}/usr/share/refind" \
         2>/dev/null | awk 'function ceil(x){return int(x)+(x>int(x))}
                            function byte_to_kib(x){return x/1024}
                            function mib_to_kib(x){return x*1024}
@@ -747,9 +756,9 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     done
 
     # shellx64.efi is picked up automatically when on /
-    if [[ -e "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
+    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
         mcopy -i "${work_dir}/efiboot.img" \
-            "${airootfs_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
+            "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
     fi
 
     _msg_info "Done!"
@@ -767,8 +776,8 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
 
 # Archuseriso data
 _make_aui() {
-    if [[ -z "${img_name}" ]]; then
-        img_name="${iso_name}-${iso_version}-x64.iso"
+    if [[ -z "${image_name}" ]]; then
+        image_name="${iso_name}-${iso_version}-x64.iso"
     fi
 
     cp -aT --no-preserve=ownership -- "${profile}/aui/" "${isofs_dir}/aui/"
@@ -961,6 +970,37 @@ _validate_requirements_airootfs_image_type_erofs() {
     fi
 }
 
+_validate_requirements_buildmode_all() {
+    if ! command -v pacman &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating build mode '${_buildmode}': pacman is not available on this host. Install 'pacman'!" 0
+    fi
+    if ! command -v find &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating build mode '${_buildmode}': find is not available on this host. Install 'findutils'!" 0
+    fi
+    if ! command -v gzip &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating build mode '${_buildmode}': gzip is not available on this host. Install 'gzip'!" 0
+    fi
+}
+
+_validate_requirements_buildmode_bootstrap() {
+    _validate_requirements_buildmode_all
+    if ! command -v bsdtar &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating build mode '${_buildmode}': bsdtar is not available on this host. Install 'libarchive'!" 0
+    fi
+}
+
+_validate_requirements_buildmode_iso() {
+    _validate_requirements_buildmode_all
+    if ! command -v awk &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating build mode '${_buildmode}': awk is not available on this host. Install 'awk'!" 0
+    fi
+}
+
 # SYSLINUX El Torito
 _add_xorrisofs_options_bios.syslinux.eltorito() {
     xorrisofs_options+=(
@@ -1060,8 +1100,24 @@ _add_xorrisofs_options_uefi-x64.systemd-boot.eltorito() {
     [[ " ${bootmodes[*]} " =~ ' bios.' ]] || xorrisofs_options+=('-eltorito-catalog' 'EFI/boot.cat')
 }
 
+# Build bootstrap image
+_build_bootstrap_image() {
+    local _bootstrap_parent
+    _bootstrap_parent="$(dirname -- "${pacstrap_dir}")"
+
+    [[ -d "${out_dir}" ]] || install -d -- "${out_dir}"
+
+    cd -- "${_bootstrap_parent}"
+
+    _msg_info "Creating bootstrap image..."
+    bsdtar -cf - "root.${arch}" | gzip -cn6 > "${out_dir}/${image_name}"
+    _msg_info "Done!"
+    du -h -- "${out_dir}/${image_name}"
+    cd -- "${OLDPWD}"
+}
+
 # Build ISO
-_build_iso() {
+_build_iso_image() {
     local xorrisofs_options=()
     local bootmode
 
@@ -1086,7 +1142,7 @@ _build_iso() {
             -publisher "${iso_publisher}" \
             -preparer "prepared by ${app_name}" \
             "${xorrisofs_options[@]}" \
-            -output "${out_dir}/${img_name}" \
+            -output "${out_dir}/${image_name}" \
             "${isofs_dir}/" 2> /dev/null
     else
         xorriso -as mkisofs \
@@ -1099,7 +1155,7 @@ _build_iso() {
             -publisher "${iso_publisher}" \
             -preparer "prepared by ${app_name}" \
             "${xorrisofs_options[@]}" \
-            -output "${out_dir}/${img_name}" \
+            -output "${out_dir}/${image_name}" \
             "${isofs_dir}/"
     fi
     _mkchecksum_iso
@@ -1108,7 +1164,7 @@ _build_iso() {
     fi
     _msg_info "Done!"
     echo
-    _msg_info "$(du -h -- "${out_dir}/${img_name}")"
+    _msg_info "$(du -h -- "${out_dir}/${image_name}")"
 }
 
 _iso_version_options() {
@@ -1142,14 +1198,23 @@ _read_profile() {
         pacman_conf="$(realpath -- "${pacman_conf}")"
         [[ -n "${pacman_testing_conf}" ]] && pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
 
+        # Resolve paths of files that may reside in the profile's directory
+        if [[ -z "$bootstrap_packages" ]] && [[ -e "${profile}/bootstrap_packages.${arch}" ]]; then
+            bootstrap_packages="${profile}/bootstrap_packages.${arch}"
+            bootstrap_packages="$(realpath -- "${bootstrap_packages}")"
+            pacman_conf="$(realpath -- "${pacman_conf}")"
+        fi
+
         cd -- "${OLDPWD}"
     fi
 }
 
 # Validate set options
 _validate_options() {
-    local validation_error=0 bootmode
+    local validation_error=0 bootmode _buildmode
     local pkg_list_from_file=()
+    local bootstrap_pkg_list_from_file=()
+
     _msg_info "Validating options..."
     # Check if the package list file exists and read packages from it
     if [[ -e "${packages}" ]]; then
@@ -1162,7 +1227,23 @@ _validate_options() {
         pkg_list+=("${pkg_list_additions[@]}")
     else
         (( validation_error=validation_error+1 ))
-        _msg_error "No package specified in '${packages}'." 0
+        _msg_error "Packages file '${packages}' does not exist." 0
+    fi
+
+    # Check if packages for the bootstrap image are specified
+    if [[ "${buildmodes[*]}" == *bootstrap* ]]; then
+        if [[ -e "${bootstrap_packages}" ]]; then
+            mapfile -t bootstrap_pkg_list_from_file < \
+                <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d' "${bootstrap_packages}")
+            bootstrap_pkg_list+=("${bootstrap_pkg_list_from_file[@]}")
+            if (( ${#bootstrap_pkg_list_from_file} < 1 )); then
+                (( validation_error=validation_error+1 ))
+                _msg_error "No package specified in '${bootstrap_packages}'." 0
+            fi
+        else
+            (( validation_error=validation_error+1 ))
+            _msg_error "Bootstrap packages file '${bootstrap_packages}' does not exist." 0
+        fi
     fi
 
     # Check if pacman configuration file exists
@@ -1170,11 +1251,27 @@ _validate_options() {
         (( validation_error=validation_error+1 ))
         _msg_error "File '${pacman_conf}' does not exist." 0
     fi
+
+    # Check if the specified buildmodes are supported
+    for _buildmode in "${buildmodes[@]}"; do
+        if typeset -f "_build_buildmode_${_buildmode}" &> /dev/null; then
+            if typeset -f "_validate_requirements_buildmode_${_buildmode}" &> /dev/null; then
+                "_validate_requirements_buildmode_${_buildmode}"
+            else
+                _msg_warning "Function '_validate_requirements_buildmode_${_buildmode}' does not exist. Validating the requirements of '${_buildmode}' build mode will not be possible."
+            fi
+        else
+            (( validation_error=validation_error+1 ))
+            _msg_error "${_buildmode} is not a valid build mode!" 0
+        fi
+    done
+
     # Check if pacman-testing configuration file exists
     if [[ -n "${pacman_testing_conf}" && ! -e "${pacman_testing_conf}" ]]; then
         (( validation_error=validation_error+1 ))
         _msg_error "File '${pacman_testing_conf}' does not exist." 0
     fi
+
     # Check if the specified bootmodes are supported
     for bootmode in "${bootmodes[@]}"; do
         if typeset -f "_make_bootmode_${bootmode}" &> /dev/null; then
@@ -1199,6 +1296,7 @@ _validate_options() {
         (( validation_error=validation_error+1 ))
         _msg_error "Unsupported image type: '${airootfs_image_type}'" 0
     fi
+
     if (( validation_error )); then
         _msg_error "${validation_error} errors were encountered while validating the profile. Aborting." 1
     fi
@@ -1209,6 +1307,10 @@ _validate_options() {
 # Set defaults and, if present, overrides from aui-mkiso command line option parameters
 _set_overrides() {
     # Set variables that have command line overrides
+    [[ ! -v override_buildmodes ]] || buildmodes=("${override_buildmodes[@]}")
+    if (( "${#buildmodes[@]}" < 1 )); then
+        buildmodes+=('iso')
+    fi
     if [[ -v override_work_dir ]]; then
         work_dir="${override_work_dir}"
     elif [[ -z "${work_dir}" ]]; then
@@ -1233,6 +1335,7 @@ _set_overrides() {
         pacman_testing_conf="/etc/pacman_testing.conf"
     fi
     pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
+    # TODO: allow overriding bootstrap_pkg_list
     if [[ -v override_iso_label ]]; then
         iso_label="${override_iso_label}"
     elif [[ -z "${iso_label}" ]]; then
@@ -1260,7 +1363,7 @@ _set_overrides() {
         quiet="y"
     fi
     if [[ -v override_iso_name ]]; then
-        img_name="${override_iso_name}"
+        image_name="${override_iso_name}"
     fi
 }
 
@@ -1270,47 +1373,88 @@ _export_gpg_publickey() {
 
 _make_version() {
     local osrelease
-    if [[ -z "${iso_version}" ]]; then
-        iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
-                       cut -d' ' -f2 | \
-                       sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
-    fi
-    install -d -m 0755 -- "${isofs_dir}/${install_dir}"
-    _msg_info "Creating files with iso version..."
-    # Write version file to airootfs
-    rm -f -- "${airootfs_dir}/version"
-    printf '%s\n' "${iso_version}" > "${airootfs_dir}/version"
-    # Write version file to ISO 9660
-    printf '%s\n' "${iso_version}" > "${isofs_dir}/${install_dir}/version"
-    # Write grubenv with version information to ISO 9660
-    printf '%.1024s' "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\n%s' \
+
+    _msg_info "Creating version files..."
+    if [[ "${buildmode}" == "iso" ]]; then
+        if [[ -z "${iso_version}" ]]; then
+            iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
+                           cut -d' ' -f2 | \
+                           sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
+        fi
+        install -d -m 0755 -- "${isofs_dir}/${install_dir}"
+        # Write version file to ISO 9660
+        printf '%s\n' "${iso_version}" > "${isofs_dir}/${install_dir}/version"
+        # Write grubenv with version information to ISO 9660
+        printf '%.1024s' "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\n%s' \
             "${iso_name}" "${iso_version}" "$(printf '%0.1s' "#"{1..1024})")" \
-                > "${isofs_dir}/${install_dir}/grubenv"
-    # Append IMAGE_ID & IMAGE_VERSION to os-release
-    osrelease="$(realpath -- "${airootfs_dir}/etc/os-release")"
-    if [[ ! -e "${airootfs_dir}/etc/os-release" && -e "${airootfs_dir}/usr/lib/os-release" ]]; then
-        osrelease="$(realpath -- "${airootfs_dir}/usr/lib/os-release")"
+            > "${isofs_dir}/${install_dir}/grubenv"
     fi
-    if [[ "${osrelease}" != "${airootfs_dir}"* ]]; then
-        _msg_warning "os-release file '${osrelease}' is outside of valid path."
+    # Write version file to system installation dir
+    rm -f -- "${pacstrap_dir}/version"
+    printf '%s\n' "${iso_version:="$(date +%m%d)"}" > "${pacstrap_dir}/version"
+
+    # Append IMAGE_ID & IMAGE_VERSION to os-release
+    _os_release="$(realpath -- "${pacstrap_dir}/etc/os-release")"
+    if [[ ! -e "${pacstrap_dir}/etc/os-release" && -e "${pacstrap_dir}/usr/lib/os-release" ]]; then
+        _os_release="$(realpath -- "${pacstrap_dir}/usr/lib/os-release")"
+    fi
+    if [[ "${_os_release}" != "${pacstrap_dir}"* ]]; then
+        _msg_warning "os-release file '${_os_release}' is outside of valid path."
     else
-        [[ ! -e "${osrelease}" ]] || sed -i '/^IMAGE_ID=/d;/^IMAGE_VERSION=/d' "${osrelease}"
-        printf 'IMAGE_ID=%s\nIMAGE_VERSION=%s\n' "${iso_name}" "${iso_version}" >> "${osrelease}"
+        [[ ! -e "${_os_release}" ]] || sed -i '/^IMAGE_ID=/d;/^IMAGE_VERSION=/d' "${_os_release}"
+        printf 'IMAGE_ID=%s\nIMAGE_VERSION=%s\n' "${iso_name}" "${iso_version}" >> "${_os_release}"
     fi
     _msg_info "Done!"
-    }
+
+}
 
 _make_pkglist() {
-    install -d -m 0755 -- "${isofs_dir}/${install_dir}"
     _msg_info "Creating a list of installed packages on live-enviroment..."
-    pacman -Q --sysroot "${airootfs_dir}" > "${isofs_dir}/${install_dir}/pkglist.${arch}.txt"
+    case "${buildmode}" in
+        "bootstrap")
+            pacman -Q --sysroot "${pacstrap_dir}" > "${pacstrap_dir}/pkglist.${arch}.txt"
+            ;;
+        "iso")
+            install -d -m 0755 -- "${isofs_dir}/${install_dir}"
+            pacman -Q --sysroot "${pacstrap_dir}" > "${isofs_dir}/${install_dir}/pkglist.${arch}.txt"
+            ;;
+    esac
     _msg_info "Done!"
 }
 
-_build_profile() {
+_build_buildmode_bootstrap() {
+    local image_name="${iso_name}-bootstrap-${iso_version}-${arch}.tar.gz"
+    local run_once_mode="${buildmode}"
+    local buildmode_packages="${bootstrap_packages}"
+    local buildmode_pkg_list=()
+
+    # Set the package list to use
+    buildmode_pkg_list=("${bootstrap_pkg_list[@]}")
     # Set up essential directory paths
-    airootfs_dir="${work_dir}/${arch}/airootfs"
+    pacstrap_dir="${work_dir}/${arch}/bootstrap/root.${arch}"
+    [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
+    install -d -m 0755 -o 0 -g 0 -- "${pacstrap_dir}"
+
+    [[ "${quiet}" == "y" ]] || _show_config
+    _run_once _make_pacman_conf
+    _run_once _make_packages
+    _run_once _make_version
+    _run_once _make_pkglist
+    _run_once _cleanup_pacstrap_dir
+    _run_once _build_bootstrap_image
+}
+
+_build_buildmode_iso() {
+    local image_name="${iso_name}-${iso_version}-${arch}.iso"
+    local run_once_mode="${buildmode}"
+    local buildmode_packages="${packages}"
+    local buildmode_pkg_list=()
+    # Set up essential directory paths
+    pacstrap_dir="${work_dir}/${arch}/airootfs"
     isofs_dir="${work_dir}/iso"
+    # Set the package list to use
+    buildmode_pkg_list=("${pkg_list[@]}")
+
     # Create working directory
     [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
     # Write build date to file or if the file exists, read it from there
@@ -1334,10 +1478,20 @@ _build_profile() {
     _run_once _make_setup_mkinitcpio
     _run_once _make_pkglist
     _make_bootmodes
-    _run_once _cleanup_airootfs
+    _run_once _cleanup_pacstrap_dir
     _run_once _make_aui
     _run_once _prepare_airootfs_image
-    _run_once _build_iso
+    _run_once _build_iso_image
+}
+
+# build all buildmodes
+_build() {
+    local buildmode
+    local run_once_mode="build"
+
+    for buildmode in "${buildmodes[@]}"; do
+        _run_once "_build_buildmode_${buildmode}"
+    done
 }
 
 _build_zfs_packages () {
@@ -1485,9 +1639,9 @@ _build_zfs_packages () {
     cd -- "${_WD}"
 }
 
-OPTS=$(getopt -o '?A:C:D:g:hL:l:N:o:P:p:vw:' \
+OPTS=$(getopt -o '?A:C:D:g:hL:l:m:N:o:P:p:vw:' \
               -l 'addi3wm,addpkg:,addpkgtesting:,application:,embeddir:' \
-              -l 'add-i3-wm,add-pkg:,add-pkg-testing:,embed-dir:' \
+              -l 'add-i3-wm,add-pkg:,add-pkg-testing:,build-modes:,embed-dir:' \
               -l 'gpgkey:,installdir:,label:,language:,nvidia,optimus' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
@@ -1549,6 +1703,9 @@ while true; do
                 'ua'|'uk_UA') lang="uk_UA";;
                 *) _usage 1;;
             esac
+            shift 2 ;;
+        '-m'|'--build-modes')
+            IFS=',' read -r -a override_buildmodes <<< "${2}"
             shift 2 ;;
         '-N'|'--name')
             override_iso_name="${2}"
@@ -1612,7 +1769,7 @@ if [[ -d "${work_dir}" ]]; then
     exit 0
 fi
 _validate_options
-_build_profile
+_build
 _msg_info "Success!"
 
 # vim:ts=4:sw=4:et:
