@@ -22,6 +22,7 @@ bootstrap_packages=""
 bootstrap_pkg_list=()
 buildmodes=()
 build_zfs_packages="n"
+cert_list=()
 directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
 embed_dir=""
@@ -46,6 +47,7 @@ pkg_list_additions=()
 pkg_testing_list=()
 profile=""
 quiet=""
+sign_netboot_artifacts=""
 user_pkg_dir=""
 work_dir=""
 declare -A file_permissions=()
@@ -104,6 +106,10 @@ usage: ${app_name} [options] <profile_dir>
      --add-pkg-testing PACKAGE(S)       Package(s) to install from testing repositories,
                                         comma seperated list
      --add-i3-wm                        Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl
+     -c, --cert [cert ..]               Provide certificates for codesigning of netboot artifacts
+                                        Multiple files are provided as quoted, comma delimited list.
+                                        The first file is considered as the signing certificate,
+                                        the second as the key.
      -C <file>                          pacman configuration file.
                                         Default: '${pacman_conf}'
      -D, --install-dir  <install_dir>   Set an install_dir. All files will by located here.
@@ -165,6 +171,7 @@ _show_config() {
     _msg_info "              Build modes:   ${buildmodes[*]}"
     _msg_info "                  GPG key:   ${gpg_key:-None}"
     _msg_info "                  Profile:   ${profile}"
+    _msg_info "Code signing certificates:   ${cert_list[*]}"
     _msg_info "Pacman configuration file:   ${pacman_conf}"
     _msg_info "Pacman testing conf. file:   ${pacman_testing_conf}"
     _msg_info "         ISO volume label:   ${iso_label}"
@@ -948,6 +955,34 @@ _prepare_airootfs_image() {
     fi
 }
 
+# export build artifacts for netboot
+_export_netboot_artifacts() {
+    _msg_info "Exporting netboot artifacts..."
+    install -d -m 0755 "${out_dir}"
+    cp -a -- "${isofs_dir}/${install_dir}/" "${out_dir}/"
+    _msg_info "Done!"
+    du -h -- "${out_dir}/${install_dir}"
+}
+
+# sign build artifacts for netboot
+_sign_netboot_artifacts() {
+    local _file _dir
+    _msg_info "Signing netboot artifacts..."
+    _dir="${isofs_dir}/${install_dir}/"
+    for _file in "${_dir}/boot/"*ucode.img "${_dir}/boot/${arch}/vmlinuz-"* "${_dir}/boot/${arch}/initramfs-"*.img; do
+        openssl cms \
+            -sign \
+            -binary \
+            -noattr \
+            -in "${_file}" \
+            -signer "${cert_list[0]}" \
+            -inkey "${cert_list[1]}" \
+            -outform DER \
+            -out "${_file}".ipxe.sig
+    done
+    _msg_info "Done!"
+}
+
 _validate_requirements_airootfs_image_type_squashfs() {
     if ! command -v mksquashfs &> /dev/null; then
         (( validation_error=validation_error+1 ))
@@ -998,6 +1033,14 @@ _validate_requirements_buildmode_iso() {
     if ! command -v awk &> /dev/null; then
         (( validation_error=validation_error+1 ))
         _msg_error "Validating build mode '${_buildmode}': awk is not available on this host. Install 'awk'!" 0
+    fi
+}
+
+validate_requirements_buildmode_netboot() {
+    _validate_requirements_buildmode_all
+    if ! command -v openssl &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating build mode '${_buildmode}': openssl is not available on this host. Install 'openssl'!" 0
     fi
 }
 
@@ -1211,9 +1254,10 @@ _read_profile() {
 
 # Validate set options
 _validate_options() {
-    local validation_error=0 bootmode _buildmode
+    local validation_error=0 bootmode _cert _buildmode
     local pkg_list_from_file=()
     local bootstrap_pkg_list_from_file=()
+    local _override_cert_list=()
 
     _msg_info "Validating options..."
     # Check if the package list file exists and read packages from it
@@ -1246,6 +1290,23 @@ _validate_options() {
         fi
     fi
 
+    if [[ "${sign_netboot_artifacts}" == "y" ]]; then
+        # Check if the certificate files exist
+        for _cert in "${cert_list[@]}"; do
+            if [[ -e "${_cert}" ]]; then
+                _override_cert_list+=("$(realpath -- "${_cert}")")
+            else
+                (( validation_error=validation_error+1 ))
+                _msg_error "File '${_cert}' does not exist." 0
+            fi
+        done
+        cert_list=("${_override_cert_list[@]}")
+        # Check if there are at least two certificate files
+        if (( "${#cert_list[@]}" < 2 )); then
+            (( validation_error=validation_error+1 ))
+            _msg_error "Two certificates are required for codesigning, but '${cert_list[*]}' is provided." 0
+        fi
+    fi
     # Check if pacman configuration file exists
     if [[ ! -e "${pacman_conf}" ]]; then
         (( validation_error=validation_error+1 ))
@@ -1357,6 +1418,10 @@ _set_overrides() {
         install_dir="${app_name}"
     fi
     [[ ! -v override_gpg_key ]] || gpg_key="${override_gpg_key}"
+    if [[ -v override_cert_list ]]; then
+        sign_netboot_artifacts="y"
+    fi
+    [[ ! -v override_cert_list ]] || cert_list+=("${override_cert_list[@]}")
     if [[ -v override_quiet ]]; then
         quiet="${override_quiet}"
     elif [[ -z "${quiet}" ]]; then
@@ -1422,38 +1487,15 @@ _make_pkglist() {
     _msg_info "Done!"
 }
 
-_build_buildmode_bootstrap() {
-    local image_name="${iso_name}-bootstrap-${iso_version}-${arch}.tar.gz"
-    local run_once_mode="${buildmode}"
-    local buildmode_packages="${bootstrap_packages}"
-    local buildmode_pkg_list=()
-
-    # Set the package list to use
-    buildmode_pkg_list=("${bootstrap_pkg_list[@]}")
-    # Set up essential directory paths
-    pacstrap_dir="${work_dir}/${arch}/bootstrap/root.${arch}"
-    [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
-    install -d -m 0755 -o 0 -g 0 -- "${pacstrap_dir}"
-
-    [[ "${quiet}" == "y" ]] || _show_config
-    _run_once _make_pacman_conf
-    _run_once _make_packages
-    _run_once _make_version
-    _run_once _make_pkglist
-    _run_once _cleanup_pacstrap_dir
-    _run_once _build_bootstrap_image
-}
-
-_build_buildmode_iso() {
-    local image_name="${iso_name}-${iso_version}-${arch}.iso"
-    local run_once_mode="${buildmode}"
+# build the base for an ISO and/or a netboot target
+_build_iso_base() {
+    local run_once_mode="base"
     local buildmode_packages="${packages}"
-    local buildmode_pkg_list=()
+    # Set the package list to use
+    local buildmode_pkg_list=("${pkg_list[@]}")
     # Set up essential directory paths
     pacstrap_dir="${work_dir}/${arch}/airootfs"
     isofs_dir="${work_dir}/iso"
-    # Set the package list to use
-    buildmode_pkg_list=("${pkg_list[@]}")
 
     # Create working directory
     [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
@@ -1481,6 +1523,46 @@ _build_buildmode_iso() {
     _run_once _cleanup_pacstrap_dir
     _run_once _make_aui
     _run_once _prepare_airootfs_image
+}
+
+# Build the bootstrap buildmode
+_build_buildmode_bootstrap() {
+    local image_name="${iso_name}-bootstrap-${iso_version:-"$(date +%m%d)"}-${arch}.tar.gz"
+    local run_once_mode="${buildmode}"
+    local buildmode_packages="${bootstrap_packages}"
+    # Set the package list to use
+    local buildmode_pkg_list=("${bootstrap_pkg_list[@]}")
+
+    # Set up essential directory paths
+    pacstrap_dir="${work_dir}/${arch}/bootstrap/root.${arch}"
+    [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
+    install -d -m 0755 -o 0 -g 0 -- "${pacstrap_dir}"
+
+    [[ "${quiet}" == "y" ]] || _show_config
+    _run_once _make_pacman_conf
+    _run_once _make_packages
+    _run_once _make_version
+    _run_once _make_pkglist
+    _run_once _cleanup_pacstrap_dir
+    _run_once _build_bootstrap_image
+}
+
+# Build the netboot buildmode
+_build_buildmode_netboot() {
+    local run_once_mode="${buildmode}"
+
+    _run_once _build_iso_base
+    if [[ -v cert_list ]]; then
+        _run_once _sign_netboot_artifacts
+    fi
+    _run_once _export_netboot_artifacts
+}
+
+# Build the ISO buildmode
+_build_buildmode_iso() {
+    local image_name=""
+    local run_once_mode="${buildmode}"
+    _run_once _build_iso_base
     _run_once _build_iso_image
 }
 
@@ -1639,9 +1721,9 @@ _build_zfs_packages () {
     cd -- "${_WD}"
 }
 
-OPTS=$(getopt -o '?A:C:D:g:hL:l:m:N:o:P:p:vw:' \
+OPTS=$(getopt -o '?A:C:c:D:g:hL:l:m:N:o:P:p:vw:' \
               -l 'addi3wm,addpkg:,addpkgtesting:,application:,embeddir:' \
-              -l 'add-i3-wm,add-pkg:,add-pkg-testing:,build-modes:,embed-dir:' \
+              -l 'add-i3-wm,add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
               -l 'gpgkey:,installdir:,label:,language:,nvidia,optimus' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
@@ -1671,6 +1753,9 @@ while true; do
             shift ;;
         '-C')
             override_pacman_conf="$(realpath -- "${2}")"
+            shift 2 ;;
+        '-c'|'--cert')
+            read -r -d ',' -a override_cert_list <<< "${2}"
             shift 2 ;;
         '-D'|'--install-dir'|'--installdir')
             override_install_dir="${2}"
