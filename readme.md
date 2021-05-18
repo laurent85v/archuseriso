@@ -14,20 +14,21 @@ ISO download http://dl.gnutux.fr/archuseriso
 Features
 --------
 
+* desktop profiles
 * easy build
-* live usb drive with persistence
-* usb drive installation
-* LUKS encryption
-* zstandard fast compressor
-* live usb pacman updates support
-* EFI rEFInd boot manager
 * alternate language at build time
-* user package addition to live image
-* samba public folder sharing
+* zstandard fast compressor
+* live usb drive with persistence
+* pacman updates support
+* installation on usb drive
 * Btrfs/F2FS file system option
+* LUKS encryption
+* EFI rEFInd boot manager
+* user packages additions to live image
+* samba public folder sharing
 * Nvidia graphics option
 * Optimus hardware option
-* ZFS option
+* ZFS support option
 * testing package option
 * user data addition to live image
 
@@ -69,7 +70,7 @@ Xfce profile with default options:
 
     sudo aui-mkiso /usr/share/archuseriso/profiles/xfce/
 
-Default directory `/usr/share/archuseriso/profiles` is assumed using profile name:
+Default directory `/usr/share/archuseriso/profiles` is assumed when using profile name only:
 
     sudo aui-mkiso xfce
 
@@ -114,7 +115,7 @@ The buid option '--zfs' for adding zfs support proceeds in two stages. First sta
 
 Installation on usb drive
 -------------------------
-Permanent installation except systemd journal is configured in volatile mode.
+Permanent installation except systemd journal configured in volatile mode.
 
 Synopsis:
 
@@ -153,7 +154,7 @@ Drive partitioning, Ext4 default file system:
 
 Testing
 -------
-Run the iso image in a qemu virtual machine:
+Running the iso image in a qemu virtual machine:
 
 Bios mode
 
