@@ -446,7 +446,7 @@ _make_packages() {
 }
 
 # Packages in testing (airootfs)
-_make_packages_testing () {
+_make_packages_testing() {
     _msg_info "Installing testing packages to '${pacstrap_dir}/'..."
 
     if [[ -n "${gpg_key}" ]]; then
@@ -468,8 +468,15 @@ _make_packages_testing () {
     _msg_info "Done!"
 }
 
+_umount_chroot-dir() {
+    if findmnt -nr -- "${pacstrap_dir}" > /dev/null; then
+        umount "${pacstrap_dir}"
+    fi
+}
+
 # airootfs install user provided packages
 _make_packages_upgrade() {
+    trap "_umount_chroot-dir" EXIT HUP INT TERM
     local _pkg_upgrade
     mapfile -t _pkg_upgrade < <(find "${user_pkg_dir}" -maxdepth 1 \( -name "*.pkg.tar.xz" -o -name "*.pkg.tar.zst" \))
 
@@ -480,11 +487,14 @@ _make_packages_upgrade() {
         export ARCHISO_GNUPG_FD
     fi
 
+    # bind mount chroot-dir on itself to make it a mountpoint
+    mount -o bind -- "${pacstrap_dir}" "${pacstrap_dir}"
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}" &> /dev/null
+        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}" &> /dev/null
     else
-        pacstrap -C "${work_dir}/pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}"
+        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}"
     fi
+    umount "${pacstrap_dir}"
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<&-
