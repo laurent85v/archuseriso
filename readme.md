@@ -5,7 +5,7 @@ Build iso images, create live usb drives, install on usb drives.
  
 Archuseriso is based on Archiso, the Arch Linux tool for building the official iso image.
 
-Archuseriso provides profiles and additional tools for building iso images and creating usb drives. Features persistence, usb drive installation and encryption.
+Archuseriso provides profiles and additional tools for building iso images and creating bootable usb drives. Features persistence, usb drive installation and encryption.
 
 AUR https://aur.archlinux.org/packages/archuseriso
 
