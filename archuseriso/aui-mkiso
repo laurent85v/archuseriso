@@ -697,6 +697,7 @@ _make_efi_dir_on_iso9660() {
 
 # Prepare kernel/initramfs on efiboot.img
 _make_boot_on_fat() {
+    local -a _all_ucode_images=()
     _msg_info "Preparing kernel and initramfs for the FAT file system..."
     mmd -i "${work_dir}/efiboot.img" \
         "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}"
