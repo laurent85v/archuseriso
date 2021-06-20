@@ -50,7 +50,7 @@ This hook allows you to use ZFS as your root filesystem.
 Command Line Setup:
 
     You can append the following arguments to your kernel parameters list. See
-    https://wiki.archlinux.org/index.php/Kernel_parameters for more information.
+    https://wiki.archlinux.org/title/Kernel_parameters for more information.
 
     To use ZFS as your boot filesystem:
 
