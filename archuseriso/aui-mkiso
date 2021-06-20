@@ -429,11 +429,12 @@ _make_packages() {
 
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
-        export ARCHISO_GNUPG_FD
     fi
     if [[ "${quiet}" = "y" ]]; then
+        env -i "ARCHISO_GNUPG_FD=${ARCHISO_GNUPG_FD}" \
         pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}" &> /dev/null
     else
+        env -i "ARCHISO_GNUPG_FD=${ARCHISO_GNUPG_FD}" \
         pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}"
     fi
 
@@ -535,9 +536,9 @@ _make_customize_airootfs() {
         _msg_info "Running customize_airootfs_lang.sh in '${pacstrap_dir}' chroot..."
         chmod -f -- +x "${pacstrap_dir}/root/customize_airootfs_lang.sh"
         if [[ "${quiet}" == "y" ]]; then
-            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh" &> /dev/null
+            eval -- env -i arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh" &> /dev/null
         else
-            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh"
+            eval -- env -i arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh"
         fi
         rm -- "${pacstrap_dir}/root/customize_airootfs_lang.sh"
         _msg_info "Done!"
@@ -546,9 +547,9 @@ _make_customize_airootfs() {
         _msg_info "Running customize_airootfs.sh in '${pacstrap_dir}' chroot..."
         chmod -f -- +x "${pacstrap_dir}/root/customize_airootfs.sh"
         if [[ "${quiet}" == "y" ]]; then
-            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh" &> /dev/null
+            eval -- env -i arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh" &> /dev/null
         else
-            arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh"
+            eval -- env -i arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh"
         fi
         rm -- "${pacstrap_dir}/root/customize_airootfs.sh"
         _msg_info "Done!"
