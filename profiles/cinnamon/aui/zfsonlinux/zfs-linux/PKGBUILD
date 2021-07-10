@@ -15,19 +15,13 @@ url="https://zfsonlinux.org/"
 license=("CDDL")
 depends=("kmod" "zfs-utils=${_zfsver}" "linux=${_kernelver}")
 makedepends=("linux-headers=${_kernelver}")
-source=("https://github.com/zfsonlinux/zfs/releases/download/zfs-${_zfsver}/zfs-${_zfsver}.tar.gz"{,.asc}
-        "https://github.com/openzfs/zfs/pull/12009/commits/938a7a375b2c18fef621fb30d71bec0c19e94142.patch"
-        "https://github.com/openzfs/zfs/pull/12009/commits/8122746cc52741e2d010aa0ad8e0f15ab24bbf28.patch"
+source=("https://github.com/openzfs/zfs/releases/download/zfs-${_zfsver}/zfs-${_zfsver}.tar.gz"{,.asc}
         "zfs.install")
-sha256sums=('%SHA256SUM%'
+sha256sums=('SKIP'
             'SKIP'
-            '6650bcaf8c1ebe23a0f749feeaf316b75148a76549129deba5f65d4555b2b874'
-            '61595dd8b1e3fa4c7ca61a67a6960135ee11710d80f9fe6bec7071acece84028'
             'a08381be21af2910c21e5f24c5799383c7ce58b45c84fc02071a8528088e9bdf')
-b2sums=(''
+b2sums=('SKIP'
         'SKIP'
-        '195fe600d859ac6832891b5c938b2d55e22cfbbf8da56772e884d436ace9b48c8571015d1440884efc1e531294e8ef95ce45d69a22a93ef62e1016e497856a3f'
-        'd6e67e037375dc99a3caacec257901c5678b08e42fa2158ce8d8bd0b93d47b9bd69b95042bac7a58bf987c155107fe80c93b57c0cd38e4065dbac24ac409cc54'
         'e8a4f0e95d7e7d7ad28ca2df0d168da2fddca178712530d1333ed90c429f673711b163b16314280e8b21c0c2eafcaebc2e5c8a603275280925cebdb6c3193067')
 validpgpkeys=('4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027'  # Tony Hutter (GPG key for signing ZFS releases) <hutter2@llnl.gov>
               'C33DF142657ED1F7C328A2960AB9E991C6AF658B') # Brian Behlendorf <behlendorf1@llnl.gov>
@@ -36,15 +30,13 @@ prepare() {
     cd "${srcdir}/zfs-${_zfsver}"
 
     local _src
-    if [[ "${_zfsver}" == '2.0.4' ]]; then 
-        for _src in "${source[@]}"; do
-            _src="${_src%%::*}"
-            _src="${_src##*/}"
-            [[ "${_src}" = *.patch ]] || continue
-            echo "Applying patch ${_src}..."
-            patch -Np1 < "../${_src}"
-        done
-    fi
+    for _src in "${source[@]}"; do
+        _src="${_src%%::*}"
+        _src="${_src##*/}"
+        [[ "${_src}" = *.patch ]] || continue
+        echo "Applying patch ${_src}..."
+        patch -Np1 < "../${_src}"
+    done
 }
 
 build() {
