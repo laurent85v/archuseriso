@@ -1,6 +1,3 @@
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 # mkinitcpio preset file for the 'linux' package
 
 ALL_config="/etc/mkinitcpio.conf"

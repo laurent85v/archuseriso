@@ -1,5 +1,2 @@
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 MOZ_ENABLE_WAYLAND=1
 LANG=pl_PL.UTF-8

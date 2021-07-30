@@ -1,6 +1,3 @@
-#
-# SPDX-License-Identifier: GPL-3.0-or-later
-
 XKB_DEFAULT_LAYOUT=fr
 MOZ_ENABLE_WAYLAND=1
 LANG=fr_FR.UTF-8
