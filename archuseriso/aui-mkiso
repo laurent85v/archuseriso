@@ -1607,7 +1607,7 @@ _build_buildmode_bootstrap() {
 _build_buildmode_netboot() {
     local run_once_mode="${buildmode}"
 
-    _run_once _build_iso_base
+    _build_iso_base
     if [[ -v cert_list ]]; then
         _run_once _sign_netboot_artifacts
     fi
@@ -1618,7 +1618,7 @@ _build_buildmode_netboot() {
 _build_buildmode_iso() {
     local image_name=""
     local run_once_mode="${buildmode}"
-    _run_once _build_iso_base
+    _build_iso_base
     _run_once _build_iso_image
 }
 
