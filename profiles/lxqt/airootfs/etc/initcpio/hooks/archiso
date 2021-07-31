@@ -7,13 +7,13 @@ _mnt_dmsnapshot() {
     local img="${1}"
     local newroot="${2}"
     local mnt="${3}"
-    local img_fullname="${img##*/}";
+    local img_fullname="${img##*/}"
     local img_name="${img_fullname%%.*}"
     local dm_snap_name="${dm_snap_prefix}_${img_name}"
     local ro_dev ro_dev_size rw_dev
 
     ro_dev="$(losetup --find --show --read-only -- "${img}")"
-    echo "${ro_dev}" >> /run/archiso/used_block_devices
+    printf '%s\n' "${ro_dev}" >>/run/archiso/used_block_devices
     ro_dev_size="$(blockdev --getsz "${ro_dev}")"
 
     if [ "${cow_persistent}" = "P" ]; then
@@ -33,7 +33,7 @@ _mnt_dmsnapshot() {
     fi
 
     rw_dev="$(losetup --find --show "/run/archiso/cowspace/${cow_directory}/${img_name}.cow")"
-    echo "${rw_dev}" >> /run/archiso/used_block_devices
+    printf '%s\n' "${rw_dev}" >>/run/archiso/used_block_devices
 
     dmsetup create "${dm_snap_name}" --table \
         "0 ${ro_dev_size} snapshot ${ro_dev} ${rw_dev} ${cow_persistent} ${cow_chunksize}"
@@ -43,7 +43,7 @@ _mnt_dmsnapshot() {
     fi
 
     _mnt_dev "/dev/mapper/${dm_snap_name}" "${newroot}${mnt}" "-w" "defaults"
-    readlink -f "/dev/mapper/${dm_snap_name}" >> /run/archiso/used_block_devices
+    readlink -f "/dev/mapper/${dm_snap_name}" >>/run/archiso/used_block_devices
 }
 
 # args: source, newroot, mountpoint
@@ -53,10 +53,9 @@ _mnt_overlayfs() {
     local mnt="${3}"
     mkdir -p "/run/archiso/cowspace/${cow_directory}/upperdir" "/run/archiso/cowspace/${cow_directory}/workdir"
     mount -t overlay -o \
-    "lowerdir=${src},upperdir=/run/archiso/cowspace/${cow_directory}/upperdir,workdir=/run/archiso/cowspace/${cow_directory}/workdir" \
-    airootfs "${newroot}${mnt}"
+        "lowerdir=${src},upperdir=/run/archiso/cowspace/${cow_directory}/upperdir,workdir=/run/archiso/cowspace/${cow_directory}/workdir" \
+        airootfs "${newroot}${mnt}"
 }
-
 
 # args: /path/to/image_file, mountpoint
 _mnt_sfs() {
@@ -72,9 +71,9 @@ _mnt_sfs() {
 
         # in case we have pv use it to display copy progress feedback otherwise
         # fallback to using plain cp
-        if command -v pv > /dev/null 2>&1; then
+        if command -v pv >/dev/null 2>&1; then
             echo ""
-            (pv "${img}" > "/run/archiso/copytoram/${img_fullname}")
+            (pv "${img}" >"/run/archiso/copytoram/${img_fullname}")
             local rc=$?
         else
             (cp -- "${img}" "/run/archiso/copytoram/${img_fullname}")
@@ -90,7 +89,7 @@ _mnt_sfs() {
         msg "done."
     fi
     sfs_dev="$(losetup --find --show --read-only -- "${img}")"
-    echo "${sfs_dev}" >> /run/archiso/used_block_devices
+    echo "${sfs_dev}" >>/run/archiso/used_block_devices
     _mnt_dev "${sfs_dev}" "${mnt}" "-r" "defaults"
 }
 
@@ -105,7 +104,7 @@ _mnt_erofs() {
     # defined via initcpio's parse_cmdline()
     if [ "${copytoram}" = "y" ]; then
         msg -n ":: Copying EROFS image to RAM..."
-        if ! cp -- "${img}" "/run/archiso/copytoram/${img_fullname}" ; then
+        if ! cp -- "${img}" "/run/archiso/copytoram/${img_fullname}"; then
             echo "ERROR: while copy '${img}' to '/run/archiso/copytoram/${img_fullname}'"
             launch_interactive_shell
         fi
@@ -113,7 +112,7 @@ _mnt_erofs() {
         msg "done."
     fi
     erofs_dev="$(losetup --find --show --read-only -- "${img}")"
-    echo "${erofs_dev}" >> /run/archiso/used_block_devices
+    echo "${erofs_dev}" >>/run/archiso/used_block_devices
     _mnt_dev "${erofs_dev}" "${mnt}" "-r" "defaults" "erofs"
 }
 
@@ -149,7 +148,7 @@ _mnt_dev() {
 _verify_checksum() {
     local _status
     cd "/run/archiso/bootmnt/${archisobasedir}/${arch}" || exit 1
-    sha512sum -c airootfs.sha512 > /tmp/checksum.log 2>&1
+    sha512sum -c airootfs.sha512 >/tmp/checksum.log 2>&1
     _status=$?
     cd -- "${OLDPWD}" || exit 1
     return "${_status}"
@@ -203,7 +202,7 @@ archiso_mount_handler() {
     if ! mountpoint -q "/run/archiso/bootmnt"; then
         _mnt_dev "${archisodevice}" "/run/archiso/bootmnt" "-r" "defaults"
         if [ "${copytoram}" != "y" ]; then
-            readlink -f "${archisodevice}" >> /run/archiso/used_block_devices
+            readlink -f "${archisodevice}" >>/run/archiso/used_block_devices
         fi
     fi
 
@@ -255,7 +254,7 @@ archiso_mount_handler() {
 
     if [ -n "${cow_device}" ]; then
         _mnt_dev "${cow_device}" "/run/archiso/cowspace" "-r" "${cow_flags}"
-        readlink -f "${cow_device}" >> /run/archiso/used_block_devices
+        readlink -f "${cow_device}" >>/run/archiso/used_block_devices
         mount -o remount,rw "/run/archiso/cowspace"
     else
         msg ":: Mounting /run/archiso/cowspace (tmpfs) filesystem, size=${cow_spacesize}..."
