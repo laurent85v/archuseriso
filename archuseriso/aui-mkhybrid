@@ -619,7 +619,7 @@ _settings() {
 
 _biosbootloader() {
         _msg_info "Installing boot loader"
-        if ! syslinux --directory syslinux --install -- "${usb_device}2" > /dev/null; then
+        if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
                 echo 'Boot loader installation failed!'
                 exit 1
         fi

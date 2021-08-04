@@ -597,7 +597,7 @@ _persistence() {
 _biosbootloader() {
         echo
         _msg_info "Installing boot loader"
-        if ! syslinux --directory syslinux --install -- "${usb_device}2" > /dev/null; then
+        if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
                 echo 'Bootloader installation failed!'
                 exit 1
         fi
