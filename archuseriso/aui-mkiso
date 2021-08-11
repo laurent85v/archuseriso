@@ -1318,7 +1318,7 @@ _validate_options() {
     _msg_info "Validating options..."
     # Check if the package list file exists and read packages from it
     if [[ -e "${packages}" ]]; then
-        mapfile -t pkg_list_from_file < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales}" | sed '/^$/d')
+        mapfile -t pkg_list_from_file < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales:-/dev/null}" | sed '/^$/d')
         if (( ${#pkg_list_from_file} < 1 )); then
             (( validation_error=validation_error+1 ))
             _msg_error "No package specified in '${packages}'." 0
