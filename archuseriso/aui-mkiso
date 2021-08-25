@@ -27,6 +27,7 @@ directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
 embed_dir=""
 gpg_key=""
+gpg_sender=""
 image_name=""
 install_dir=""
 iso_application=""
@@ -103,7 +104,10 @@ usage: ${app_name} [options] <profile_dir>
                                         NOTE: Max 8 characters, use only [a-z0-9]
      --embed-dir <path>                 Embed directory contents in the iso image,
                                         data available from the live's session.
-     -g <gpg_key>                       Set the GPG key ID to be used for signing the rootfs image
+     -g, --gpgkey <gpg_key>             Set the PGP key ID to be used for signing the rootfs image.
+                                        Passed to gpg as the value for --default-key
+     -G, --gpgsender <mbox>             Set the PGP signer (must include an email address)
+                                        Passed to gpg as the value for --sender
      -h                                 This message
      -L <label>                         Set the ISO volume label
                                         Default: '${iso_label}'
@@ -156,6 +160,7 @@ _show_config() {
     _msg_info "       Current build mode:   ${buildmode}"
     _msg_info "              Build modes:   ${buildmodes[*]}"
     _msg_info "                  GPG key:   ${gpg_key:-None}"
+    _msg_info "               GPG signer:   ${gpg_sender:-None}"
     _msg_info "                  Profile:   ${profile}"
     _msg_info "Code signing certificates:   ${cert_list[*]}"
     _msg_info "Pacman configuration file:   ${pacman_conf}"
@@ -283,7 +288,7 @@ _mkchecksum() {
 
 # GPG sign the root file system image.
 _mksignature() {
-    local airootfs_image_filename
+    local airootfs_image_filename gpg_options=()
     _msg_info "Signing rootfs image..."
     if [[ -e "${isofs_dir}/${install_dir}/${arch}/airootfs.sfs" ]]; then
         airootfs_image_filename="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
@@ -291,9 +296,11 @@ _mksignature() {
         airootfs_image_filename="${isofs_dir}/${install_dir}/${arch}/airootfs.erofs"
     fi
     rm -f -- "${airootfs_image_filename}.sig"
+    # Add gpg sender option if the value is provided
+        [[ -z "${gpg_sender}" ]] || gpg_options+=('--sender' "${gpg_sender}")
     # always use the .sig file extension, as that is what mkinitcpio-archiso's hooks expect
     gpg --batch --no-armor --no-include-key-block --output "${airootfs_image_filename}.sig" --detach-sign \
-        --default-key "${gpg_key}" "${airootfs_image_filename}"
+        --default-key "${gpg_key}" "${gpg_options[@]}" "${airootfs_image_filename}"
     _msg_info "Done!"
 }
 
@@ -1468,6 +1475,7 @@ _set_overrides() {
         install_dir="${app_name}"
     fi
     [[ ! -v override_gpg_key ]] || gpg_key="${override_gpg_key}"
+    [[ ! -v override_gpg_sender ]] || gpg_sender="$override_gpg_sender"
     if [[ -v override_cert_list ]]; then
         sign_netboot_artifacts="y"
     fi
@@ -1772,10 +1780,10 @@ _build_zfs_packages () {
     cd -- "${_WD}"
 }
 
-OPTS=$(getopt -o '?A:C:c:D:g:hL:l:m:N:o:P:p:vw:' \
+OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:vw:' \
               -l 'addi3wm,addpkg:,addpkgtesting:,application:,embeddir:' \
               -l 'add-i3-wm,add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
-              -l 'gpgkey:,installdir:,label:,language:,nvidia,optimus' \
+              -l 'gpgkey:,gpgsender:,installdir:,label:,language:,nvidia,optimus' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
               -l 'verbose,workdir:,work-dir:,zfs' \
@@ -1816,6 +1824,9 @@ while true; do
             shift 2 ;;
         '-g'|'--gpgkey')
             override_gpg_key="${2}"
+            shift 2 ;;
+        '-G'|'--gpgsender')
+            override_gpg_sender="${2}"
             shift 2 ;;
         '-L'|'--label')
             override_iso_label="${2}"
