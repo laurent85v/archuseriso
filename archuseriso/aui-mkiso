@@ -1488,7 +1488,7 @@ _make_version() {
     local osrelease
 
     _msg_info "Creating version files..."
-    if [[ "${buildmode}" == "iso" ]]; then
+    if [[ "${buildmode}" == @("iso"|"netboot") ]]; then
         if [[ -z "${iso_version}" ]]; then
             iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
                            cut -d' ' -f2 | \
