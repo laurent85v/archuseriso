@@ -200,6 +200,7 @@ _cleanup_pacstrap_dir() {
 _run_mksquashfs() {
     # Set default mksquashfs options
     local image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.sfs"
+    rm -f -- "${image_path}"
     if [[ "${quiet}" == "y" ]]; then
         mksquashfs "$@" "${image_path}" -noappend "${airootfs_image_tool_options[@]}" -no-progress &> /dev/null
     else
@@ -226,6 +227,7 @@ _mkairootfs_ext4+squashfs() {
         '-U' 'clear'
     )
     [[ ! "${quiet}" == "y" ]] || mkfs_ext4_options+=('-q')
+    rm -f -- "${pacstrap_dir}.img"
     E2FSPROGS_FAKE_TIME="${SOURCE_DATE_EPOCH}" mkfs.ext4 "${mkfs_ext4_options[@]}" -- "${pacstrap_dir}.img" 32G
     tune2fs -c 0 -i 0 -- "${pacstrap_dir}.img" > /dev/null
     _msg_info "Done!"
@@ -258,6 +260,7 @@ _mkairootfs_erofs() {
 
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/${arch}"
     local image_path="${isofs_dir}/${install_dir}/${arch}/airootfs.erofs"
+    rm -f -- "${image_path}"
     # Generate reproducible file system UUID from SOURCE_DATE_EPOCH
     fsuuid="$(uuidgen --sha1 --namespace 93a870ff-8565-4cf3-a67b-f47299271a96 --name "${SOURCE_DATE_EPOCH}")"
     _msg_info "Creating EROFS image, this may take some time..."
@@ -695,7 +698,7 @@ _make_efibootimg() {
     )"
     # The FAT image must be created with mkfs.fat not mformat, as some systems have issues with mformat made images:
     # https://lists.gnu.org/archive/html/grub-devel/2019-04/msg00099.html
-    [[ -e "${work_dir}/efiboot.img" ]] && rm -f -- "${work_dir}/efiboot.img"
+    rm -f -- "${work_dir}/efiboot.img"
     _msg_info "Creating FAT image of size: ${_imgsize} KiB..."
     if [[ "${quiet}" == "y" ]]; then
         mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${_imgsize}" &> /dev/null
@@ -1217,6 +1220,7 @@ _build_iso_image() {
         typeset -f "_add_xorrisofs_options_${bootmode}" &> /dev/null && "_add_xorrisofs_options_${bootmode}"
     done
     
+    rm -f -- "${out_dir}/${image_name}"
     _msg_info "Creating ISO image..."
     if [[ "${quiet}" == "y" ]]; then
         xorriso -as mkisofs \

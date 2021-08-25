@@ -1,0 +1,410 @@
+* [33mcd728b8[m[33m ([m[1;36mHEAD -> [m[1;32mdraft[m[33m)[m aui-mkiso: copy files to ext4 image using mkfs.ext4's -d option instead of mounting the file system
+* [33m44b06d8[m fix issue #34
+* [33m1814fbf[m[33m ([m[1;33mtag: v0.6.9[m[33m, [m[1;31morigin/master[m[33m, [m[1;32mtesting[m[33m, [m[1;32mmaster[m[33m)[m hide syslinux warning message
+* [33m28e3787[m[33m ([m[1;31morigin/testing[m[33m)[m Makefile update
+* [33mb2cd303[m sync archiso hook with mkinitcpio-archiso v58
+* [33mdbd8df2[m aui-mkiso do not run _build_iso_base once
+* [33m5ad5367[m remove SPDX license identifier from config files
+* [33mf32e88e[m aui-mkiso improve functions and comments
+* [33mf436a3e[m networkd RouteMetric
+* [33m66ee714[m set LC_ALL instead of LANG
+* [33mf009619[m unset TMPDIR & revert "clear environment variables when chrooting"
+* [33me357704[m Revert "zfs build kernel 5.12 patch backports"
+* [33mb33c054[m[33m ([m[1;33mtag: v0.6.8[m[33m)[m packages.x86_64: removed termite-terminfo
+* [33m086a8e7[m generalize handling of ucodes
+* [33meba5924[m pacman.conf: Enable parallel downloads
+* [33m8147fe0[m pass SOURCE_DATE_EPOCH to chroot
+* [33m2d67e45[m update ArchWiki article URLs
+* [33m3e346be[m update configuration file for pacman 6
+* [33m9f91125[m fix unbound variable when not using GPG signing
+* [33m2976fe5[m clear environment variables when chrooting
+* [33mb3a85e8[m aui-mkiso: building profile without microcode package would fail
+* [33m1b5c9f9[m[33m ([m[1;33mtag: v0.6.7[m[33m)[m readme update
+* [33m30f28c6[m systemd network: match by globbing the interface name
+* [33m81bf12f[m add optional pv tool
+* [33mcd38aaf[m[33m ([m[1;33mtag: v0.6.6[m[33m)[m readme update
+* [33m03622ed[m bind mount chroot dir on itself
+* [33m616c599[m zfs build kernel 5.12 patch backports
+* [33m8281765[m hybrid fstab typo
+* [33m7f5fe3a[m aui-run qemu 6 options update
+* [33mf369fed[m pacman-init.service don't hardcode the keyrings
+* [33mb48282e[m explicitly add wanted packages instead
+* [33m3076812[m add VM guest packages and enable their services
+* [33m38819f8[m also create package list for netboot
+* [33m9756603[m add buildmode to export netboot artifacts
+* [33m37e9597[m implement buildmodes that allow building bootstrap images
+* [33m7cb05fe[m set more generic output for signatures
+* [33m00cf13a[m force PGP signature file extension
+* [33mf8f6caf[m[33m ([m[1;33mtag: v0.6.5[m[33m)[m add packages for unlocking LUKS2 volumes with systemd
+* [33m849db39[m add required packages to interact with smartcards
+* [33mac11597[m increase serial baud rate to 115200
+* [33m8947e58[m create reproducible gzip archives
+* [33m3818838[m make sure to remove potentially preexisting files
+* [33mc7d4cd8[m append IMAGE_ID and IMAGE_VERSION to /etc/os-release
+* [33meb7c3a6[m aui-mkiso: also add iso name in grub environment block
+* [33m2cc420f[m aui-mkiso: use -isohybrid-gpt-basdat
+* [33ma4afe93[m readme update, command help update
+* [33m0112c45[m btrfs home subvolume
+* [33m106ba0c[m calculate and set copytoram size
+* [33m6b2c2ec[m encryption labels changed to LUKS_XXX
+* [33m5651aab[m luks encryption header changed to luks2
+* [33mac5c6bc[m sddm config update
+* [33md965c98[m boot menu entries update and addition
+* [33me968e05[m aui-run: vm ram size option
+* [33m39e6ec5[m change btrfs subvolume name to rootfs
+* [33m8a5e499[m aui-mk* update
+* [33md324ec1[m[33m ([m[1;33mtag: v0.6.4.1[m[33m)[m fixing typo
+* [33m23e3ebc[m[33m ([m[1;33mtag: v0.6.4[m[33m)[m btrfs compression algorithm option
+* [33mfd4de81[m refind bypass option
+* [33m0175508[m check iso image uefi compatibility
+* [33m163477a[m change refind timeout behaviour
+* [33me45efb6[m add btrfs option
+* [33m07b858e[m[33m ([m[1;33mtag: v0.6.3.2[m[33m)[m gnome profile: gnome-getting-started-docs removed
+* [33m0524bf9[m[33m ([m[1;33mtag: v0.6.3.1[m[33m)[m lxqt profile typo
+* [33m3dc62d3[m sway profile update
+* [33mb9ac7fb[m[33m ([m[1;33mtag: v0.6.3[m[33m)[m systemd 248 boot menu entries sort issue
+* [33m99e3cbf[m motd help
+* [33m0308cc1[m new sway profile
+* [33m75ad490[m missing archiso packages
+* [33m8f3e5e5[m add archinstall to the list of packages
+* [33m2007f02[m reduce amount of checked mirrors
+* [33m4fede2b[m allow redirects for scripts
+* [33m5ecc9bd[m add and enable ModemManager
+* [33m671560c[m start DHCP client for mobile broadband
+* [33m31af04f[m rename 20-wireless.network to 20-wlan.network
+* [33m8bfb0db[m update 20-{ethernet,wireless}.network
+* [33m145a318[m aui-mkiso: do not set default mksquashfs options
+* [33m5164afe[m recursively change file permissions for folders listed in profiledef.sh
+* [33m1ee6202[m add a sound card firmware
+* [33m30d4597[m support EROFS
+* [33mf00d755[m console profile remove duplicate menu option
+* [33me1cc8a7[m aui-mk*: check file exists before sed command
+* [33m85f161a[m remove deprecated aui haveged.service
+* [33m3558ed8[m package groups
+* [33m77f01ab[m aui-build_zfs_packages out dir permissions
+* [33mb9e5f4d[m i3 profile: remove unused samba config files
+* [33m0420e69[m[33m ([m[1;33mtag: v0.6.2.1[m[33m)[m mate profile typo
+* [33m3423d8d[m[33m ([m[1;33mtag: v0.6.2[m[33m)[m refind 0.13 settings update
+* [33me1fd33a[m mkinitcpio.conf update
+* [33m1edaf85[m add usbmuxd to packages list
+* [33m018b344[m remove haveged from packages list
+* [33md7badf4[m readme update
+* [33m5dfe44d[m aui-build_zfs_package add trap on exit signal
+* [33m405a89a[m aui-build_zfs_packages makepkg.conf handling
+* [33mfce594c[m[33m ([m[1;31morigin/draft[m[33m)[m fix optimus setup and user settings
+* [33me3fce2a[m[33m ([m[1;33mtag: v0.6.1[m[33m)[m readme update
+* [33m299f113[m authors
+* [33mec53ce7[m aui-mkiso: rework the way overrides are applied
+* [33mdbb2b43[m aui-mkiso: add version information
+* [33me1a7277[m aui-mkusb: code cleanup
+* [33m220bdd1[m aui-mkusb: change persistence boot menu
+* [33m6d37465[m aui-mkusb: change mountpoint names
+* [33m803047e[m aui-mkiso: assumes profiles default path
+* [33m4a95dbe[m aui-mkiso: fix typos
+* [33md9ffe78[m aui-run options modification
+* [33m16ed010[m add vnc support to aui-run
+* [33m242c248[m file renaming
+* [33ma7fa298[m aui-mkinstall code overhaul
+* [33mca50f31[m new aui-mkhybrid script
+* [33m49088d7[m aui-mkinstall randomize labels
+* [33mf014c2f[m group aui files into common directories
+* [33m5f6b62d[m aui-mkusb randomize labels
+* [33m3518a6a[m aui-mkinstall add partition size option
+* [33me86737c[m code cleanup
+* [33m8eee72e[m aui-run script
+* [33m229e79e[m[33m ([m[1;33mtag: v0.6.0.1[m[33m, [m[1;32mmaintenance[m[33m)[m zfs build fix
+* [33meebd7d7[m[33m ([m[1;33mtag: v0.6[m[33m)[m readme update, command parameters update
+* [33m56251f2[m additional packages handling
+* [33m41faa89[m no ext4 journal an explicit user option
+* [33me76f351[m revert ignore mkinitcpio return status
+* [33m388b37b[m code cleanup
+* [33m88f6971[m partprobe usb device after operations on partitions
+* [33meb8140b[m syslinux persistence setup
+* [33mf7acc80[m pre-release various fixes
+* [33m8aa4a84[m iso image checksum and signature
+* [33m6893c4b[m prepare next major release
+* [33md0f3ac7[m AUIDATA identifier v3
+* [33md487271[m aui-addpersistence removed, not maintained
+* [33med679e5[m usb tools syslinux configuration update
+* [33me8efd74[m keep all SYSLINUX files in /syslinux
+* [33m2278503[m allow specifying ownership and mode of custom airootfs
+* [33m4eb226a[m console profile: accessibility support
+* [33mfc63be1[m migrating to profiledef.sh profiles
+* [33m2231c56[m git tree restructuring
+* [33m2e34928[m missing SPDX-License-Identifier for some files
+* [33me116fd4[m console profile: add language and persistence support
+* [33mb14e458[m profile rework
+* [33mca46c70[m mkaui: use getopt for command options parsing
+* [33mfcfc069[m profiledef.sh profiles
+* [33mec579f2[m package lists renaming
+* [33m70e27bf[m use the same file paths in both ISO 9660 and FAT
+* [33mb428162[m mkaui cleanup
+* [33m6fa3341[m configure the image type and image creation options using profiles
+* [33mdc24823[m move FAT image to a separate partition outside the ISO 9660 file system
+* [33m574c709[m set CacheDir and HookDir for profile more sanely
+* [33ma09a453[m ensure that _make_boot_uefi-x64.systemd-boot.esp can be re-run if it fails
+* [33m265db89[m save SOURCE_DATE_EPOCH to a file and read it from the file when resuming a build
+* [33maf84dcb[m Don't require root privileges just to show a "No command specified" error
+* [33m01cab1a[m replace bash arithmetic with awk functions
+* [33m42c8737[m fix info message for legacy command
+* [33m7c6f0e3[m calculate required efiboot.img size instead of hardcoding it
+* [33m5f0010d[m split SYSLINUX configuration into per-kernel configuration files
+* [33m943eaa8[m do not hardcode the kernel and initramfs file names
+* [33m9121216[m use the same file paths in both ISO 9660 and FAT
+* [33mfac4e88[m do not rename the initramfs image
+* [33mdeb60c3[m Do not overwrite existing files when copying from /etc/skel/
+* [33ma4d91ca[m Create FAT image using mtools
+* [33md23b117[m[33m ([m[1;32mmeta[m[33m)[m rEFInd white screen issue work around
+* [33mc8ba75e[m no hard coding logical sector size
+* [33m2f22a43[m[33m ([m[1;33mtag: v0.5.4.1[m[33m)[m maintenance release
+* [33m6bd6ac2[m ignore mkinitcpio return status error
+* [33mc8e20a3[m aui-mkusb: boot menu entry fix
+* [33mfcd8656[m[33m ([m[1;33mtag: v0.5.4[m[33m)[m zfs compatibility update with openzfs release 2.0.0
+* [33mba49f67[m cups service renamed upstream
+* [33mdfd16a0[m packages.x86_64: add fatresize, gpart and tmux
+* [33m29e1ad9[m[33m ([m[1;33mtag: v0.5.3[m[33m)[m new release
+* [33m53d2862[m set bootloader timeouts to 15s
+* [33m114e57a[m add squashfs-tools and udftools to packages.x86_64
+* [33ma6c6d0e[m remove custom reflector.service and use the service provided by the package
+* [33m269c04a[m zfs-utils PKGBUILD update
+* [33m773946e[m[33m ([m[1;33mtag: v0.5.2.2[m[33m)[m maintenance release
+* [33meeae98a[m kde plasma profile add plasma-disks remove user-manager
+* [33m844342f[m update zfs PKGBUILD to 0.8.5
+* [33me50e102[m deepin profile: replace deepin-extra group with list of packages
+* [33m1ba08e5[m[33m ([m[1;33mtag: v0.5.2.1[m[33m)[m maintenance release
+* [33m0663a0d[m mkaui: removing xorriso -rational-rock option
+* [33m9fadcaa[m[33m ([m[1;33mtag: v0.5.2[m[33m)[m new release
+* [33mae53054[m aui-mkusb: display information messages
+* [33m1d2e394[m aui-mkinstall: F2FS file system option
+* [33m8ef0407[m aui-mkusb: sync before unmounting
+* [33m28e35ff[m aui-mkusb: duplicate original persistent tree
+* [33mc0ee2d8[m aui-mkusb: add F2FS file system option for the persistent partition
+* [33m5763386[m urxvt background
+* [33m4205c39[m[33m ([m[1;33mtag: v0.5.1[m[33m)[m new release
+* [33m20f5f0f[m new mkaui backend forked from archiso/mkarchiso
+* [33m2d8a3b7[m archuseriso restructuring remove console build.sh
+* [33m687e737[m user home directories and permissions setup
+* [33m9a16861[m packages.x86_64: replace exfat-utils with exfatprogs
+* [33m7f0638b[m archiso_pxe.cfg: add "checksum" and "verify" boot options
+* [33m6529603[m[33m ([m[1;33mtag: v0.5.0.1[m[33m)[m bug fix release
+* [33m541cb26[m fix commit 666197c1 home directories setup
+* [33m8a8d7d3[m aui-build_zfs_packages: git master confdir fix
+* [33me89cc87[m[33m ([m[1;33mtag: v0.5[m[33m)[m new release
+* [33m5f41a8b[m zfs building: check dependencies before creating work dir
+* [33m2fc8dbf[m archuseriso restructuring, packages.x86_64
+* [33ma8c29b9[m readme.md update
+* [33mf298293[m deepin profile default background fix
+* [33m09d7950[m archuseriso restructuring, git tree
+* [33m113f14b[m `aui-mkusb` notice regarding the console image
+* [33mdce3921[m moving pacman.conf to glabal configuration
+* [33me7473f3[m option for installing packages from the testing repos
+* [33m2daa561[m `aui-build_zfs_packages` option for linux in testing
+* [33m805cef5[m iso image naming variable fix
+* [33m7231331[m zfs packages building and kernel sublevel version fix
+* [33mb5d931f[m `aui-mkinstall` kde profile autologin fix
+* [33m018923d[m makefile update, help update
+* [33m666197c[m archuseriso restructuring, airootfs
+* [33m2fc917e[m archuseriso restructuring, language
+* [33m3960b44[m archuseriso restructuring, syslinux
+* [33m2f49e57[m archuseriso restructuring, isolinux
+* [33mb4edd32[m archuseriso restructuring, efiboot
+* [33mf14a197[m archuseriso restructuring, archuseriso directory and build script
+* [33m16c9279[m packages.x86_64 in sync with archiso
+* [33m273234b[m readme.md update
+* [33m8d1ac9b[m `aui-mkinstall` new option and esp size modification
+* [33mdb70c26[m add license and SPDX license identifier
+* [33m71d481d[m place custom sshd_config in airootfs
+* [33mef92ec3[m mkinitcpio revamped
+* [33m900f162[m remove unnecessary files from releng's airootfs
+* [33md52926b[m copy files more generically
+* [33m44187e1[m copy /etc/skel/ to user's home from build.sh instead of customize_airootfs.sh
+* [33m2bc8295[m set up custom user home directories and their permissions
+* [33m845c4f6[m deprecate customize_airootfs.sh
+* [33m2b612cf[m install all packages in one go and don't copy pacman.conf to airootfs
+* [33mc38745a[m set root user's shell and password with custom /etc/passwd and /etc/shadow
+* [33md7e9f11[m fix unexpected script_path behaviour
+* [33mbe1e796[m explicitly add linux and mkinitcpio to packages.x86_64
+* [33m54ad733[m remove lynx usage in configs/releng/build.sh
+* [33mfd165ad[m Remove unnecessary dialog package
+* [33m5eed312[m use /usr/bin/env in shebangs
+* [33m92d318d[m add work and out directories to .gitignore
+* [33m0106826[m remove unneded ReadOnlyPaths from reflector.service
+* [33m132965f[m Keep /root permissions as 750
+* [33m433fdda[m Update pacman.conf to the current version shipped by the pacman package
+* [33m827a66d[m sort packages.x86_64
+* [33mf68a3b7[m warn about Syslinux's reboot.c32 and poweroff.c32 requiring APM
+* [33m1d12135[m add terminus-font
+* [33mf2b2792[m add *-terminfo packages to ease installation via SSH
+* [33mee0b55f[m automatically boot the installation environment from syslinux
+* [33m78bb734[m build.sh cleanup airootfs fix
+* [33ma2a7c63[m install mode 'archy' user renamed 'archie'
+* [33m35c88f7[m [configs/kde] sddm breeze default theme
+* [33m470269d[m utility for building zfs packages
+* [33m132450b[m new option for zfs support
+* [33mfc941ee[m new iso image name format
+* [33mdde38ee[m new embed dir option
+* [33mfdf1b7c[m[33m ([m[1;33mtag: v0.4.4.3[m[33m)[m maintenance release
+* [33med61ea8[m increase efiboot.img size to 96 MB
+* [33m10c7071[m copy UEFI shell from airootfs instead of the host system
+* [33m25d1bc0[m use latest synced mirrors instead of age
+* [33m48fcd3c[m install mkinitcpio-archiso hooks in airootfs
+* [33m81b02cc[m[33m ([m[1;33mtag: v0.4.4.2[m[33m)[m maintenance release
+* [33m91b00cc[m `aui-mkinstall` issue with util-linux
+* [33mc78e6b1[m amd-ucode 20200721.2b823fc-1 breaks build script
+* [33m463ce77[m[33m ([m[1;33mtag: v0.4.4.1[m[33m)[m maintenance release
+* [33m4be9d5e[m `aui-mkusb` compatibility issue with util-linux
+* [33m3b52ed6[m[33m ([m[1;33mtag: v0.4.4[m[33m)[m new release
+* [33m6cf9943[m upperdir mkinitcpio fix
+* [33ma1b17f0[m samba settings
+* [33mfa2c11f[m git tree modification
+* [33m84dae5e[m lightdm backround color
+* [33m246f625[m language build option fix
+* [33m95baf38[m X defaults
+* [33m630ea1e[m aui-mkinstall update
+* [33m36e40e0[m command arguments order change
+* [33m5f2717f[m package list update
+* [33m9936655[m [configs/lxqt] new template
+* [33mdfb6e0b[m [configs/i3] new template
+* [33m5073022[m add shellx64.efi to persistent device boot menu
+* [33m421b4ef[m install_alternative.txt removed
+* [33m018a61c[m activate suspend in persistent boot mode
+* [33m9014ef5[m package list update
+* [33mf7fef29[m rebase on archiso commit 1b2a7b5
+* [33m32a74b3[m rebase on archiso commit 511ca9d
+* [33m67f4791[m rebase on archiso commit 3cf8e73
+* [33m7bca9bd[m rebase on archiso commit 3c33e84
+* [33md942c73[m rebase on archiso commit b08f168
+* [33m565d956[m rebase on archiso commit f00c073
+* [33m4d3db71[m rebase on archiso commit ff926f7
+* [33mc013c01[m build.sh update
+* [33m0586c56[m rebase on archiso commit d11737f
+* [33m674175a[m rebase on archiso commit 47533fd
+* [33mf08d50e[m rebase on archiso commit c5ecb84
+* [33m34bed0b[m rebase on archiso commit 3ed5dd5
+* [33mc6aa0f6[m rebase on archiso commits 32eef25 4d0cc65
+* [33mb38eb20[m rebase on archiso commit 6bf452f
+* [33m0dcb8bd[m rebase on archiso commit 9b49621
+* [33md034d09[m rebase on archiso commit 2d4b9f3
+* [33mfe371e5[m rebase on archiso commit 68df574
+* [33mfdac640[m rebase on archiso commits 0d67870 372a6f9 9e004ae
+* [33m3771108[m rebase on archiso commit 769fbec
+* [33m697ded9[m rebase on archiso commit d50e57a
+* [33mc9b868f[m templates soft links changed to file type
+* [33m513ab11[m[33m ([m[1;33mtag: v0.4.3.1[m[33m)[m maintenance release
+* [33mac742bc[m archiso v45 breaks archuseriso temporary fix
+* [33mb539bf9[m[33m ([m[1;33mtag: v0.4.3[m[33m)[m new release
+* [33mda3e19b[m package list and iso label update
+* [33m4bde8ba[m lightdm background color
+* [33m507e1ed[m add i3wm option
+* [33ma7b7f44[m [configs/kde] xdg-desktop-portal environment var
+* [33mf6571dd[m Add `xdg-desktop-portal` to KDE packages.
+* [33m46fe0da[m touchpad xorg settings
+* [33m8293051[m package list update
+* [33m8a23ed9[m[33m ([m[1;33mtag: v0.4.2[m[33m)[m new release
+* [33m45856a6[m vulkan-mesa-layers package
+* [33maee52b8[m aui-mkinstall bios bootloader
+* [33mfbe1375[m disable ext4 journal
+* [33mde774f7[m[33m ([m[1;33mtag: v0.4.1.1[m[33m)[m maintenance release
+* [33m1267ab8[m gnome: empathy removed from Arch db
+* [33m6e8e611[m[33m ([m[1;33mtag: v0.4.1[m[33m)[m new release
+* [33m0602f49[m part1 size increase
+* [33mb81d492[m aui-mkusb partitioning fix
+* [33m2b573f2[m Revert "package refind-efi renamed refind"
+* [33m5dca2ce[m readme update
+* [33mcfa85a7[m new pkgdir option
+* [33ma09cbbc[m build.sh update
+* [33m65a3f58[m medium type
+* [33m3f2507f[m aui-mkiso update
+* [33mc413263[m[33m ([m[1;33mtag: v0.4.0.1[m[33m)[m package refind-efi renamed refind
+* [33m8e2677d[m[33m ([m[1;33mtag: v0.4[m[33m)[m package addition
+* [33m40db504[m readme update
+* [33m0e46e33[m add-persistence renamed aui-addpersistence
+* [33md717cf3[m Live USB new design
+* [33m67b5a36[m wireguard-arch removed
+* [33mf18559d[m[33m ([m[1;33mtag: v0.3.8.1[m[33m)[m syslinux default update
+* [33m2d47bfc[m pygtk removed from Arch db
+* [33m98a896e[m packages extra update
+* [33m84eaf24[m[33m ([m[1;33mtag: v0.3.8[m[33m)[m new release
+* [33macc1ea8[m readme update
+* [33m5afb917[m aui-mkiso --addpkg option
+* [33mb2257e9[m aui-mkiso --nvidia and --optimus options
+* [33m4fb902e[m vulkan packages addition
+* [33m3f8fe33[m[33m ([m[1;33mtag: v0.3.7[m[33m)[m new release
+* [33mdfe678e[m code identation
+* [33mc346a6a[m aui-mkinstall
+* [33m8c34791[m Makefile release update
+* [33m34c88c2[m[33m ([m[1;33mtag: v0.3.6.1[m[33m)[m add-persistence fix
+* [33m878ff43[m[33m ([m[1;33mtag: v0.3.6[m[33m)[m new release
+* [33m66881d2[m readme update
+* [33mb3adc30[m Czech support
+* [33mf234cc5[m Greek support
+* [33m5fc15f8[m hungarian support
+* [33mdc2ac3d[m serbian support
+* [33m6f3a9b7[m dutch support
+* [33m9cc9e63[m romanian support
+* [33m5be5c9a[m ukrainian support
+* [33m2922b86[m polish support
+* [33mf91f924[m keyboard & locale update
+* [33m682ed8c[m add persistence feature from live usb
+* [33m9c4f159[m remove plymouth support
+* [33m929045f[m xorg-xdpyinfo back to default packages
+* [33me9fa590[m[33m ([m[1;33mtag: v0.3.5[m[33m)[m packaged removed from Arch repos
+* [33m16327e1[m[33m ([m[1;33mtag: v0.3.4[m[33m)[m new release
+* [33m9866c72[m aui-mkpersistent timing
+* [33m164a647[m aui-mkpersistent new encryption option
+* [33m8422552[m[33m ([m[1;33mtag: v0.3.3[m[33m)[m new release
+* [33m8714eae[m persistence: Arch menu options fix
+* [33m5b16703[m persistence: pacman-init.service override
+* [33m028fcea[m[33m ([m[1;33mtag: v0.3.2[m[33m)[m aui-mkiso, aui-mkusb, aui-mkpersistent
+* [33meb75737[m[33m ([m[1;33mtag: v0.3.1[m[33m)[m new release
+* [33m27f95ee[m new package xorg-xdpyinfo
+* [33m2e277eb[m add persistence
+* [33m114205b[m [configs/kde] new package konversation
+* [33m7eba052[m [configs/xfce] fix filename
+* [33mc071025[m[33m ([m[1;33mtag: v0.3[m[33m)[m new major release
+* [33m468ea5e[m exit code fix
+* [33m0340728[m Switch to gzip and zstd compressors over xz
+* [33m142935b[m zstd compatibility
+* [33m8e8e6c1[m Rebase packages.x86_64 on archiso 43-1
+* [33m5c13012[m Revert 60e5a14c5ceb360b6b564b0af10a1f4ea65abe19
+* [33m60e5a14[m[33m ([m[1;33mtag: v0.2.7[m[33m)[m 'base' group replaced by mandatory 'base' package
+* [33md02ac16[m [configs/gnome] gnome-todo back to Arch repos
+* [33mae1b5ea[m new packages
+* [33m6835895[m[33m ([m[1;33mtag: v0.2.6[m[33m)[m [configs/gnome] gnome-todo removed from Arch repos
+* [33m13b9962[m[33m ([m[1;33mtag: v0.2.5[m[33m)[m [configs/xfce] new package catfish
+* [33m958d6be[m /etc/hosts update
+* [33m246df86[m new packages wireguard vpn
+* [33ma21d196[m[33m ([m[1;33mtag: v0.2.4[m[33m)[m [configs/kde] pavucontrol-qt
+* [33m973e1c7[m new package zsh-autosuggestions
+* [33m0c58685[m install alternative
+* [33m6e29ddb[m nvidia dpi set to 96 by default
+* [33m4fdc5df[m [configs/xfce] new config
+* [33mdd587ac[m[33m ([m[1;33mtag: v0.2.3[m[33m)[m commit 4ca679d mistake
+* [33mf7156e8[m console font
+* [33m6b4c360[m new language: Turkish tr_TR.UTF8
+* [33mb01ac6a[m New language: Russian ru_RU.UTF8
+* [33mc07f043[m [configs/mate] new config
+* [33md02a0da[m[33m ([m[1;33mtag: v0.2.2[m[33m)[m [configs/cinnamon] disable screen lock
+* [33m343914d[m [configs/deepin] disable screen lock
+* [33me66e8f8[m wrapper update
+* [33m4ca679d[m [configs/deepin] new config
+* [33m8e6b612[m airootfs cleanup check file exists before removing
+* [33m8cfed3e[m [configs/cinnamon] new config
+* [33mbadfc84[m exa package addition
+* [33ma36129b[m[33m ([m[1;33mtag: v0.2.1[m[33m)[m wrapper update
+* [33m8a0d388[m exa package addition
+* [33m39103ee[m[33m ([m[1;33mtag: v0.2[m[33m)[m wrapper
+* [33mbbd7790[m boot menu and iso name update
+* [33m4e1e8bb[m default language build fix
+* [33m4221d02[m[33m ([m[1;33mtag: v0.1[m[33m)[m readme update
+* [33m78b1bae[m new language pt_PT
+* [33m7fb3177[m new language it_IT
+* [33m627f1ba[m new language es_ES
+* [33m7a8e4f5[m new language de_DE
+* [33m085d243[m language option
+* [33m8930112[m makefile
+* [33m160020e[m readme
+* [33mc6f9da2[m [confis/gnome] new config
+* [33m3ccb905[m [configs/kde] new config
+* [33ma994128[m [configs/console] new config
+* [33m38e2ef9[m init
