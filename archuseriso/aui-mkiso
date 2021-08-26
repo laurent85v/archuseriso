@@ -1320,7 +1320,7 @@ _validate_options() {
     # Check if the package list file exists and read packages from it
     if [[ -e "${packages}" ]]; then
         mapfile -t pkg_list_from_file < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales:-/dev/null}" | sed '/^$/d')
-        if (( ${#pkg_list_from_file} < 1 )); then
+        if (( ${#pkg_list_from_file[@]} < 1 )); then
             (( validation_error=validation_error+1 ))
             _msg_error "No package specified in '${packages}'." 0
         fi
@@ -1359,7 +1359,7 @@ _validate_options() {
         done
         cert_list=("${_override_cert_list[@]}")
         # Check if there are at least two certificate files
-        if (( "${#cert_list[@]}" < 2 )); then
+        if (( ${#cert_list[@]} < 2 )); then
             (( validation_error=validation_error+1 ))
             _msg_error "Two certificates are required for codesigning, but '${cert_list[*]}' is provided." 0
         fi
@@ -1426,7 +1426,7 @@ _validate_options() {
 _set_overrides() {
     # Set variables that have command line overrides
     [[ ! -v override_buildmodes ]] || buildmodes=("${override_buildmodes[@]}")
-    if (( "${#buildmodes[@]}" < 1 )); then
+    if (( ${#buildmodes[@]} < 1 )); then
         buildmodes+=('iso')
     fi
     if [[ -v override_work_dir ]]; then
