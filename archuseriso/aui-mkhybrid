@@ -598,14 +598,16 @@ _settings() {
                 _msg_info "Configuring user ${username}"
                 mv -- "${WD}/${workdir}/usbrw/home/live" "${WD}/${workdir}/usbrw/home/${username}"
                 sed -i -- "s/live/${username}/g" \
-                          "${WD}/${workdir}/usbrw/etc/"{passwd,group,shadow,gshadow} \
-                          "${WD}/${workdir}/usbrw/etc/samba/smb.conf"
-                _msg_info "Done!"
+                          "${WD}/${workdir}/usbrw/etc/"{passwd,group,shadow,gshadow}
+                if [[ -e "${WD}/${workdir}/usbrw/etc/samba/smb.conf" ]]; then
+                        sed -i -- "s/live/${username}/g" \
+                                  "${WD}/${workdir}/usbrw/etc/samba/smb.conf"
+                fi
         else
                 _msg_info "no user account found on the live image!"
                 username="root"
-                _msg_info "Done!"
         fi
+        _msg_info "Done!"
 
         # initramfs
         _msg_info "initramfs update"
