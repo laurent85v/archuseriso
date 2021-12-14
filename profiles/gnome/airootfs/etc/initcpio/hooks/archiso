@@ -158,7 +158,7 @@ _verify_signature() {
     local _status
     local sigfile="${1}"
     cd "/run/archiso/bootmnt/${archisobasedir}/${arch}" || exit 1
-    gpg --homedir /gpg --status-fd 1 --verify "${sigfile}" 2>/dev/null | grep -qE '^\[GNUPG:\] GOODSIG'
+    gpg --homedir /gpg --status-fd 1 --verify "${sigfile}" 2>/dev/null | grep -E '^\[GNUPG:\] GOODSIG'
     _status=$?
     cd -- "${OLDPWD}" || exit 1
     return ${_status}
@@ -210,9 +210,9 @@ archiso_mount_handler() {
     # defined via initcpio's parse_cmdline()
     if [ "${checksum}" = "y" ]; then
         if [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sha512" ]; then
-            msg -n ":: Self-test requested, please wait..."
+            msg ":: Self-test requested, please wait..."
             if _verify_checksum; then
-                msg "done. Checksum is OK, continue booting."
+                msg "Checksum is OK, continue booting."
             else
                 echo "ERROR: one or more files are corrupted"
                 echo "see /tmp/checksum.log for details"
@@ -233,9 +233,9 @@ archiso_mount_handler() {
             sigfile="airootfs.erofs.sig"
         fi
         if [ -n "${sigfile}" ]; then
-            msg -n ":: Signature verification requested, please wait..."
+            msg ":: Signature verification requested, please wait..."
             if _verify_signature "${sigfile}"; then
-                msg "done. Signature is OK, continue booting."
+                msg "Signature is OK, continue booting."
             else
                 echo "ERROR: one or more files are corrupted"
                 launch_interactive_shell
