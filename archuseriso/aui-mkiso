@@ -711,6 +711,8 @@ _make_efibootimg() {
     rm -f -- "${work_dir}/efiboot.img"
     _msg_info "Creating FAT image of size: ${_imgsize} KiB..."
     if [[ "${quiet}" == "y" ]]; then
+        # mkfs.fat does not have a -q/--quiet option, so redirect stdout to /dev/null instead
+        # https://github.com/dosfstools/dosfstools/issues/103
         mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${_imgsize}" &> /dev/null
     else
         mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${_imgsize}"
