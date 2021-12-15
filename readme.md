@@ -115,7 +115,7 @@ The buid option '--zfs' for adding zfs support proceeds in two stages. First sta
 
 Installation on usb drive
 -------------------------
-Permanent installation except systemd journal configured in volatile mode.
+Standard installation except systemd journal configured in volatile mode.
 
 Synopsis:
 
@@ -134,7 +134,7 @@ Drive partitioning, Ext4 default file system:
 
 Hybrid usb drive
 ---------------
-Both live and permanent installation. Boot menu offers standard booting and live booting.
+Both live and standard installation. Boot menu offers standard booting and live booting.
 
 Synopsis:
 
