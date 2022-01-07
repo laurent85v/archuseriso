@@ -39,7 +39,7 @@ valid_medium_version="v5"
 
 _usage() {
         echo
-        echo "${appname}, usb drive creation tool from an archuseriso image."
+        echo "${appname}, create a bootable usb drive from an archuseriso image."
         echo 'Live usb with persistence.'
         echo
         echo 'Synopsis:'
@@ -52,7 +52,7 @@ _usage() {
 
 _help() {
         echo
-        echo "${appname}, usb drive creation tool from an archuseriso image."
+        echo "${appname}, create a bootable usb drive from an archuseriso image."
         echo 'Live usb with persistence.'
         echo
         echo 'Synopsis:'
@@ -172,10 +172,63 @@ _checks() {
                 iso_file="${2}"
                 usb_device="${1}"
         fi
-        if [[ ! $(stat -c %t -- "${usb_device}" 2> /dev/null) -eq 8 ]]; then
-               echo "Error: ${usb_device} is not a block device!"
-               _usage 1
+        if [[ ! $(LC_ALL=C stat -c %F -- "${usb_device}" 2> /dev/null) =~ 'block special file' ]]; then
+                echo "Error: ${usb_device} is not a block device!"
+                _usage 1
         fi
+        case "$(LC_ALL=C stat -c %t -- "${usb_device}" 2> /dev/null)" in
+                '8')
+                        # SCSI disk devices (0-15)
+                        ;;
+                '65')
+                        # SCSI disk devices (16-31)
+                        ;;
+                '66')
+                        # SCSI disk devices (32-47)
+                        ;;
+                '67')
+                        # SCSI disk devices (48-63)
+                        ;;
+                '68')
+                        # SCSI disk devices (64-79)
+                        ;;
+                '69')
+                        # SCSI disk devices (80-95)
+                        ;;
+                '70')
+                        # SCSI disk devices (96-111)
+                        ;;
+                '71')
+                        # SCSI disk devices (112-127)
+                        ;;
+                '128')
+                        # SCSI disk devices (128-143)
+                        ;;
+                '129')
+                        # SCSI disk devices (144-159)
+                        ;;
+                '130')
+                        # SCSI disk devices (160-175)
+                        ;;
+                '131')
+                        # SCSI disk devices (176-191)
+                        ;;
+                '132')
+                        # SCSI disk devices (192-207)
+                        ;;
+                '133')
+                        # SCSI disk devices (208-223)
+                        ;;
+                '134')
+                        # SCSI disk devices (234-239)
+                        ;;
+                '135')
+                        # SCSI disk devices (240-255)
+                        ;;
+                *)
+                        echo "Error: ${usb_device} is not a scsi disk device!"
+                        _usage 1
+        esac
         if [[ ! $(lsblk -dnro hotplug -- "${usb_device}" 2> /dev/null) -eq 1 ]]; then
                 echo "Error: ${usb_device} is not a removable block device!"
                 _usage 1
