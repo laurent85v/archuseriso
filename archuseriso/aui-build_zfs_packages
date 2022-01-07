@@ -20,6 +20,7 @@ linuxtesting="no"
 linuxversion=""
 modulesversion=""
 pkgdest=""
+release=""
 SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
@@ -53,6 +54,8 @@ _help () {
         echo '-h, --help              Command line help'
         echo "-C, --confdir <path>    Profile path (default: ${aui_profile})"
         echo '--linuxtesting          Build packages against the linux kernel in testing repository'
+        echo '-r, --release           Specify the zfs release version to build.'
+        echo '                        Example: aui-build_zfs_packages --release=2.1.2'
         echo
         exit "${1}"
 }
@@ -62,6 +65,7 @@ _cleanup() {
 }
 
 _init () {
+        local _link="https://api.github.com/repos/openzfs/zfs/releases"
         if ! pacman -Q devtools &> /dev/null; then
                 echo 'devtools package not installed, aborting!'
                 exit 0
@@ -78,9 +82,19 @@ _init () {
         pkgdest="${pkgdest:-"${WD}/out"}"
         mkdir -p -- "${ar64}"
         sudo --user "${SCRIPTUSER}" mkdir -p -- "${pkgdest}"
-        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
-                   https://api.github.com/repos/openzfs/zfs/releases/latest | \
-                   grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+        if [[ -z "${release}" ]]; then
+                mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
+                        "${_link}"/latest | \
+                        grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+        else
+                mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
+                        "${_link}" | grep "${release}" | \
+                        grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+                if [[ -z "${zfssources:-}" ]]; then 
+                        echo "release ${release} not found, aborting!"
+                        exit 0
+                fi
+        fi
         zfsversion="${zfssources[0]%/zfs-*}"
         zfsversion="${zfsversion#*-}"
         if [[ -z "${zfsversion}" ]]; then
@@ -165,7 +179,7 @@ _build_zfs_packages () {
         rm -r -- "${auiwork}"
 }
 
-OPTS=$(getopt -o 'C:,h' -l 'confdir:,help,linuxtesting' -n "${appname}" -- "$@")
+OPTS=$(getopt -o 'C:,h,r:' -l 'confdir:,help,linuxtesting,release:' -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -181,6 +195,9 @@ while true; do
                 '--linuxtesting')
                         linuxtesting="yes"
                         shift ;;
+                '-r'|'--release')
+                        release="${2}"
+                        shift 2 ;;
                 '--')
                         shift
                         break ;;
