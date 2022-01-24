@@ -1384,6 +1384,7 @@ _read_profile() {
         source "${profile}/profiledef.sh"
 
         # Resolve paths of files that are expected to reside in the profile's directory
+        [[ -n "$arch" ]] || arch="$(uname -m)"
         [[ -n "${packages}" ]] || packages="${profile}/packages.${arch}"
         packages="$(realpath -- "${packages}")"
         if [[ -n "${lang}" ]]; then
