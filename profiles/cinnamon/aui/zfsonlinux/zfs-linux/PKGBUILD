@@ -15,12 +15,12 @@ url="https://zfsonlinux.org/"
 license=("CDDL")
 depends=("kmod" "zfs-utils=${_zfsver}" "linux=${_kernelver}")
 makedepends=("linux-headers=${_kernelver}")
-source=("https://github.com/openzfs/zfs/releases/download/zfs-${_zfsver}/zfs-${_zfsver}.tar.gz"{,.asc}
+source=("https://github.com/zfsonlinux/zfs/releases/download/zfs-${_zfsver}/zfs-${_zfsver}.tar.gz"{,.asc}
         "zfs.install")
-sha256sums=('SKIP'
+sha256sums=('%SHA256SUM%'
             'SKIP'
             'a08381be21af2910c21e5f24c5799383c7ce58b45c84fc02071a8528088e9bdf')
-b2sums=('SKIP'
+b2sums=(''
         'SKIP'
         'e8a4f0e95d7e7d7ad28ca2df0d168da2fddca178712530d1333ed90c429f673711b163b16314280e8b21c0c2eafcaebc2e5c8a603275280925cebdb6c3193067')
 validpgpkeys=('4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027'  # Tony Hutter (GPG key for signing ZFS releases) <hutter2@llnl.gov>
@@ -58,7 +58,7 @@ package_zfs-linux() {
     conflicts=("zfs-dkms" "zfs-dkms-git" "zfs-dkms-rc" "spl-dkms" "spl-dkms-git" 'zfs-linux-git' 'zfs-linux-rc' 'spl-linux')
     replaces=("spl-linux")
     cd "${srcdir}/zfs-${_zfsver}"
-    make DESTDIR="${pkgdir}" INSTALL_MOD_PATH=/usr install
+    make DESTDIR="${pkgdir}" INSTALL_MOD_PATH="${pkgdir}"/usr install
     # Remove src dir
     rm -r "${pkgdir}"/usr/src
 }
