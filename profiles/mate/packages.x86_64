@@ -17,6 +17,7 @@ ddrescue
 dhclient
 dhcpcd
 diffutils
+dmidecode
 dmraid
 dnsmasq
 dosfstools
@@ -258,7 +259,6 @@ vulkan-tools
 byobu
 cpio
 cpupower
-dmidecode
 fakeroot
 git
 grsync
