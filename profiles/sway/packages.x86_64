@@ -127,9 +127,9 @@ zsh
 # Required or recommended
 acpi
 acpid
-alacritty
 alsa-firmware
 dmenu
+foot
 intel-media-driver
 libcanberra-pulse
 libva-intel-driver
