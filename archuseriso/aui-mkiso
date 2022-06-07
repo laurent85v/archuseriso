@@ -726,6 +726,8 @@ _make_efibootimg() {
 }
 
 _make_bootmode_uefi-ia32.grub.esp() {
+    local _efiboot_imgsize
+
     # Fill Grub configuration files
     sed "s|%DESKTOP%|${desktop}|g;
          s|%ARCHISO_LABEL%|${iso_label}|g;
@@ -747,29 +749,29 @@ _make_bootmode_uefi-ia32.grub.esp() {
                     "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
 
     if [[ ! " ${bootmodes[*]} " =~ uefi-x64.systemd-boot.esp ]]; then
-       efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
+        efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
                        "${pacstrap_dir}/boot/initramfs-"*".img")
 
-        efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
-            2>/dev/null | awk 'END { print $1 }')"
+        _efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
+                          2>/dev/null | awk 'END { print $1 }')"
         # Create a FAT image for the EFI system partition
-        _make_efibootimg "$efiboot_imgsize"
+        _make_efibootimg "${_efiboot_imgsize}"
     else
         _run_once _make_bootmode_uefi-x64.systemd-boot.esp
     fi
 
     # Copy grub EFI binary to the default/fallback boot path
     mcopy -i "${work_dir}/efiboot.img" \
-        "${work_dir}/BOOTIA32.EFI" ::/EFI/BOOT/BOOTIA32.EFI
+             "${work_dir}/BOOTIA32.EFI" ::/EFI/BOOT/BOOTIA32.EFI
 
     # Copy GRUB configuration files
     mcopy -i "${work_dir}/efiboot.img" \
-        "${work_dir}/grub.cfg" ::/EFI/BOOT/grub.cfg
+             "${work_dir}/grub.cfg" ::/EFI/BOOT/grub.cfg
 
     # shellia32.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
         mcopy -i "${work_dir}/efiboot.img" \
-            "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ::/shellia32.efi
+                 "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ::/shellia32.efi
     fi
 
     _msg_info "Done! GRUB set up for UEFI booting successfully."
@@ -821,8 +823,9 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
                     "${profile}/efiboot/"
                     "${pacstrap_dir}/boot/vmlinuz-"*
                     "${pacstrap_dir}/boot/initramfs-"*".img"
-                    "${_available_ucodes[@]}")
-    efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
+                    "${_available_ucodes[@]}"
+                    "${pacstrap_dir}/usr/share/refind")
+    _efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
                      2>/dev/null | awk 'END { print $1 }')"
     # Create a FAT image for the EFI system partition
     _make_efibootimg "${_efiboot_imgsize}"
@@ -856,7 +859,7 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     # shellx64.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
         mcopy -i "${work_dir}/efiboot.img" \
-            "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
+                 "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
     fi
 
     _msg_info "Done!"
