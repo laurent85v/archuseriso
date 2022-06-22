@@ -55,7 +55,7 @@ Install [archuseriso](https://aur.archlinux.org/packages/archuseriso/) available
 
 Alternate installation method from git repository:
 
-    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs libisoburn make mtools squashfs-tools syslinux
+    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs libisoburn make mtools squashfs-tools syslinux grub
     git clone https://github.com/laurent85v/archuseriso.git
     sudo make -C archuseriso install
 
