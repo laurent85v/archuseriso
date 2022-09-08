@@ -148,6 +148,7 @@ kate
 kcalc
 kde-gtk-config
 kfind
+kio-zeroconf
 konqueror
 kscreen
 ksshaskpass
@@ -196,7 +197,6 @@ xorg-xdriinfo
 xorg-xinit
 xorg-xinput
 yakuake
-zeroconf-ioslave
 # Optional
 akregator
 audiocd-kio
