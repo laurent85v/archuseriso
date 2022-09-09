@@ -1589,6 +1589,11 @@ validate_requirements_buildmode_netboot() {
     fi
 }
 
+_validate_requirements_x64_uefi_default_bootloader_uefi-x64.grub.esp() {
+    # All requirements met at this stage
+    true
+}
+
 _validate_requirements_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
     # All requirements met at this stage
     true
