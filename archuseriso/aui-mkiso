@@ -3,9 +3,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 set -e -u
+shopt -s extglob
 
 # Control the environment
 umask 0022
+export LC_ALL="C.UTF-8"
+if [[ -v LANGUAGE ]]; then
+    # LC_ALL=C.UTF-8, unlike LC_ALL=C, does not override LANGUAGE.
+    # See https://sourceware.org/bugzilla/show_bug.cgi?id=16621 and https://savannah.gnu.org/bugs/?62815
+    unset LANGUAGE
+fi
 export LC_ALL="C"
 [[ -v SOURCE_DATE_EPOCH ]] || printf -v SOURCE_DATE_EPOCH '%(%s)T' -1
 export SOURCE_DATE_EPOCH
@@ -615,12 +622,18 @@ _fat_image_efiboot_files_common_x64() {
 }
 
 _fat_image_efiboot_files_grub_common() {
+    local _cfg
+
+    install -d -- "${work_dir}/grub"
+
     # Fill GRUB configuration files
-    sed "s|%DESKTOP%|${desktop}|g;
-         s|%ARCHISO_LABEL%|${iso_label}|g;
-         s|%INSTALL_DIR%|${install_dir}|g;
-         s|%ARCH%|${arch}|g" \
-        "${profile}/grub/grub.cfg" > "${work_dir}/grub.cfg"
+    for _cfg in "${profile}/grub/"*'.cfg'; do
+        sed "s|%DESKTOP%|${desktop}|g;
+             s|%ARCHISO_LABEL%|${iso_label}|g;
+             s|%INSTALL_DIR%|${install_dir}|g;
+             s|%ARCH%|${arch}|g" \
+            "${_cfg}" > "${work_dir}/grub/${_cfg##*/}"
+    done
 
     # shellcheck disable=SC2016
     IFS='' read -r -d '' grubembedcfg <<'EOF' || true
@@ -639,18 +652,29 @@ configfile "${isodevice}/EFI/grub/grub.cfg"
 EOF
     printf '%s\n' "$grubembedcfg" > "${work_dir}/grub-embed.cfg"
 
-    efiboot_files+=("${work_dir}/grub.cfg")
+    # Add all GRUB files to the list of files used to calculate the required FAT image size.
+    efiboot_files+=("${work_dir}/grub/"
+                    "${profile}/grub/"!(*.cfg))
 }
 
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
+    local _grubmodules=()
+
     _run_once _fat_image_efiboot_files_grub_common
 
     # Create EFI binary
+    # Module list from https://bugs.archlinux.org/task/71382#comment202911
+    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font \
+                 gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
+                 minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file \
+                 search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi usbserial_pl2303 \
+                 usbserial_usbdebug video xfs zstd)
     grub-mkstandalone -O i386-efi \
-                      --modules="part_gpt part_msdos fat iso9660" \
+                      --modules="${_grubmodules[*]}" \
                       --locales="en@quot" \
                       --themes="" \
                       --sbat=/usr/share/grub/sbat.csv \
+                      --disable-shim-lock \
                       -o "${work_dir}/grubia32.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
@@ -661,14 +685,23 @@ _fat_image_efiboot_files_uefi-ia32.grub.esp() {
 }
 
 _fat_image_efiboot_files_uefi-x64.grub.esp() {
+    local _grubmodules=()
+
     _run_once _fat_image_efiboot_files_grub_common
 
     # Create EFI binary
+    # Module list from https://bugs.archlinux.org/task/71382#comment202911
+    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font \
+                 gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
+                 minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file \
+                 search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi usbserial_pl2303 \
+                 usbserial_usbdebug video xfs zstd)
     grub-mkstandalone -O x86_64-efi \
-                      --modules="part_gpt part_msdos fat iso9660" \
+                      --modules="${_grubmodules[*]}" \
                       --locales="en@quot" \
                       --themes="" \
                       --sbat=/usr/share/grub/sbat.csv \
+                      --disable-shim-lock \
                       -o "${work_dir}/grubx64.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
@@ -863,15 +896,26 @@ _ed2k-shellx64.eltorito() {
     fi
 }
 
-# Copy the grub.cfg file in efiboot.img which is used by both IA32 UEFI and x64 UEFI.
-_make_efibootimg_grubcfg() {
-    mcopy -i "${efibootimg}" \
-        "${work_dir}/grub.cfg" ::/EFI/grub/
+# Copy GRUB files to efiboot.img which is used by both IA32 UEFI and x64 UEFI.
+_make_common_bootmode_grub_copy_to_efibootimg() {
+    local _files_to_copy=()
+
+    _files_to_copy+=("${work_dir}/grub/"*)
+    if compgen -G "${profile}/grub/!(*.cfg)" &> /dev/null; then
+        _files_to_copy+=("${profile}/grub/"!(*.cfg))
+    fi
+    mcopy -i "${efibootimg}" "${_files_to_copy[@]}" ::/EFI/grub/
 }
 
-# Copy the grub.cfg file by both IA32 and x64 UEFI.
-_make_iso9660_grubcfg() {
-    install -m 0644 -- "${work_dir}/grub.cfg" "${isofs_dir}/EFI/grub/"
+# Copy GRUB files to efiboot.img which is used by both IA32 UEFI and x64 UEFI.
+_make_common_bootmode_grub_copy_to_isofs() {
+    local _files_to_copy=()
+
+    _files_to_copy+=("${work_dir}/grub/"*)
+    if compgen -G "${profile}/grub/!(*.cfg)" &> /dev/null; then
+        _files_to_copy+=("${profile}/grub/"!(*.cfg))
+    fi
+    install -m 0644 -- "${_files_to_copy[@]}" "${isofs_dir}/EFI/grub/"
 }
 
 _make_bootmode_uefi-ia32.grub.esp() {
@@ -890,7 +934,7 @@ _make_bootmode_uefi-ia32.grub.esp() {
              "${work_dir}/grubia32.efi" ::/EFI/grub
 
     # Copy GRUB configuration files
-    _run_once _make_efibootimg_grubcfg
+    _run_once _make_common_bootmode_grub_copy_to_efibootimg
 
     # shellia32.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
@@ -918,7 +962,7 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
         "${isofs_dir}/EFI/grub/grubia32.efi"
 
     # Copy GRUB configuration files
-    _run_once _make_iso9660_grubcfg
+    _run_once _make_common_bootmode_grub_copy_to_isofs
 
     # edk2-shell based UEFI shell
     # shellia32.efi is picked up automatically when on /
@@ -945,7 +989,7 @@ _make_bootmode_uefi-x64.grub.esp() {
     mcopy -i "${efibootimg}" \
         "${work_dir}/grubx64.efi" ::/EFI/grub/
 
-    _run_once _make_efibootimg_grubcfg
+    _run_once _make_common_bootmode_grub_copy_to_efibootimg
 
     _run_once _ed2k-shellx64.esp
 
@@ -969,7 +1013,7 @@ _make_bootmode_uefi-x64.grub.eltorito() {
         "${isofs_dir}/EFI/grub/"
 
     # Copy GRUB configuration files
-    _run_once _make_iso9660_grubcfg
+    _run_once _make_common_bootmode_grub_copy_to_isofs
 
     _run_once _ed2k-shellx64.eltorito
 
