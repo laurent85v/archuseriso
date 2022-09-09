@@ -27,8 +27,9 @@ cert_list=()
 directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
 efiboot_imgsize="0"
-embed_dir=""
 efiboot_files=()
+efibootimg=""
+embed_dir=""
 gpg_key=""
 gpg_sender=""
 image_name=""
@@ -783,9 +784,9 @@ _make_bootmode_bios.syslinux.eltorito() {
 _make_boot_on_fat() {
     local -a _all_ucode_images=()
     _msg_info "Preparing kernel and initramfs for the FAT file system..."
-    mmd -i "${work_dir}/efiboot.img" \
+    mmd -i "${efibootimg}" \
         "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}"
-    mcopy -i "${work_dir}/efiboot.img" "${pacstrap_dir}/boot/vmlinuz-"* \
+    mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/vmlinuz-"* \
         "${pacstrap_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
     for _ucode_image in "${ucodes[@]}"; do
         if [[ -e "${pacstrap_dir}/boot/${_ucode_image}" ]]; then
@@ -793,7 +794,7 @@ _make_boot_on_fat() {
         fi
     done
     if (( ${#_all_ucode_images[@]} )); then
-        mcopy -i "${work_dir}/efiboot.img" "${_all_ucode_images[@]}" "::/${install_dir}/boot/"
+        mcopy -i "${efibootimg}" "${_all_ucode_images[@]}" "::/${install_dir}/boot/"
     fi
     _msg_info "Done!"
 }
@@ -822,25 +823,25 @@ _make_efibootimg() {
     )"
     # The FAT image must be created with mkfs.fat not mformat, as some systems have issues with mformat made images:
     # https://lists.gnu.org/archive/html/grub-devel/2019-04/msg00099.html
-    rm -f -- "${work_dir}/efiboot.img"
+    rm -f -- "${efibootimg}"
     _msg_info "Creating FAT image of size: ${_imgsize} KiB..."
     if [[ "${quiet}" == "y" ]]; then
         # mkfs.fat does not have a -q/--quiet option, so redirect stdout to /dev/null instead
         # https://github.com/dosfstools/dosfstools/issues/103
-        mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${_imgsize}" &> /dev/null
+        mkfs.fat -C -n LIVEMEDIUM "${efibootimg}" "${_imgsize}" &> /dev/null
     else
-        mkfs.fat -C -n LIVEMEDIUM "${work_dir}/efiboot.img" "${_imgsize}"
+        mkfs.fat -C -n LIVEMEDIUM "${efibootimg}" "${_imgsize}"
     fi
     _msg_info "Done!"
 
     # Create the default/fallback boot path in which a boot loaders will be placed later.
-    mmd -i "${work_dir}/efiboot.img" \
+    mmd -i "${efibootimg}" \
            ::/EFI ::/EFI/BOOT
 }
 
 # Create the EFI paths in which a boot loader will be placed.
 _make_efibootimg_grub_path() {
-    mmd -D s -i "${work_dir}/efiboot.img" \
+    mmd -D s -i "${efibootimg}" \
            ::/EFI/grub
 }
 
@@ -848,7 +849,7 @@ _ed2k-shellx64.esp() {
 
     # shellx64.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
-        mcopy -i "${work_dir}/efiboot.img" \
+        mcopy -i "${efibootimg}" \
                  "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
     fi
 }
@@ -864,7 +865,7 @@ _ed2k-shellx64.eltorito() {
 
 # Copy the grub.cfg file in efiboot.img which is used by both IA32 UEFI and x64 UEFI.
 _make_efibootimg_grubcfg() {
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
         "${work_dir}/grub.cfg" ::/EFI/grub/
 }
 
@@ -885,7 +886,7 @@ _make_bootmode_uefi-ia32.grub.esp() {
     _run_once _make_efibootimg_grub_path
 
     # Copy GRUB EFI binary to the default/fallback boot path
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${work_dir}/grubia32.efi" ::/EFI/grub
 
     # Copy GRUB configuration files
@@ -893,7 +894,7 @@ _make_bootmode_uefi-ia32.grub.esp() {
 
     # shellia32.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
-        mcopy -i "${work_dir}/efiboot.img" \
+        mcopy -i "${efibootimg}" \
                  "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ::/shellia32.efi
     fi
 
@@ -941,7 +942,7 @@ _make_bootmode_uefi-x64.grub.esp() {
     _run_once _make_efibootimg_grub_path
 
     # Copy GRUB EFI binary to the default/fallback boot path
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
         "${work_dir}/grubx64.efi" ::/EFI/grub/
 
     _run_once _make_efibootimg_grubcfg
@@ -985,17 +986,17 @@ _make_bootmode_uefi-x64.refind.esp() {
     _run_once _make_efibootimg
 
     # Create the EFI paths in which a boot loader will be placed.
-    mmd -i "${work_dir}/efiboot.img" \
+    mmd -i "${efibootimg}" \
            ::/EFI/refind ::/EFI/refind/drivers_x64 ::/EFI/refind/icons
 
     # Copy rEFInd files to EFI path
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" ::/EFI/refind/
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${work_dir}"/x86_64/airootfs/usr/share/refind/drivers_x64/* ::/EFI/refind/drivers_x64/
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${work_dir}"/x86_64/airootfs/usr/share/refind/icons/* ::/EFI/refind/icons/
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${profile}/efiboot/refind/refind-dvd.conf" ::/EFI/refind/refind.conf
 
     _run_once _ed2k-shellx64.esp
@@ -1039,17 +1040,17 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     _run_once _make_efibootimg
     
     # Create the EFI paths in which a boot loader will be placed.
-    mmd -i "${work_dir}/efiboot.img" \
+    mmd -i "${efibootimg}" \
            ::/EFI/systemd ::/loader ::/loader/entries
 
     # Copy systemd-boot EFI binary to EFI path
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::/EFI/systemd/
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" ::/EFI/systemd/systemd-bootx64.png
 
     # Copy systemd-boot configuration files
-    mcopy -i "${work_dir}/efiboot.img" \
+    mcopy -i "${efibootimg}" \
              "${profile}/efiboot/loader/loader.conf" ::loader/
 
     for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
@@ -1057,7 +1058,7 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
              s|%ARCHISO_LABEL%|${iso_label}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
              s|%ARCH%|${arch}|g" \
-             "${_conf}" | mcopy -i "${work_dir}/efiboot.img" - "::/loader/entries/${_conf##*/}"
+             "${_conf}" | mcopy -i "${efibootimg}" - "::/loader/entries/${_conf##*/}"
     done
 
     _run_once _ed2k-shellx64.esp
@@ -1107,8 +1108,8 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
 # Set rEFInd as the default EFI boot loader
 _make_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
     # EFI boot image
-    mmove -i "${work_dir}/efiboot.img" ::/EFI/refind/* ::/EFI/BOOT/
-    mmove -i "${work_dir}/efiboot.img" ::/EFI/BOOT/refind_x64.efi ::/EFI/BOOT/BOOTx64.EFI
+    mmove -i "${efibootimg}" ::/EFI/refind/* ::/EFI/BOOT/
+    mmove -i "${efibootimg}" ::/EFI/BOOT/refind_x64.efi ::/EFI/BOOT/BOOTx64.EFI
 
     # ISO 9660 file system
     mv -- "${isofs_dir}/EFI/refind/"* "${isofs_dir}/EFI/BOOT/"
@@ -1118,8 +1119,8 @@ _make_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
 # Set systemd-boot as the default EFI boot loader
 _make_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
     # EFI boot image
-    mmove -i "${work_dir}/efiboot.img" ::/EFI/systemd/* ::/EFI/BOOT/
-    mmove -i "${work_dir}/efiboot.img" ::/EFI/BOOT/systemd-bootx64.efi ::/EFI/BOOT/BOOTx64.EFI
+    mmove -i "${efibootimg}" ::/EFI/systemd/* ::/EFI/BOOT/
+    mmove -i "${efibootimg}" ::/EFI/BOOT/systemd-bootx64.efi ::/EFI/BOOT/BOOTx64.EFI
 
     # ISO 9660 file system
     mv -- "${isofs_dir}/EFI/systemd/"* "${isofs_dir}/EFI/BOOT/"
@@ -1656,7 +1657,7 @@ _add_xorrisofs_options_uefi-x64.systemd-boot.esp() {
     # shellcheck disable=SC2076
     [[ " ${xorrisofs_options[*]} " =~ ' -partition_offset ' ]] || xorrisofs_options+=('-partition_offset' '16')
     # Attach efiboot.img as a second partition and set its partition type to "EFI system partition"
-    xorrisofs_options+=('-append_partition' '2' 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' "${work_dir}/efiboot.img")
+    xorrisofs_options+=('-append_partition' '2' 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' "${efibootimg}")
     # Ensure GPT is used as some systems do not support UEFI booting without it
     # shellcheck disable=SC2076
     if [[ " ${bootmodes[*]} " =~ ' bios.syslinux.mbr ' ]]; then
@@ -1705,7 +1706,7 @@ _add_xorrisofs_options_uefi-x64.systemd-boot.eltorito() {
         # The ISO will not contain a GPT partition table, so to be able to reference efiboot.img, place it as a
         # file inside the ISO 9660 file system
         install -d -m 0755 -- "${isofs_dir}/EFI/archiso"
-        cp -a -- "${work_dir}/efiboot.img" "${isofs_dir}/EFI/archiso/efiboot.img"
+        cp -a -- "${efibootimg}" "${isofs_dir}/EFI/archiso/efiboot.img"
         # systemd-boot in an embedded efiboot.img via El Torito
         xorrisofs_options+=(
             # Start a new El Torito boot entry for UEFI
@@ -1729,7 +1730,7 @@ _add_xorrisofs_options_uefi-x64.grub.esp() {
     # shellcheck disable=SC2076
     [[ " ${xorrisofs_options[*]} " =~ ' -partition_offset ' ]] || xorrisofs_options+=('-partition_offset' '16')
     # Attach efiboot.img as a second partition and set its partition type to "EFI system partition"
-    xorrisofs_options+=('-append_partition' '2' 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' "${work_dir}/efiboot.img")
+    xorrisofs_options+=('-append_partition' '2' 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' "${efibootimg}")
     # Ensure GPT is used as some systems do not support UEFI booting without it
     # shellcheck disable=SC2076
     if [[ " ${bootmodes[*]} " =~ ' bios.syslinux.mbr ' ]]; then
@@ -1777,7 +1778,7 @@ _add_xorrisofs_options_uefi-x64.grub.eltorito() {
         # The ISO will not contain a GPT partition table, so to be able to reference efiboot.img, place it as a
         # file inside the ISO 9660 file system
         install -d -m 0755 -- "${isofs_dir}/EFI/archiso"
-        cp -a -- "${work_dir}/efiboot.img" "${isofs_dir}/EFI/archiso/efiboot.img"
+        cp -a -- "${efibootimg}" "${isofs_dir}/EFI/archiso/efiboot.img"
         # grub in an embedded efiboot.img via El Torito
         xorrisofs_options+=(
             # Start a new El Torito boot entry for UEFI
@@ -2171,6 +2172,7 @@ _build_buildmode_iso() {
 _build() {
     local buildmode
     local run_once_mode="build"
+    efibootimg="${work_dir}/efiboot.img"
 
     for buildmode in "${buildmodes[@]}"; do
         _run_once "_build_buildmode_${buildmode}"
