@@ -26,7 +26,9 @@ build_zfs_packages="n"
 cert_list=()
 directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
+efiboot_imgsize="0"
 embed_dir=""
+efiboot_files=()
 gpg_key=""
 gpg_sender=""
 image_name=""
@@ -52,8 +54,8 @@ quiet=""
 sign_netboot_artifacts=""
 user_pkg_dir=""
 work_dir=""
+x64_uefi_default_bootloader=""
 declare -A file_permissions=()
-efiboot_files=()
 # adapted from GRUB_EARLY_INITRD_LINUX_STOCK in https://git.savannah.gnu.org/cgit/grub.git/tree/util/grub-mkconfig.in
 readonly ucodes=('intel-uc.img' 'intel-ucode.img' 'amd-uc.img' 'amd-ucode.img' 'early_ucode.cpio' 'microcode.cpio')
 
@@ -594,11 +596,72 @@ _make_setup_mkinitcpio() {
     fi
 }
 
+_fat_image_efiboot_files_common() {
+    local _file
+    local _available_ucodes=()
+    for _file in "${ucodes[@]}"; do
+        if [[ -e "${pacstrap_dir}/boot/${_file}" ]]; then
+            _available_ucodes+=("${pacstrap_dir}/boot/${_file}")
+        fi
+    done
+    efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
+                    "${pacstrap_dir}/boot/initramfs-"*".img"
+                    "${_available_ucodes[@]}")
+}
+
+_fat_image_efiboot_files_common_x64() {
+    efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi")
+}
+
+_fat_image_efiboot_files_uefi-ia32.grub.esp() {
+    # Fill Grub configuration files
+    sed "s|%DESKTOP%|${desktop}|g;
+         s|%ARCHISO_LABEL%|${iso_label}|g;
+         s|%INSTALL_DIR%|${install_dir}|g;
+         s|%ARCH%|${arch}|g" \
+        "${profile}/grub/grub.cfg" > "${work_dir}/grub.cfg"
+
+    # shellcheck disable=SC2016
+    printf 'configfile ${cmdpath}/grub.cfg\n' > "${work_dir}/grub-embed.cfg"
+
+    # Create EFI file
+    grub-mkstandalone -O i386-efi \
+                      --modules="part_gpt part_msdos fat iso9660" \
+                      --locales="en@quot" \
+                      --themes="" \
+                      -o "${work_dir}/BOOTIA32.EFI" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
+    efiboot_files+=("${work_dir}/BOOTIA32.EFI"
+                    "${work_dir}/grub.cfg"
+                    "${work_dir}/grub-embed.cfg"
+                    "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
+    _run_once _fat_image_efiboot_files_common
+}
+
+_fat_image_efiboot_files_uefi-x64.refind.esp() {
+    _run_once _fat_image_efiboot_files_common_x64
+    _run_once _fat_image_efiboot_files_common
+    efiboot_files+=("${profile}/efiboot/refind/refind-dvd.conf"
+                    "${pacstrap_dir}/usr/share/refind")
+}
+
+_fat_image_efiboot_files_uefi-x64.systemd-boot.esp() {
+    _run_once _fat_image_efiboot_files_common_x64
+    efiboot_files+=("${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
+                    "${profile}/efiboot/loader/")
+}
+
 # Set up boot loaders
 _make_bootmodes() {
-    local bootmode
-    for bootmode in "${bootmodes[@]}"; do
-        _run_once "_make_bootmode_${bootmode}"
+    local _bootmode
+    # Calculate the required FAT image size in bytes for x64 EFI booting
+    for _bootmode in "${bootmodes[@]}"; do
+        if typeset -f "_fat_image_efiboot_files_${_bootmode}" &> /dev/null; then
+            _run_once "_fat_image_efiboot_files_${_bootmode}"
+        fi
+    done
+    # Make bootmodes
+    for _bootmode in "${bootmodes[@]}"; do
+        _run_once "_make_bootmode_${_bootmode}"
     done
 }
 
@@ -695,6 +758,12 @@ _make_boot_on_fat() {
     _msg_info "Done!"
 }
 
+_efiboot_image_size() {
+    # Calculate the required FAT image size in bytes
+    efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
+                     2>/dev/null | awk 'END { print $1 }')"
+}
+
 # Create a FAT image (efiboot.img) which will serve as the EFI system partition
 # $1: image size in bytes
 _make_efibootimg() {
@@ -704,7 +773,7 @@ _make_efibootimg() {
     _imgsize="$(awk 'function ceil(x){return int(x)+(x>int(x))}
             function byte_to_kib(x){return x/1024}
             function mib_to_kib(x){return x*1024}
-            END {print mib_to_kib(ceil((byte_to_kib($1)+1024)/1024))}' <<< "${1}"
+            END {print mib_to_kib(ceil((byte_to_kib($1)+1024)/1024))}' <<< "${efiboot_imgsize}"
     )"
     # The FAT image must be created with mkfs.fat not mformat, as some systems have issues with mformat made images:
     # https://lists.gnu.org/archive/html/grub-devel/2019-04/msg00099.html
@@ -721,44 +790,34 @@ _make_efibootimg() {
 
     # Create the default/fallback boot path in which a boot loaders will be placed later.
     mmd -i "${work_dir}/efiboot.img" \
-           ::/EFI ::/EFI/BOOT ::/EFI/BOOT/drivers_x64 ::/EFI/BOOT/icons ::/EFI/live \
-           ::/loader ::/loader/entries
+           ::/EFI ::/EFI/BOOT
+}
+
+_ed2k-shellx64.esp() {
+
+    # shellx64.efi is picked up automatically when on /
+    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
+        mcopy -i "${work_dir}/efiboot.img" \
+                 "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
+    fi
+}
+
+_ed2k-shellx64.eltorito() {
+
+    # edk2-shell based UEFI shell
+    # shellx64.efi is picked up automatically when on /
+    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
+        install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/edk2-shell/x64/Shell_Full.efi" "${isofs_dir}/shellx64.efi"
+    fi
 }
 
 _make_bootmode_uefi-ia32.grub.esp() {
-    local _efiboot_imgsize
+    _msg_info "Setting up IA32 GRUB for UEFI booting..."
 
-    # Fill Grub configuration files
-    sed "s|%DESKTOP%|${desktop}|g;
-         s|%ARCHISO_LABEL%|${iso_label}|g;
-         s|%INSTALL_DIR%|${install_dir}|g;
-         s|%ARCH%|${arch}|g" \
-        "${profile}/grub/grub.cfg" > "${work_dir}/grub.cfg"
+    _run_once _efiboot_image_size
 
-    # shellcheck disable=SC2016
-    printf 'configfile ${cmdpath}/grub.cfg\n' > "${work_dir}/grub-embed.cfg"
-
-    # Create EFI file
-    grub-mkstandalone -O i386-efi \
-                      --modules="part_gpt part_msdos fat iso9660" \
-                      --locales="en@quot" \
-                      --themes="" \
-                      -o "${work_dir}/BOOTIA32.EFI" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
-    # Add GRUB to the list of files used to calculate the required FAT image size.
-    efiboot_files+=("${work_dir}/BOOTIA32.EFI"
-                    "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
-
-    if [[ ! " ${bootmodes[*]} " =~ uefi-x64.systemd-boot.esp ]]; then
-        efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
-                       "${pacstrap_dir}/boot/initramfs-"*".img")
-
-        _efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
-                          2>/dev/null | awk 'END { print $1 }')"
-        # Create a FAT image for the EFI system partition
-        _make_efibootimg "${_efiboot_imgsize}"
-    else
-        _run_once _make_bootmode_uefi-x64.systemd-boot.esp
-    fi
+    # Create a FAT image for the EFI system partition
+    _run_once _make_efibootimg
 
     # Copy grub EFI binary to the default/fallback boot path
     mcopy -i "${work_dir}/efiboot.img" \
@@ -806,43 +865,78 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
     _msg_info "Done!"
 }
 
+# Prepare refind for booting when written to a disk (isohybrid)
+_make_bootmode_uefi-x64.refind.esp() {
+    _msg_info "Setting up refind for UEFI booting..."
+
+    _run_once _efiboot_image_size
+
+    # Create a FAT image for the EFI system partition
+    _run_once _make_efibootimg
+
+    # Create the EFI paths in which a boot loader will be placed.
+    mmd -i "${work_dir}/efiboot.img" \
+           ::/EFI/refind ::/EFI/refind/drivers_x64 ::/EFI/refind/icons
+
+    # Copy rEFInd files to EFI path
+    mcopy -i "${work_dir}/efiboot.img" \
+             "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" ::/EFI/refind/
+    mcopy -i "${work_dir}/efiboot.img" \
+             "${work_dir}"/x86_64/airootfs/usr/share/refind/drivers_x64/* ::/EFI/refind/drivers_x64/
+    mcopy -i "${work_dir}/efiboot.img" \
+             "${work_dir}"/x86_64/airootfs/usr/share/refind/icons/* ::/EFI/refind/icons/
+    mcopy -i "${work_dir}/efiboot.img" \
+             "${profile}/efiboot/refind/refind-dvd.conf" ::/EFI/refind/refind.conf
+
+    _run_once _ed2k-shellx64.esp
+    
+    _msg_info "Done!"
+
+    # Copy kernel and initramfs to FAT image.
+    # systemd-boot can only access files from the EFI system partition it was launched from.
+    _run_once _make_boot_on_fat
+}
+
+# Prepare refind for El Torito booting
+_make_bootmode_uefi-x64.refind.eltorito() {
+    # El Torito UEFI boot requires an image containing the EFI system partition.
+    # uefi-x64.refind.eltorito has the same requirements as uefi-x64.refind.esp
+    _run_once _make_bootmode_uefi-x64.systemd-boot.esp
+    # Additionally set up refind in ISO 9660. This allows creating a medium for the live environment by using
+    # manual partitioning and simply copying the ISO 9660 file system contents.
+    # This is not related to El Torito booting and no firmware uses these files.
+    _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
+    install -d -m 0755 -- "${isofs_dir}/EFI/refind"
+
+    # Copy rEFInd files to EFI path
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${isofs_dir}/EFI/refind/"
+    cp -a -- "${work_dir}"/x86_64/airootfs/usr/share/refind/{drivers_x64,icons}/ "${isofs_dir}/EFI/refind/"
+
+    install -m 0644 -- "${profile}/efiboot/refind/refind-usb.conf" "${isofs_dir}/EFI/refind/refind.conf"
+
+    _run_once _ed2k-shellx64.eltorito
+    
+    _msg_info "Done!"
+}
+
 # Prepare system-boot for booting when written to a disk (isohybrid)
 _make_bootmode_uefi-x64.systemd-boot.esp() {
-    local _file _efiboot_imgsize
-    local _available_ucodes=()
     _msg_info "Setting up systemd-boot for UEFI booting..."
 
-    for _file in "${ucodes[@]}"; do
-        if [[ -e "${pacstrap_dir}/boot/${_file}" ]]; then
-            _available_ucodes+=("${pacstrap_dir}/boot/${_file}")
-        fi
-    done
-    # Calculate the required FAT image size in bytes
-    efiboot_files+=("${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
-                    "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi"
-                    "${profile}/efiboot/"
-                    "${pacstrap_dir}/boot/vmlinuz-"*
-                    "${pacstrap_dir}/boot/initramfs-"*".img"
-                    "${_available_ucodes[@]}"
-                    "${pacstrap_dir}/usr/share/refind")
-    _efiboot_imgsize="$(du -bc "${efiboot_files[@]}" \
-                     2>/dev/null | awk 'END { print $1 }')"
-    # Create a FAT image for the EFI system partition
-    _make_efibootimg "${_efiboot_imgsize}"
+    _run_once _efiboot_image_size
 
-    # Copy rEFInd files and systemd-boot EFI binary to the different boot paths
+    # Create a FAT image for the EFI system partition
+    _run_once _make_efibootimg
+    
+    # Create the EFI paths in which a boot loader will be placed.
+    mmd -i "${work_dir}/efiboot.img" \
+           ::/EFI/systemd ::/loader ::/loader/entries
+
+    # Copy systemd-boot EFI binary to EFI path
     mcopy -i "${work_dir}/efiboot.img" \
-             "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" ::/EFI/BOOT/BOOTx64.EFI
+             "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::/EFI/systemd/
     mcopy -i "${work_dir}/efiboot.img" \
-             "${work_dir}"/x86_64/airootfs/usr/share/refind/drivers_x64/* ::/EFI/BOOT/drivers_x64/
-    mcopy -i "${work_dir}/efiboot.img" \
-             "${work_dir}"/x86_64/airootfs/usr/share/refind/icons/* ::/EFI/BOOT/icons/
-    mcopy -i "${work_dir}/efiboot.img" \
-             "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::/EFI/live/livedvd.efi
-    mcopy -i "${work_dir}/efiboot.img" \
-             "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" ::/EFI/live/livedvd.png
-    mcopy -i "${work_dir}/efiboot.img" \
-             "${profile}/efiboot/boot/refind-dvd.conf" ::/EFI/BOOT/refind.conf
+             "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" ::/EFI/systemd/systemd-bootx64.png
 
     # Copy systemd-boot configuration files
     mcopy -i "${work_dir}/efiboot.img" \
@@ -856,17 +950,13 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
              "${_conf}" | mcopy -i "${work_dir}/efiboot.img" - "::/loader/entries/${_conf##*/}"
     done
 
-    # shellx64.efi is picked up automatically when on /
-    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
-        mcopy -i "${work_dir}/efiboot.img" \
-                 "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
-    fi
-
+    _run_once _ed2k-shellx64.esp
+    
     _msg_info "Done!"
 
     # Copy kernel and initramfs to FAT image.
     # systemd-boot can only access files from the EFI system partition it was launched from.
-    _make_boot_on_fat
+    _run_once _make_boot_on_fat
 }
 
 # Prepare system-boot for El Torito booting
@@ -878,17 +968,11 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
     _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
-    install -d -m 0755 -- "${isofs_dir}/EFI/BOOT"
-    install -d -m 0755 -- "${isofs_dir}/EFI/live"
+    install -d -m 0755 -- "${isofs_dir}/EFI/systemd"
 
-    # Copy rEFInd files and systemd-boot EFI binary to the different boot paths
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.efi"
-    cp -a -- "${work_dir}"/x86_64/airootfs/usr/share/refind/{drivers_x64,icons}/ "${isofs_dir}/EFI/BOOT/"
-
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${isofs_dir}/EFI/live/livedisk.efi"
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${isofs_dir}/EFI/live/livedisk.png"
-
-    install -m 0644 -- "${profile}/efiboot/boot/refind-usb.conf" "${isofs_dir}/EFI/BOOT/refind.conf"
+    # Copy systemd-boot EFI binary to EFI path
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${isofs_dir}/EFI/systemd/"
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" "${isofs_dir}/EFI/systemd/systemd-bootx64.png"
 
     # Copy systemd-boot configuration files
     install -d -m 0755 -- "${isofs_dir}/loader/entries"
@@ -905,13 +989,36 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
              "${_conf}" > "${isofs_dir}/loader/entries/${_conf##*/}"
     done
 
-    # edk2-shell based UEFI shell
-    # shellx64.efi is picked up automatically when on /
-    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
-        install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/edk2-shell/x64/Shell_Full.efi" "${isofs_dir}/shellx64.efi"
-    fi
+    _run_once _ed2k-shellx64.eltorito
 
     _msg_info "Done!"
+}
+
+# Set rEFInd as the default EFI boot loader
+_make_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
+    # EFI boot image
+    mmove -i "${work_dir}/efiboot.img" ::/EFI/refind/* ::/EFI/BOOT/
+    mmove -i "${work_dir}/efiboot.img" ::/EFI/BOOT/refind_x64.efi ::/EFI/BOOT/BOOTx64.EFI
+
+    # ISO 9660 file system
+    mv -- "${isofs_dir}/EFI/refind/"* "${isofs_dir}/EFI/BOOT/"
+    mv -- "${isofs_dir}/EFI/BOOT/refind_x64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.EFI"
+}
+
+# Set systemd-boot as the default EFI boot loader
+_make_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
+    # EFI boot image
+    mmove -i "${work_dir}/efiboot.img" ::/EFI/systemd/* ::/EFI/BOOT/
+    mmove -i "${work_dir}/efiboot.img" ::/EFI/BOOT/systemd-bootx64.efi ::/EFI/BOOT/BOOTx64.EFI
+
+    # ISO 9660 file system
+    mv -- "${isofs_dir}/EFI/systemd/"* "${isofs_dir}/EFI/BOOT/"
+    mv -- "${isofs_dir}/EFI/BOOT/systemd-bootx64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.EFI"
+}
+
+# Run uefi default boot loader configuration
+_make_x64_uefi_default_bootloader() {
+    _make_x64_uefi_default_bootloader_"${x64_uefi_default_bootloader}"
 }
 
 # Archuseriso data
@@ -966,7 +1073,8 @@ _make_aui() {
     done
     [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../../loader "${isofs_dir}/aui/liveusb/esp/loader"
     [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../../EFI/BOOT "${isofs_dir}/aui/liveusb/esp/EFI/BOOT"
-    [[ -d "${isofs_dir}/EFI/live" ]] && ln -s -- ../../../../EFI/live "${isofs_dir}/aui/liveusb/esp/EFI/live"
+    [[ -d "${isofs_dir}/EFI/refind" ]] && ln -s -- ../../../../EFI/refind "${isofs_dir}/aui/liveusb/esp/EFI/refind"
+    [[ -d "${isofs_dir}/EFI/systemd" ]] && ln -s -- ../../../../EFI/systemd "${isofs_dir}/aui/liveusb/esp/EFI/systemd"
     [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/aui/liveusb/esp/shellx64.efi"
 
     if [[ -f "${isofs_dir}/aui/mediumdef.sh" ]]; then
@@ -1079,6 +1187,46 @@ _validate_requirements_bootmode_uefi-x64.systemd-boot.esp() {
 _validate_requirements_bootmode_uefi-x64.systemd-boot.eltorito() {
     # uefi-x64.systemd-boot.eltorito has the exact same requirements as uefi-x64.systemd-boot.esp
     _validate_requirements_bootmode_uefi-x64.systemd-boot.esp
+}
+
+_validate_requirements_bootmode_uefi-x64.refind.esp() {
+    # Check if mkfs.fat is available
+    if ! command -v mkfs.fat &> /dev/null; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating '${bootmode}': mkfs.fat is not available on this host. Install 'dosfstools'!" 0
+    fi
+
+    # Check if mmd and mcopy are available
+    if ! { command -v mmd &> /dev/null && command -v mcopy &> /dev/null; }; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating '${bootmode}': mmd and/or mcopy are not available on this host. Install 'mtools'!" 0
+    fi
+
+    # Check if refind configuration files exist
+    if [[ ! -d "${profile}/efiboot/refind" ]]; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating '${bootmode}': The '${profile}/efiboot/refind' directory is missing!" 0
+    else
+        if [[ ! -e "${profile}/efiboot/refind/refind-dvd.conf" ]]; then
+            (( validation_error=validation_error+1 ))
+            _msg_error "Validating '${bootmode}': File '${profile}/efiboot/refind/refind-dvd.conf' not found!" 0
+        fi
+        if [[ ! -e "${profile}/efiboot/refind/refind-usb.conf" ]]; then
+            (( validation_error=validation_error+1 ))
+            _msg_error "Validating '${bootmode}': File '${profile}/efiboot/refind/refind-usb.conf' not found!" 0
+        fi
+    fi
+
+    # Check for optional packages
+    # shellcheck disable=SC2076
+    if [[ ! " ${pkg_list[*]} " =~ ' edk2-shell ' ]]; then
+        _msg_info "'edk2-shell' is not in the package list. The ISO will not contain a bootable UEFI shell."
+    fi
+}
+
+_validate_requirements_bootmode_uefi-x64.refind.eltorito() {
+    # uefi-x64.refind.eltorito has the exact same requirements as uefi-x64.refind.esp
+    _validate_requirements_bootmode_uefi-x64.refind.esp
 }
 
 _validate_requirements_bootmode_uefi-ia32.grub.esp() {
@@ -1284,6 +1432,16 @@ validate_requirements_buildmode_netboot() {
         (( validation_error=validation_error+1 ))
         _msg_error "Validating build mode '${_buildmode}': openssl is not available on this host. Install 'openssl'!" 0
     fi
+}
+
+_validate_requirements_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
+    # All requirements met at this stage
+    true
+}
+
+_validate_requirements_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
+    # All requirements met at this stage
+    true
 }
 
 # SYSLINUX El Torito
@@ -1544,6 +1702,18 @@ _validate_options() {
         fi
     done
 
+    # Check if the specified default EFI boot loader is supported
+    if typeset -f "_make_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+        if typeset -f "_validate_requirements_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+            "_validate_requirements_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}"
+        else
+            _msg_warning "Function '_validate_requirements_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}' does not exist. Validating the requirements of '${x64_uefi_default_bootloader}' boot loader will not be possible."
+        fi
+    else
+        (( validation_error=validation_error+1 ))
+        _msg_error "${x64_uefi_default_bootloader} is not a valid EFI boot loader!" 0
+    fi
+
     # Check if pacman-testing configuration file exists
     if [[ -n "${pacman_testing_conf}" && ! -e "${pacman_testing_conf}" ]]; then
         (( validation_error=validation_error+1 ))
@@ -1717,6 +1887,7 @@ _build_iso_base() {
         _run_once _make_boot_on_iso9660
     else
         _make_bootmodes
+        _make_x64_uefi_default_bootloader
     fi
     _run_once _cleanup_pacstrap_dir
     _run_once _make_aui

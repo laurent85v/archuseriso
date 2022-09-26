@@ -23,7 +23,7 @@ Features
 * installation on usb drive
 * Btrfs/F2FS file system option
 * LUKS encryption
-* EFI rEFInd boot manager
+* rEFInd boot manager
 * user packages additions to live image
 * samba public folder sharing
 * Nvidia graphics option
