@@ -35,7 +35,7 @@ usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v5"
+valid_medium_version="v6"
 
 _usage () {
         echo
@@ -511,15 +511,37 @@ _copy() {
         _msg_info "Done!"
 }
 
+_esp_default_bootloader_uefi-x64.refind.esp() {
+    cp -- "${WD}/${workdir}/iso/aui/install/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
+    cp -- "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" "${WD}/${workdir}/usbesp/vmlinuz-linux.png"
+    [[ -d "${WD}/${workdir}/usbesp/EFI/refind" ]] && rm -r -- "${WD}/${workdir}/usbesp/EFI/refind/"
+    [[ -d "${WD}/${workdir}/usbesp/EFI/systemd" ]] && rm -r -- "${WD}/${workdir}/usbesp/EFI/systemd/"
+    [[ -d "${WD}/${workdir}/usbesp/loader" ]] && rm -r -- "${WD}/${workdir}/usbesp/loader/"
+    sed -- "s|%ROOT_LABEL%|${root_label}|g; s|%ROOT_FLAGS%|${root_flags}|g" \
+           "${WD}/${workdir}/iso/aui/install/refind_linux.conf" \
+         > "${WD}/${workdir}/usbesp/refind_linux.conf"
+}
+
+_esp_default_bootloader_uefi-x64.systemd-boot.esp() {
+    [[ -d "${WD}/${workdir}/usbesp/loader" ]] && rm -r -- "${WD}/${workdir}/usbesp/loader/"
+    [[ -d "${WD}/${workdir}/usbesp/systemd" ]] && rm -r -- "${WD}/${workdir}/usbesp/systemd/"
+    cp -r -- "${WD}/${workdir}/iso/aui/install/loader" "${WD}/${workdir}/usbesp/"
+    if [[ " ${bootmodes[@]} " =~ ' uefi-x64.refind.esp ' ]]; then
+        cp -- "${WD}/${workdir}/iso/aui/install/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
+        cp -- "${WD}/${workdir}/iso/EFI/refind/icons/os_arch.png" "${WD}/${workdir}/usbesp/vmlinuz-linux.png"
+    fi
+}
+
 _esp() {
         # ESP setup
         echo
         _msg_info "Setting up ESP"
         _msg_info "copying esp files to ${WD}/${workdir}/usbesp"
         cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usbesp/"
-        [[ -d "${WD}/${workdir}/usbesp/EFI/live" ]] && rm -r -- "${WD}/${workdir}/usbesp/EFI/live/"
-        [[ -d "${WD}/${workdir}/usbesp/loader" ]] && rm -r -- "${WD}/${workdir}/usbesp/loader/"
-        cp -- "${WD}/${workdir}/iso/aui/install/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
+        # Set default EFI boot loader
+        if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+            _esp_default_bootloader_${x64_uefi_default_bootloader}
+        fi
         cp -r -- "${WD}/${workdir}/iso/aui/install/syslinux" "${WD}/${workdir}/usbesp/"
         for _mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
@@ -532,10 +554,6 @@ _esp() {
                                   "${WD}/${workdir}/usbesp/${_mediumfile}"
                 fi
         done
-        cp -- "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" "${WD}/${workdir}/usbesp/vmlinuz-linux.png"
-        sed -- "s|%ROOT_LABEL%|${root_label}|g; s|%ROOT_FLAGS%|${root_flags}|g" \
-               "${WD}/${workdir}/iso/aui/install/refind_linux.conf" \
-             > "${WD}/${workdir}/usbesp/refind_linux.conf"
         _msg_info "Done!"
 }
 

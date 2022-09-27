@@ -1028,6 +1028,9 @@ _make_aui() {
     fi
 
     cp -aT --no-preserve=ownership -- "${profile}/aui/" "${isofs_dir}/aui/"
+    printf 'bootmodes=( %s )\n' "${bootmodes[*]}" >> "${isofs_dir}/aui/mediumdef.sh"
+    printf 'x64_uefi_default_bootloader="%s"\n' "${x64_uefi_default_bootloader}" >> "${isofs_dir}/aui/mediumdef.sh"
+
     mv -- "${isofs_dir}/aui/liveusb/persistent" "${isofs_dir}/aui/liveusb/persistent_${iso_label}"
 
     ### esp

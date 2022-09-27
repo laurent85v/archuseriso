@@ -14,12 +14,11 @@ iso_label="%ARCHISO_LABEL%"
 iso_name="%ISO_NAME%"
 iso_version="%ISO_VERSION%"
 lang="%LANG%"
-medium_version='v5'
+medium_version='v6'
 root_label=ROOT${aui_suffix:-}
 cow_files_settings=(
         "persistent_${img_label}/x86_64/upperdir/etc/fstab")
 esp_files_settings=(
-        'EFI/BOOT/refind.conf'
         'loader/entries/archiso-aui-0-x86_64-linux.conf'
         'loader/entries/archiso-aui-1-x86_64-linux.conf'
         'loader/entries/archiso-x86_64-linux.conf'

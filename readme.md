@@ -18,19 +18,19 @@ Features
 * easy build
 * alternate language at build time
 * zstandard fast compressor
-* live usb drive with persistence
-* pacman updates support
-* installation on usb drive
+* usb drive persistence
+* usb drive installation
+* updates support
 * Btrfs/F2FS file system option
 * LUKS encryption
 * rEFInd boot manager
-* user packages additions to live image
+* user packages additions
 * samba public folder sharing
 * Nvidia graphics option
 * Optimus hardware option
 * ZFS support option
 * testing package option
-* user data addition to live image
+* user data addition
 
 Profiles
 --------

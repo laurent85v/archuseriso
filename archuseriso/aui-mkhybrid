@@ -29,7 +29,6 @@ iso_label=""
 iso_file=""
 isosize=0
 medium_version=""
-refind="yes"
 root_files_settings=()
 root_flags="defaults"
 root_label=""
@@ -38,7 +37,7 @@ usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v5"
+valid_medium_version="v6"
 
 _usage() {
         echo
@@ -68,7 +67,6 @@ _help() {
         echo '--encrypt                   Encrypt persistent partition'
         echo '--f2fs                      F2FS file system for the persistent partition '
         echo '--no-journal                Disable ext4 journal'
-        echo '--no-refind                 Bypass rEFInd boot manager'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
         echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition)'
         echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition)'
@@ -547,19 +545,16 @@ _copy() {
         _msg_info "Done!"
 }
 
-_no_refind() {
-        if [[ -f "${WD}/${workdir}/usbesp/EFI/live/livedisk.efi" ]]; then
-                if [[ -f "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.efi" ]]; then
-                        mv -- "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.efi" \
-                              "${WD}/${workdir}/usbesp/EFI/BOOT/refind_x64.efi"
-                        mv -- "${WD}/${workdir}/usbesp/EFI/BOOT/" \
-                              "${WD}/${workdir}/usbesp/EFI/refind/"
-                fi
-                mv -- "${WD}/${workdir}/usbesp/EFI/live/livedisk.efi" \
-                      "${WD}/${workdir}/usbesp/EFI/live/BOOTx64.efi"
-                mv -- "${WD}/${workdir}/usbesp/EFI/live/" \
-                      "${WD}/${workdir}/usbesp/EFI/BOOT/"
-        fi
+_esp_default_bootloader_uefi-x64.refind.esp() {
+    cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
+    esp_files_settings+=('EFI/BOOT/refind.conf')
+}
+
+_esp_default_bootloader_uefi-x64.systemd-boot.esp() {
+    if [[ " ${bootmodes[@]} " =~ ' uefi-x64.refind.esp ' ]]; then
+        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
+        esp_files_settings+=('EFI/refind/refind.conf')
+    fi
 }
 
 _esp() {
@@ -568,9 +563,12 @@ _esp() {
         _msg_info "Setting up ESP"
         _msg_info "copying esp files to ${WD}/${workdir}/usbesp"
         cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usbesp/"
-        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
         cp -r -- "${WD}/${workdir}/iso/aui/hybrid/loader" "${WD}/${workdir}/usbesp/"
         cp -r -- "${WD}/${workdir}/iso/aui/hybrid/syslinux" "${WD}/${workdir}/usbesp/"
+        # Set default EFI boot loader
+        if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+            _esp_default_bootloader_${x64_uefi_default_bootloader}
+        fi
         for _mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
                         sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
@@ -587,9 +585,6 @@ _esp() {
                         fi
                 fi
         done
-        if [[ "${refind}" == "no" ]]; then
-                _no_refind
-        fi
         _msg_info "Done!"
 }
 
@@ -690,9 +685,9 @@ _biosbootloader() {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'btrfs,btrfs-compress:,encrypt,help,f2fs,no-journal,no-refind' \
+OPTS=$(getopt -o 'h' --long 'btrfs,btrfs-compress:,encrypt,help,f2fs,no-journal' \
 	             --long 'size-part2:,size-part3:,username:' \
-                     --long 'nojournal,norefind,sizepart2:,sizepart3:' \
+                     --long 'nojournal,sizepart2:,sizepart3:' \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -728,9 +723,6 @@ while true; do
                         shift ;;
                 '--no-journal'|'--nojournal')
                         ext4_journal="no"
-                        shift ;;
-                '--no-refind'|'--norefind')
-                        refind="no"
                         shift ;;
                 '--size-part2'|'--sizepart2')
                         esp_size="${2/[gG]}"

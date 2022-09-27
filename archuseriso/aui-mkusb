@@ -10,6 +10,7 @@
 set -e -u
 
 appname="${0##*/}"
+bootmodes=()
 btrfs="no"
 btrfs_compress=""
 btrfs_subvol_home=""
@@ -31,11 +32,11 @@ iso_label=""
 iso_file=""
 medium_version=""
 raw_write="no"
-refind="yes"
 usb_device=""
+x64_uefi_default_bootloader=""
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v5"
+valid_medium_version="v6"
 
 _usage() {
         echo
@@ -65,7 +66,6 @@ _help() {
         echo '--encrypt                   Encrypt persistent partition'
         echo '--f2fs                      F2FS file system for the persistent partition'
         echo '--no-journal                Disable ext4 journal'
-        echo '--no-refind                 Bypass rEFInd boot manager'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
         echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition)'
         echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition)'
@@ -566,28 +566,29 @@ _copy() {
         _msg_info "Done!"
 }
 
-_no_refind() {
-        if [[ -f "${WD}/${workdir}/usbesp/EFI/live/livedisk.efi" ]]; then
-                if [[ -f "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.efi" ]]; then
-                        mv -- "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.efi" \
-                              "${WD}/${workdir}/usbesp/EFI/BOOT/refind_x64.efi"
-                        mv -- "${WD}/${workdir}/usbesp/EFI/BOOT/" \
-                              "${WD}/${workdir}/usbesp/EFI/refind/"
-                fi
-                mv -- "${WD}/${workdir}/usbesp/EFI/live/livedisk.efi" \
-                      "${WD}/${workdir}/usbesp/EFI/live/BOOTx64.efi"
-                mv -- "${WD}/${workdir}/usbesp/EFI/live/" \
-                      "${WD}/${workdir}/usbesp/EFI/BOOT/"
-        fi
+_esp_default_bootloader_uefi-x64.refind.esp() {
+    cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
+    esp_files_settings+=('EFI/BOOT/refind.conf')
+}
+
+_esp_default_bootloader_uefi-x64.systemd-boot.esp() {
+    if [[ " ${bootmodes[@]} " =~ ' uefi-x64.refind.esp ' ]]; then
+        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
+        esp_files_settings+=('EFI/refind/refind.conf')
+    fi
 }
 
 _esp() {
         echo
         _msg_info "Setting up esp"
+        _msg_info "copying esp files to ${WD}/${workdir}/usbesp"
         cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usbesp/"
         cp -r -- "${WD}/${workdir}/iso/aui/liveusb/loader" "${WD}/${workdir}/usbesp/"
         cp -r -- "${WD}/${workdir}/iso/aui/liveusb/syslinux" "${WD}/${workdir}/usbesp/"
-        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
+        # Set default EFI boot loader
+        if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+            _esp_default_bootloader_${x64_uefi_default_bootloader}
+        fi
         for mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${mediumfile}" ]]; then
                         sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
@@ -603,9 +604,6 @@ _esp() {
                         fi
                 fi
         done
-        if [[ "${refind}" == "no" ]]; then
-                _no_refind
-        fi
         _msg_info "Done!"
 }
 
@@ -667,8 +665,8 @@ _biosbootloader() {
 
 # arguments
 OPTS=$(getopt -o 'h' --long 'btrfs,btrfs-compress:,encrypt,f2fs,help,no-journal' \
-                     --long 'no-refind,raw-write,size-part2:,size-part3:' \
-                     --long 'nojournal,norefind,raw_write,sizepart2:,sizepart3:' \
+                     --long 'raw-write,size-part2:,size-part3:' \
+                     --long 'nojournal,raw_write,sizepart2:,sizepart3:' \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -704,9 +702,6 @@ while true; do
                         shift ;;
                 '--no-journal'|'--nojournal')
                         ext4_journal="no"
-                        shift ;;
-                '--no-refind'|'--norefind')
-                        refind="no"
                         shift ;;
                 '--raw-write'|'--raw_write')
                         raw_write="yes"
