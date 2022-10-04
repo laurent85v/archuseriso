@@ -614,7 +614,7 @@ _fat_image_efiboot_files_common_x64() {
 }
 
 _fat_image_efiboot_files_grub_common() {
-    # Fill Grub configuration files
+    # Fill GRUB configuration files
     sed "s|%DESKTOP%|${desktop}|g;
          s|%ARCHISO_LABEL%|${iso_label}|g;
          s|%INSTALL_DIR%|${install_dir}|g;
@@ -631,11 +631,12 @@ _fat_image_efiboot_files_grub_common() {
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
     _run_once _fat_image_efiboot_files_grub_common
 
-    # Create EFI file
+    # Create EFI binary
     grub-mkstandalone -O i386-efi \
                       --modules="part_gpt part_msdos fat iso9660" \
                       --locales="en@quot" \
                       --themes="" \
+                      --sbat=/usr/share/grub/sbat.csv \
                       -o "${work_dir}/grubia32.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
@@ -648,11 +649,12 @@ _fat_image_efiboot_files_uefi-ia32.grub.esp() {
 _fat_image_efiboot_files_uefi-x64.grub.esp() {
     _run_once _fat_image_efiboot_files_grub_common
 
-    # Create EFI file
+    # Create EFI binary
     grub-mkstandalone -O x86_64-efi \
                       --modules="part_gpt part_msdos fat iso9660" \
                       --locales="en@quot" \
                       --themes="" \
+                      --sbat=/usr/share/grub/sbat.csv \
                       -o "${work_dir}/grubx64.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
@@ -847,13 +849,13 @@ _ed2k-shellx64.eltorito() {
     fi
 }
 
-# Copy the grub.cfg file in efiboot.img which is used by both UEFI ia32 and UEFI x64.
+# Copy the grub.cfg file in efiboot.img which is used by both IA32 UEFI and x64 UEFI.
 _make_efibootimg_grubcfg() {
     mcopy -i "${work_dir}/efiboot.img" \
         "${work_dir}/grub.cfg" ::/EFI/grub/
 }
 
-# Copy the grub.cfg file by both UEFI ia32 and UEFI x64.
+# Copy the grub.cfg file by both IA32 and x64 UEFI.
 _make_iso9660_grubcfg() {
     install -m 0644 -- "${work_dir}/grub.cfg" "${isofs_dir}/EFI/grub/"
 }
@@ -869,7 +871,7 @@ _make_bootmode_uefi-ia32.grub.esp() {
     # Create the EFI paths in which a boot loader will be placed.
     _run_once _make_efibootimg_grub_path
 
-    # Copy grub EFI binary to the default/fallback boot path
+    # Copy GRUB EFI binary to the default/fallback boot path
     mcopy -i "${work_dir}/efiboot.img" \
              "${work_dir}/grubia32.efi" ::/EFI/grub
 
@@ -891,7 +893,7 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
     # uefi-ia32.grub.eltorito has the same requirements as uefi-ia32.grub.esp
     _run_once _make_bootmode_uefi-ia32.grub.esp
 
-    # Additionally set up system-boot in ISO 9660. This allows creating a medium for the live environment by using
+    # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
     _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
@@ -925,7 +927,7 @@ _make_bootmode_uefi-x64.grub.esp() {
     # Create the EFI paths in which a boot loader will be placed.
     _run_once _make_efibootimg_grub_path
 
-    # Copy grub EFI binary to the default/fallback boot path
+    # Copy GRUB EFI binary to the default/fallback boot path
     mcopy -i "${work_dir}/efiboot.img" \
         "${work_dir}/grubx64.efi" ::/EFI/grub/
 
@@ -942,7 +944,7 @@ _make_bootmode_uefi-x64.grub.eltorito() {
     # uefi-x64.grub.eltorito has the same requirements as uefi-x64.grub.esp
     _run_once _make_bootmode_uefi-x64.grub.esp
 
-    # Additionally set up system-boot in ISO 9660. This allows creating a medium for the live environment by using
+    # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
     _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
@@ -1059,7 +1061,7 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     # El Torito UEFI boot requires an image containing the EFI system partition.
     # uefi-x64.systemd-boot.eltorito has the same requirements as uefi-x64.systemd-boot.esp
     _run_once _make_bootmode_uefi-x64.systemd-boot.esp
-    # Additionally set up system-boot in ISO 9660. This allows creating a medium for the live environment by using
+    # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
     _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
