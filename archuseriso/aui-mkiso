@@ -622,10 +622,23 @@ _fat_image_efiboot_files_grub_common() {
         "${profile}/grub/grub.cfg" > "${work_dir}/grub.cfg"
 
     # shellcheck disable=SC2016
-    printf 'configfile ${cmdpath}/grub.cfg\n' > "${work_dir}/grub-embed.cfg"
+    IFS='' read -r -d '' grubembedcfg <<'EOF' || true
+regexp --set=1:isodevice '(^\([^)]+\))\/?[Ee][Ff][Ii]\/?' "$cmdpath"
+if ! [ -d "$cmdpath" ]; then
+     # On some firmware, GRUB has a wrong cmdpath when booted from an optical disc.
+     # https://gitlab.archlinux.org/archlinux/archiso/-/issues/183
+     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
+         cmdpath="${isodevice}/EFI/BOOT"
+     fi
+     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
+         cmdpath="${isodevice}/EFI/grub"
+     fi
+fi
+configfile "${isodevice}/EFI/grub/grub.cfg"
+EOF
+    printf '%s\n' "$grubembedcfg" > "${work_dir}/grub-embed.cfg"
 
-    efiboot_files+=("${work_dir}/grub.cfg"
-                    "${work_dir}/grub-embed.cfg")
+    efiboot_files+=("${work_dir}/grub.cfg")
 }
 
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
@@ -1173,6 +1186,7 @@ _make_aui() {
     done
     [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../../loader "${isofs_dir}/aui/liveusb/esp/loader"
     [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../../EFI/BOOT "${isofs_dir}/aui/liveusb/esp/EFI/BOOT"
+    [[ -d "${isofs_dir}/EFI/grub" ]] && ln -s -- ../../../../EFI/grub "${isofs_dir}/aui/liveusb/esp/EFI/grub"
     [[ -d "${isofs_dir}/EFI/refind" ]] && ln -s -- ../../../../EFI/refind "${isofs_dir}/aui/liveusb/esp/EFI/refind"
     [[ -d "${isofs_dir}/EFI/systemd" ]] && ln -s -- ../../../../EFI/systemd "${isofs_dir}/aui/liveusb/esp/EFI/systemd"
     [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/aui/liveusb/esp/shellx64.efi"
