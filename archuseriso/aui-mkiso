@@ -1164,7 +1164,25 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     _msg_info "Done!"
 }
 
-# Set rEFInd as the default EFI boot loader
+
+# Set GRUB as the default IA32 EFI boot loader
+_make_x64_uefi_default_bootloader_uefi-ia32.grub.esp() {
+    # EFI boot image
+    mmove -i "${efibootimg}" ::/EFI/grub/grubia32.efi ::/EFI/BOOT/BOOTIA32.EFI
+
+    # ISO 9660 file system
+    mv -- "${isofs_dir}/EFI/grub/grubia32.efi" "${isofs_dir}/EFI/BOOT/BOOTIA32.EFI"
+}
+
+# Set GRUB as the default EFI boot loader
+_make_x64_uefi_default_bootloader_uefi-x64.grub.esp() {
+    # EFI boot image
+    mmove -i "${efibootimg}" ::/EFI/grub/grubx64.efi ::/EFI/BOOT/BOOTx64.EFI
+
+    # ISO 9660 file system
+    mv -- "${isofs_dir}/EFI/grub/grubx64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.EFI"
+}
+
 _make_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
     # EFI boot image
     mmove -i "${efibootimg}" ::/EFI/refind/* ::/EFI/BOOT/
@@ -1189,6 +1207,10 @@ _make_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
 # Run uefi default boot loader configuration
 _make_x64_uefi_default_bootloader() {
     _make_x64_uefi_default_bootloader_"${x64_uefi_default_bootloader}"
+
+    if [[ " ${bootmodes[*]} " =~ ' uefi-ia32.grub.esp ' ]]; then
+        _run_once _make_x64_uefi_default_bootloader_uefi-ia32.grub.esp
+    fi
 }
 
 # Archuseriso data
