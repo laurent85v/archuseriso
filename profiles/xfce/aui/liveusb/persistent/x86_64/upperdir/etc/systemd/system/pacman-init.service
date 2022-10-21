@@ -2,7 +2,6 @@
 Description=Initializes Pacman keyring
 Requires=etc-pacman.d-gnupg.mount
 After=etc-pacman.d-gnupg.mount
-BindsTo=etc-pacman.d-gnupg.mount
 Before=archlinux-keyring-wkd-sync.service
 
 [Service]
