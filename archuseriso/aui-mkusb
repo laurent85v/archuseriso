@@ -97,6 +97,9 @@ _cleanup() {
                         rmdir -- "${WD}/${workdir}/${_workdir}"
                 fi
         done
+        if [[ -f "${WD}/${workdir}/grub-embed.cfg" ]]; then
+                rm -- "${WD}/${workdir}/grub-embed.cfg"
+        fi
         if [[ -d "${WD}/${workdir}" ]]; then
                 rmdir -- "${WD}/${workdir}"
         fi
@@ -566,36 +569,106 @@ _copy() {
         _msg_info "Done!"
 }
 
+# Make GRUB standalone EFI binary
+_make_grub_efi_binary() {
+    local _grub_efi_arch="${1}"
+    local _grub_efi_name="${2}"
+    local _grubmodules=()
+
+    IFS='' read -r -d '' grubembedcfg <<'EOF' || true
+regexp --set=1:isodevice '(^\([^)]+\))\/?[Ee][Ff][Ii]\/?' "$cmdpath"
+if ! [ -d "$cmdpath" ]; then
+     # On some firmware, GRUB has a wrong cmdpath when booted from an optical disc.
+     # https://gitlab.archlinux.org/archlinux/archiso/-/issues/183
+     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
+         cmdpath="${isodevice}/EFI/BOOT"
+     fi
+     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
+         cmdpath="${isodevice}/EFI/grub"
+     fi
+fi
+configfile "${isodevice}/EFI/grub/grub.cfg"
+EOF
+
+    printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
+
+    # Create EFI binary
+    # Module list from https://bugs.archlinux.org/task/71382#comment202911
+    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font \
+                 gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
+                 minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file \
+                 search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi usbserial_pl2303 \
+                 usbserial_usbdebug video xfs zstd)
+    grub-mkstandalone -O "${_grub_efi_arch}" \
+                      --modules="${_grubmodules[*]}" \
+                      --locales="en@quot" \
+                      --themes="" \
+                      --sbat=/usr/share/grub/sbat.csv \
+                      --disable-shim-lock \
+                      -o "${WD}/${workdir}/usbesp/EFI/grub/${_grub_efi_name}" \
+                      "boot/grub/grub.cfg=${WD}/${workdir}/grub-embed.cfg"
+}
+
+_esp_bootloader_cfg_uefi-ia32.grub.esp() {
+    # Copy new GRUB cfg file for usb device
+    cp -r -- "${WD}/${workdir}/iso/aui/liveusb/grub" "${WD}/${workdir}/usbesp/EFI/"
+
+    _make_grub_efi_binary "i386-efi" "grubia32.efi"
+
+    # Move EFI binary to ESP /EFI/BOOT
+    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubia32.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTIA32.EFI"
+}
+
+_esp_bootloader_cfg_uefi-x64.grub.esp() {
+    # Copy new GRUB cfg file for usb device
+    cp -r -- "${WD}/${workdir}/iso/aui/liveusb/grub" "${WD}/${workdir}/usbesp/EFI/"
+
+    _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
+}
+
+_esp_bootloader_cfg_uefi-x64.refind.esp() {
+    # Copy new rEFInd config file for usb device
+    cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
+    esp_files_settings+=('EFI/refind/refind.conf')
+}
+
+_esp_bootloader_cfg_uefi-x64.systemd-boot.esp() {
+    # Copy new systemd-boot config file for usb device
+    cp -r -- "${WD}/${workdir}/iso/aui/liveusb/loader" "${WD}/${workdir}/usbesp/"
+}
+
+_esp_default_bootloader_uefi-x64.grub.esp() {
+    # Move EFI binary to ESP /EFI/BOOT
+    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubx64.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.EFI"
+}
+
 _esp_default_bootloader_uefi-x64.refind.esp() {
-    cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
-    esp_files_settings+=('EFI/BOOT/refind.conf')
+    mv -- "${WD}/${workdir}/usbesp/EFI/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
 }
 
-_esp_default_bootloader_uefi-x64.systemd-boot.esp() {
-    if [[ " ${bootmodes[@]} " =~ ' uefi-x64.refind.esp ' ]]; then
-        cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
-        esp_files_settings+=('EFI/refind/refind.conf')
-    fi
-}
-
+# Make ESP for usb device
 _esp() {
         echo
         _msg_info "Setting up esp"
         _msg_info "copying esp files to ${WD}/${workdir}/usbesp"
         cp -LrT -- "${WD}/${workdir}/iso/aui/liveusb/esp" "${WD}/${workdir}/usbesp/"
-        cp -r -- "${WD}/${workdir}/iso/aui/liveusb/loader" "${WD}/${workdir}/usbesp/"
         cp -r -- "${WD}/${workdir}/iso/aui/liveusb/syslinux" "${WD}/${workdir}/usbesp/"
-        # Set default EFI boot loader
-        if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
-            _esp_default_bootloader_${x64_uefi_default_bootloader}
-        fi
+
+        # EFI boot loader setup
+        for bootmode in "${bootmodes[@]}"; do
+                if typeset -f "_esp_bootloader_cfg_${bootmode}" &> /dev/null; then
+                    _esp_bootloader_cfg_${bootmode}
+                fi
+        done
+
         for mediumfile in "${esp_files_settings[@]}"; do
                 if [[ -f "${WD}/${workdir}/usbesp/${mediumfile}" ]]; then
-                        sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
+                        sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g
                                    s|%COW_LABEL%|${cow_label}|g;
                                    s|%COW_FLAGS%|${cow_flags}|g;
                                    s|%ESP_LABEL%|${esp_label}|g;
                                    s|%IMG_LABEL%|${img_label}|g;
+                                   s|--label ${iso_label}$|--label ${esp_label}|g
                                    s|=${iso_label}|=${img_label}|g" \
                                   "${WD}/${workdir}/usbesp/${mediumfile}"
                         if [[ -n "${copytoram_size}" ]]; then
@@ -604,6 +677,11 @@ _esp() {
                         fi
                 fi
         done
+
+        # Set default EFI boot loader
+        if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+            _esp_default_bootloader_${x64_uefi_default_bootloader}
+        fi
         _msg_info "Done!"
 }
 
