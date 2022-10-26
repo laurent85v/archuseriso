@@ -665,6 +665,7 @@ if ! [ -d "$cmdpath" ]; then
 fi
 configfile "${isodevice}/EFI/grub/grub.cfg"
 EOF
+
     printf '%s\n' "$grubembedcfg" > "${work_dir}/grub-embed.cfg"
 
     # Add all GRUB files to the list of files used to calculate the required FAT image size.
@@ -1285,6 +1286,8 @@ _make_aui() {
     fi
     for auifile in "${isofs_dir}/aui/liveusb/loader/entries/"*.conf \
                    "${isofs_dir}/aui/hybrid/loader/entries/"*.conf \
+                   "${isofs_dir}/aui/liveusb/grub/grub.cfg" \
+                   "${isofs_dir}/aui/hybrid/grub/grub.cfg" \
                    "${isofs_dir}/aui/liveusb/syslinux/archiso_sys-linux.cfg" \
                    "${isofs_dir}/aui/hybrid/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${auifile}" ]]; then
