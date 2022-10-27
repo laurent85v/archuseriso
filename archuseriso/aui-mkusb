@@ -40,8 +40,7 @@ valid_medium_version="v6"
 
 _usage() {
         echo
-        echo "${appname}, create a bootable usb drive from an archuseriso image."
-        echo 'Live usb with persistence.'
+        echo "${appname}: make a bootable usb drive with persistence."
         echo
         echo 'Synopsis:'
         echo "${appname} [options] <iso image> <usb device>"
@@ -53,8 +52,7 @@ _usage() {
 
 _help() {
         echo
-        echo "${appname}, create a bootable usb drive from an archuseriso image."
-        echo 'Live usb with persistence.'
+        echo "${appname}: make a bootable usb drive with persistence."
         echo
         echo 'Synopsis:'
         echo "${appname} [options] <iso image> <usb device>"
@@ -67,14 +65,14 @@ _help() {
         echo '--f2fs                      F2FS file system for the persistent partition'
         echo '--no-journal                Disable ext4 journal'
         echo '--raw-write                 Raw ISO image write to USB drive (dd like mode)'
-        echo '--size-part2 integer[g|G]   2nd partition size in GiB (Boot & efi partition)'
-        echo '--size-part3 integer[g|G]   3rd partition size in GiB (persistent partition)'
+        echo '--size-esp=integer[g|G]     Size of the EFI boot partition'
+        echo '--size-cow=integer[g|G]     Size of the copy on write partition for persistence'
         echo
         echo 'Example:'
         echo "sudo ${appname} aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc"
         echo
-        echo 'Example with custom partitioning, unallocated drive space left for other usages:'
-        echo "sudo ${appname} --size-part2 1G --size-part3 10G aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc"
+        echo 'Example with custom partitioning, unallocated drive space left for other usage:'
+        echo "sudo ${appname} --size-esp=1G --size-cow=10G aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc"
         echo
         exit "${1}"
 }
@@ -743,8 +741,8 @@ _biosbootloader() {
 
 # arguments
 OPTS=$(getopt -o 'h' --long 'btrfs,btrfs-compress:,encrypt,f2fs,help,no-journal' \
-                     --long 'raw-write,size-part2:,size-part3:' \
-                     --long 'nojournal,raw_write,sizepart2:,sizepart3:' \
+                     --long 'raw-write,size-esp:,size-cow:' \
+                     --long 'nojournal,raw_write,sizeesp:,sizecow:' \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -784,10 +782,10 @@ while true; do
                 '--raw-write'|'--raw_write')
                         raw_write="yes"
                         shift ;;
-                '--size-part2'|'--sizepart2')
+                '--size-esp'|'--sizeesp')
                         esp_size="${2/[gG]}"
                         shift 2;;
-                '--size-part3'|'--sizepart3')
+                '--size-cow'|'--sizecow')
                         cow_size="${2/[gG]}"
                         shift 2;;
                 '--')
@@ -816,4 +814,4 @@ fi
 echo
 _msg_info "Success!"
 
-# vim: set expandtab:
+# vim:ts=4:sw=4:et:
