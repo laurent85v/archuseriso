@@ -1,94 +1,97 @@
 Description
 ===========
 
-Build iso images, create live usb drives, install on usb drives.
- 
-Archuseriso is based on Archiso, the Arch Linux tool for building the official iso image.
+Archuseriso is a set of script programs written in Bash based on Archiso, the Arch Linux tool for building the official iso image released monthly.
 
-Archuseriso provides profiles and additional tools for building iso images and creating bootable usb drives. Features persistence, usb drive installation and encryption.
+Archuseriso aims at extending the base features of Archiso, providing pre-configured build profiles for building live iso images with desktop environment.
+
+Archuseriso brings additional tools for making a bootable live usb drive with persistence, allowing to run Arch Linux on a removable medium for many kinds of use cases.
+
+Alternatively a standard installation can be performed if persistence is not an option for your needs.
+
+Another cool feature of Archuseriso is optional disk encryption.
 
 AUR https://aur.archlinux.org/packages/archuseriso
 
 ISO download http://dl.gnutux.fr/archuseriso
 
-Features
---------
+Highlights
+----------
 
-* desktop profiles
-* easy build
-* alternate language at build time
+* pre-configured build profiles
+* language choice
 * zstandard fast compressor
-* usb drive persistence
-* usb drive installation
-* updates support
-* Btrfs/F2FS file system option
+* persistence, pacman updates compatible
+* standard installation on usb drive
+* Ext4 / Btrfs / F2FS file systems
 * LUKS encryption
-* rEFInd boot manager
-* user packages additions
-* samba public folder sharing
-* Nvidia graphics option
-* Optimus hardware option
+* systemd UEFI boot loader
+* syslinux bios boot loader
+* boot loaders alternatives (rEFInd, Grub)
 * ZFS support option
-* testing package option
-* user data addition
+* add user packages
+* add testing package to iso image
+* add any data to iso image
+* Nvidia and Optimus hardware options
+* samba public folder sharing
 
-Profiles
---------
+Pre-configured build profiles
+-----------------------------
 
 * Console
 * Cinnamon
 * Deepin
 * Gnome
 * i3
-* Kde
+* Kde Plasma
 * LXQt
 * Mate
 * Sway
 * Xfce
 
-Hint for gr, rs, ru and ua with two keyboard layouts: press both `Shift keys` together for switching the keyboard layout. 
-
 Installation
 ------------
 
-Install [archuseriso](https://aur.archlinux.org/packages/archuseriso/) available on the AUR 
+Installation from the AUR [archuseriso](https://aur.archlinux.org/packages/archuseriso/)
 
-Alternate installation method from git repository:
+Installation from the git repository:
 
-    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs libisoburn make mtools squashfs-tools syslinux grub
+    sudo pacman --needed -S git arch-install-scripts bash dosfstools e2fsprogs erofs-utils grub libarchive libisoburn make mtools squashfs-tools syslinux
     git clone https://github.com/laurent85v/archuseriso.git
     sudo make -C archuseriso install
 
-Create iso image
-----------------
+Note that Archuseriso was designed for Arch Linux and was not tested on Arch Linux derivatives.
+
+Build iso image
+---------------
 
 Synopsis:
 
     aui-mkiso [options] <path to profile>
 
-Xfce profile with default options:
+Build Xfce iso image with default options:
 
     sudo aui-mkiso /usr/share/archuseriso/profiles/xfce/
 
-Default directory `/usr/share/archuseriso/profiles` is assumed when using profile name only:
+Default build directory `/usr/share/archuseriso/profiles` assumed when path to profile not provided:
 
     sudo aui-mkiso xfce
 
-Other examples:
+Examples:
 
-Kde Plasma profile, German language, Optimus hardware (PRIME render offload setup) and additional packages
+Kde Plasma profile and German language
 
-    sudo aui-mkiso --language=de --optimus --add-pkg=byobu,base-devel /usr/share/archuseriso/profiles/kde/
+    sudo aui-mkiso --language=de kde
 
-Gnome profile, additional packages, user packages addition (directory containing user pkg.tar.zst packages)
+Gnome profile, add packages to profile, add user packages (directory containing pkg.tar.zst packages)
 
-    sudo aui-mkiso --add-pkg=ntop,vlc --pkg-dir=~/mypackages /usr/share/archuseriso/profiles/gnome/
+    sudo aui-mkiso --add-pkg=ntop,vlc --pkg-dir=~/mypackages gnome
 
 When done remove the `work` directory. The iso image is located in the `out` directory.
 
-Live usb
---------
-The live usb is created with persistence, the boot menu offers live booting and persistence booting.
+Make live usb with persistence
+------------------------------
+The live usb supports persistence by default. The boot menu offers to boot with or without persistence.
 
 Synopsis:
 
@@ -96,26 +99,28 @@ Synopsis:
 
 Example:
 
-    sudo aui-mkusb aui-xfce-linux_5_7_10-optimus-0724-x64.iso /dev/sdc
+    sudo aui-mkusb aui-xfce-linux_5_7_10-0724-x64.iso /dev/sdc
 
-Drive partitioning, Ext4 default for persistence
+The drive partitioning is as follow:
 
     GPT layout
-    Partition   Type              Usage
+    Partition   FS type           Type
     #1          Ext4              Squashfs image
     #2          EFI FAT           Boot
     #3          Ext4|Btrfs|F2FS   Persistence
 
 #### Btrfs file system
-Two subvolumes a created: `rootfs` and `home`. The `rootfs` subvolume is mounted as the persistent root file system. The `home` subvolmue is mounted as a separate volume for the home tree. This feature also facilitates the usage of `systemd-homed` for creating an additional user account with the `--storage=subvolume` option.  
 
-#### ZFS
+For the Btrfs file system two subvolumes are created: `rootfs` and `home`. The `rootfs` subvolume for root persistence and the `home` subvolume for home persistence.
 
-The buid option '--zfs' for adding zfs support proceeds in two stages. First stage builds the zfs packages, second stage builds the iso image. Archuseriso also provides a program `aui-build_zfs_packages` for building ZFS packages against current Linux kernel.
 
-Installation on usb drive
--------------------------
-Standard installation except systemd journal configured in volatile mode.
+#### ZFS support
+
+Run `aui-build_zfs_packages` for building the ZFS package.
+
+Standard installation on usb drive
+----------------------------------
+A standard installation on a usb drive can be performed. The live settings are removed except systemd journal that remains configured in volatile mode to limit disk I/O.
 
 Synopsis:
 
@@ -125,16 +130,16 @@ Example:
 
     sudo aui-mkinstall aui-xfce-linux_5_7_10-0724-x64.iso /dev/sdc
 
-Drive partitioning, Ext4 default file system:
+The drive partitioning is as follow:
 
     GPT layout
-    Partition   Type              Usage
+    Partition   FS Type           Type
     #1          EFI FAT           Boot
     #2          Ext4|Btrfs|F2FS   System
 
-Hybrid usb drive
----------------
-Both live and standard installation. Boot menu offers standard booting and live booting.
+Make hybrid usb drive
+---------------------
+Combines both a live system and a standard installation. The boot menu offers to boot live or to boot the system installed on the usb drive.
 
 Synopsis:
 
@@ -144,32 +149,60 @@ Example:
 
     sudo aui-mkhybrid aui-xfce-linux_5_10_9-0121-x64.iso /dev/sdc
 
-Drive partitioning, Ext4 default file system:
+
+The drive partitioning is as follow:
 
     GPT layout
-    Partition   Type              Usage
+    Partition   FS Type           Type
     #1          Ext4              Squashfs image
     #2          EFI FAT           Boot
     #3          Ext4|Brtfs|F2FS   System
 
-Testing
--------
-Running the iso image in a qemu virtual machine:
+Test the iso image and the usb drive
+------------------------------------
+Run `aui-run` to test the iso image or the usb drive in a qemu virtual machine.
 
-Bios mode
+Examples:
+
+iso image test in bios mode
 
     aui-run -i aui-xfce-linux_5_10_7-0116-x64.iso
 
-uefi mode
+iso image test in uefi mode
 
     aui-run -u -i aui-xfce-linux_5_10_7-0116-x64.iso
 
-Testing the usb drive /dev/sdc:
-
-Bios mode
+usb drive /dev/sdc test in bios mode
 
     sudo aui-run -d /dev/sdc
 
-uefi mode
+usb drive /dev/sdc test in uefi mode
 
     sudo aui-run -u -d /dev/sdc
+
+Script programs
+---------------
+
+aui-mkiso : build live iso image
+
+aui-mkusb : make live usb drive with persistence
+
+aui-mkinstall : make standard installation on usb drive
+
+aui-mkhybrid : make live usb drive and standard installation
+
+aui-build_zfs_packages : build ZFS packages
+
+Documentation
+-------------
+Currently Archuseriso has no specific documentation. You can refer to the Archiso documentation as most also applies to Archuseriso.
+
+Files of interest:
+
+profiles/&lt;profile name&gt;/packages.x86_64 : list of packages to install
+
+profiles/&lt;profile name&gt;/profiledef.sh : iso profile settings
+
+Known issues
+------------
+rEFInd boot manager may fail on some firmware.
