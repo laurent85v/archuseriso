@@ -29,7 +29,6 @@ bootmodes=()
 bootstrap_packages=""
 bootstrap_pkg_list=()
 buildmodes=()
-build_zfs_packages="n"
 cert_list=()
 directory_profiles="/usr/share/archuseriso/profiles"
 desktop=""
@@ -142,8 +141,6 @@ usage: ${app_name} [options] <profile_dir>
      -v, --verbose                      Enable verbose output
      -w, --work-dir <work_dir>          Set the working directory
                                         Default: '${work_dir}'
-     --zfs                              Dynamically builds the ZFS packages against installed
-                                        kernel and install packages.
 
   profile_dir:        Directory of the archuseriso profile to build. Available directory profiles
                       under /usr/share/archuseriso/profiles
@@ -2224,7 +2221,6 @@ _build_iso_base() {
     _show_config
     _run_once _make_pacman_conf
     [[ -n "${pacman_testing_conf}" ]] && _run_once _make_pacman_testing_conf
-    [[ "${build_zfs_packages}" == "y" ]] && _run_once _build_zfs_packages
     [[ -z "${gpg_key}" ]] || _run_once _export_gpg_publickey
     _run_once _make_custom_airootfs
     _run_once _make_packages
@@ -2305,158 +2301,13 @@ _build() {
     done
 }
 
-_build_zfs_packages () {
-    if [[ "${SCRIPTUSER}" == 'root' || -z "${SUDO_USER:-}" ]]; then
-        echo
-        echo 'Option for ZFS support:'
-        echo 'The script must be run from a _user session_ using sudo!'
-        echo 'Aborting...'
-        exit 0
-    fi
-
-    local _WD _auiwork _ar64 _linuxversion _modulesversion _zfspackages _zfssources _zfsversion
-    local _ZFSPUBKEY _KEYSERVER
-    _WD="$(pwd)"
-    _auiwork="${_WD}/$(mktemp -u auiwork.XXXXXXXX)"
-    _ar64="${_auiwork}/archroot64"
-    _ZFSPUBKEY="6AD860EED4598027"
-    _KEYSERVER="ha.pool.sks-keyservers.net"
-
-    # Retrieve ZFS on Linux public key
-    if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${_ZFSPUBKEY}" &> /dev/null; then
-        echo
-        read -r -n1 -p 'Retrieve missing ZFS on Linux public key (N/y)? '
-        echo
-        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
-            echo 'Operation canceled by user!'
-            exit 0
-        fi
-        if ! sudo --user "${SCRIPTUSER}" gpg --keyserver "${_KEYSERVER}" --recv "${_ZFSPUBKEY}"; then
-            echo
-            echo "Retreiving ZFS public key ${_ZFSPUBKEY} failed, aborting!"
-            echo
-        fi
-    fi
-
-    if ! pacman -Q devtools &> /dev/null; then
-        echo 'devtools package not installed, aborting!'
-        exit 0
-    fi
-    if ! pacman -Q pacman-contrib &> /dev/null; then
-        echo 'pacman-contrib package not installed, aborting!'
-        exit 0
-    fi
-    mkdir -p -- "${_WD}/work/pkgdir"
-    mkdir -p -- "${_ar64}"
-    chmod a+x -- "${_auiwork}"
-    mapfile -t _zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
-                   https://api.github.com/repos/openzfs/zfs/releases/latest | \
-                   grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
-    _zfsversion="${_zfssources[0]%/zfs-*}"
-    _zfsversion="${_zfsversion#*-}"
-    if [[ -z "${_zfsversion}" ]]; then
-        echo 'Retrieving ZFS data failed, aborting!'
-        exit 0
-    fi
-    _msg_info "Preparing zfs chroot"
-    if [[ "${quiet}" == "y" ]]; then
-        mkarchroot -c /var/cache/pacman/pkg -- "${_ar64}/root" base linux linux-headers base-devel &> /dev/null
-    else
-        mkarchroot -c /var/cache/pacman/pkg -- "${_ar64}/root" base linux linux-headers base-devel
-    fi
-    _msg_info "Done!"
-    if [[ -n "${pkg_testing_list[*]}" ]]; then
-        for _package in "${pkg_testing_list[@]}"; do
-            if [[ "${_package}" = 'linux' ]]; then
-                _msg_info "Installing linux package from testing"
-                if [[ "${quiet}" == "y" ]]; then
-                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${_ar64}/root" linux linux-headers &> /dev/null
-                else
-                    pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${_ar64}/root" linux linux-headers
-                fi
-                _msg_info "Done!"
-                break
-            fi
-        done
-    fi
-    _linuxversion=$(pacman --sysroot "${_ar64}/root" -Q linux | cut -d' ' -f2)
-    if [[ "$(cut -d'.' -f3 <<< "${_linuxversion}")" =~ 'arch' ]]; then
-        _modulesversion="${_linuxversion%.arch*}.0-${_linuxversion##*.}"
-    else
-        _modulesversion="${_linuxversion%.arch*}-${_linuxversion##*.}"
-    fi
-    cp -arT -- "${profile}/aui/zfsonlinux" "${_auiwork}/zfsonlinux"
-    sed -i -- "s/%ZFSVERSION%/${_zfsversion}/
-               s/%LINUXVERSION%/${_linuxversion}/
-               s/%MODULESVERSION%/${_modulesversion}/" \
-               "${_auiwork}/zfsonlinux/zfs-utils/PKGBUILD" \
-               "${_auiwork}/zfsonlinux/zfs-linux/PKGBUILD"
-    cd -- "${_auiwork}/zfsonlinux/zfs-utils/"
-    for _zfslink in "${_zfssources[@]}"; do
-        if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
-            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
-            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}".asc
-            break
-        fi
-    done
-    cp -a -- zfs-*.tar.gz{,.asc} ../zfs-linux
-    chown -R "${SCRIPTUSER}": -- "${_auiwork}/zfsonlinux"
-    _msg_info "Creating PKGBUILDs"
-    if [[ "${quiet}" == "y" ]]; then
-        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD 2> /dev/null
-        sudo --user "${SCRIPTUSER}" updpkgsums 2> /dev/null
-    else
-        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
-        sudo --user "${SCRIPTUSER}" updpkgsums
-    fi
-    cd -- "${_auiwork}/zfsonlinux/zfs-linux/"
-    if [[ "${quiet}" == "y" ]]; then
-        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD 2> /dev/null
-        sudo --user "${SCRIPTUSER}" updpkgsums 2> /dev/null
-    else
-        sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
-        sudo --user "${SCRIPTUSER}" updpkgsums
-    fi
-    _msg_info "Done!"
-    cd -- "${_auiwork}/zfsonlinux/zfs-utils/"
-    _msg_info "Building zfs-utils"
-    if [[ "${quiet}" == "y" ]]; then
-        sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar &> /dev/null
-    else
-        sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-    fi
-    _msg_info "Done!"
-    mapfile -t _zfspackages < <(find -- "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
-    cd -- "${_auiwork}/zfsonlinux/zfs-linux/"
-    _msg_info "Building zfs-linux"
-    if [[ "${quiet}" == "y" ]]; then
-        sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar &> /dev/null
-    else
-        sudo --user "${SCRIPTUSER}" \
-        makechrootpkg -r "${_ar64}" -I "${_zfspackages[0]}" -- --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-    fi
-    _msg_info "Done!"
-    mapfile -t _zfspackages < <(find -- "${_auiwork}/zfsonlinux/" | grep -e '\.pkg\.tar\.zst$' -e '\.pkg\.tar\.xz$')
-    if [[ -n "${user_pkg_dir}" ]]; then
-        cp -- "${_zfspackages[@]}" "${user_pkg_dir}"
-    else
-        cp -- "${_zfspackages[@]}" "${_WD}/work/pkgdir"
-        user_pkg_dir="${_WD}/work/pkgdir"
-    fi
-    rm -r -- "${_auiwork}"
-    cd -- "${_WD}"
-}
-
 OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:vw:' \
               -l 'addi3wm,addpkg:,addpkgtesting:,application:,embeddir:' \
               -l 'add-i3-wm,add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
               -l 'gpgkey:,gpgsender:,installdir:,label:,language:,nvidia,optimus' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
-              -l 'verbose,workdir:,work-dir:,zfs' \
+              -l 'verbose,workdir:,work-dir:' \
               -l 'help' \
               -n "${app_name}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
@@ -2553,10 +2404,6 @@ while true; do
         '-w'|'--workdir'|'--work-dir')
             override_work_dir="${2}"
             shift 2 ;;
-        '--zfs')
-            build_zfs_packages="y"
-            iso_version_options+=(zfs)
-            shift ;;
         '--')
             shift
             break ;;
