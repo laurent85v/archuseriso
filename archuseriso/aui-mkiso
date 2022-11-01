@@ -1224,9 +1224,12 @@ _make_aui() {
     mv -- "${isofs_dir}/aui/liveusb/persistent" "${isofs_dir}/aui/liveusb/persistent_${iso_label}"
 
     ### esp
+    install -d -m 0755 -- "${isofs_dir}/aui/liveusb/esp/"
+    ln -s -- "../liveusb/esp" "${isofs_dir}/aui/hybrid/esp"
+    ln -s -- "../liveusb/esp" "${isofs_dir}/aui/install/esp"
+
     # syslinux
     if [[ -d "${isofs_dir}/syslinux" ]]; then
-        install -d -m 0755 -- "${isofs_dir}/aui/liveusb/esp/"
         ln -s -- "../../../syslinux" "${isofs_dir}/aui/liveusb/esp/syslinux"
     fi
 
