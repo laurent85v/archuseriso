@@ -1564,7 +1564,8 @@ _sign_netboot_artifacts() {
             _files_to_sign+=("${_dir}${_file}")
         fi
     done
-    for _file in "${_files_to_sign[@]}" "${_dir}${arch}/vmlinuz-"* "${_dir}${arch}/initramfs-"*.img; do
+    for _file in "${_files_to_sign[@]}" "${_dir}${arch}/vmlinuz-"!(*.sig) "${_dir}${arch}/initramfs-"*.img; do
+        rm -f -- "${_file}".ipxe.sig
         openssl cms \
             -sign \
             -binary \
