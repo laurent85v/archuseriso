@@ -134,8 +134,43 @@ _verify_signature() {
     return ${_status}
 }
 
+_verify_cms_signature() {
+    # Note: There is an "issue" with openssl.
+    # Which requires emailProtection in extended key usage on the code signing certificate.
+    # See: https://github.com/openssl/openssl/issues/17134
+    local _status
+    local cms_sigfile="${1}"
+    local bootfile="${2}"
+    local certfile="/codesign.crt"
+    local cafile="/codesign_CA.crt"
+
+    # Use the signer certificate as the CA certificate to allow validating with self-signed certificates.
+    if [ ! -e "$cafile" ]; then
+        cafile="$certfile"
+    fi
+
+    cd "/run/archiso/bootmnt/${archisobasedir}/${arch}" || exit 1
+    # "-purpose any" can be removed once the issue mentioned above is fixed.
+    openssl cms \
+        -verify \
+        -binary \
+        -noattr \
+        -nointern \
+        -purpose any \
+        -in "${cms_sigfile}" \
+        -content "${bootfile}" \
+        -inform DER \
+        -out /dev/null \
+        -certfile "$certfile" \
+        -CAfile "$cafile"
+    _status=$?
+    cd -- "${OLDPWD}" || exit 1
+    return ${_status}
+}
+
 run_hook() {
     [ -z "${arch}" ] && arch="$(uname -m)"
+    [ -z "${copytoram}" ] && copytoram="auto"
     [ -z "${copytoram_size}" ] && copytoram_size="75%"
     [ -z "${archisobasedir}" ] && archisobasedir="arch"
     [ -z "${dm_snap_prefix}" ] && dm_snap_prefix="arch"
@@ -167,10 +202,22 @@ run_hook() {
 # args: /path/to/newroot
 archiso_mount_handler() {
     local newroot="${1}"
-    local sigfile fs_img
+    local sigfile cms_sigfile fs_img fs_img_size
 
     if ! mountpoint -q "/run/archiso/bootmnt"; then
         _mnt_dev "${archisodevice}" "/run/archiso/bootmnt" "-r" "defaults"
+    fi
+
+    # We need this block at the top for early failure
+    # but also to be able to give the fs_img to CMS verification.
+    # (sha512sum files contain the image, CMS files does not)
+    if [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs" ]; then
+        fs_img="/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs"
+    elif [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs" ]; then
+        fs_img="/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs"
+    else
+        echo "ERROR: no root file system image found"
+        launch_interactive_shell
     fi
 
     # shellcheck disable=SC2154
@@ -194,12 +241,9 @@ archiso_mount_handler() {
     # shellcheck disable=SC2154
     # defined via initcpio's parse_cmdline()
     if [ "${verify}" = "y" ]; then
-        if [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs.sig" ]; then
-            sigfile="airootfs.sfs.sig"
-        elif [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs.sig" ]; then
-            sigfile="airootfs.erofs.sig"
-        fi
-        if [ -n "${sigfile}" ]; then
+        if [ -f "${fs_img}.sig" ]; then
+            sigfile="${fs_img##*/}.sig"
+
             msg ":: Signature verification requested, please wait..."
             if _verify_signature "${sigfile}"; then
                 msg "Signature is OK, continue booting."
@@ -213,6 +257,34 @@ archiso_mount_handler() {
         fi
     fi
 
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    if [ "${cms_verify}" = "y" ]; then
+        if [ -f "${fs_img}.cms.sig" ]; then
+            cms_sigfile="${fs_img##*/}.cms.sig"
+
+            msg ":: Signature verification requested, please wait..."
+            if _verify_cms_signature "${cms_sigfile}" "${fs_img}"; then
+                msg "Signature is OK, continue booting."
+            else
+                echo "ERROR: one or more files are corrupted"
+                launch_interactive_shell
+            fi
+        else
+            echo "ERROR: cms_verify=y option specified but CMS signature not found in ${archisobasedir}/${arch}/"
+            launch_interactive_shell
+        fi
+    fi
+
+    # Enable copytoram if the root file system image size is less than 4 GiB and if the estimated available memory is
+    # more than the root file system image size + 2 GiB
+    if [ "${copytoram}" = "auto" ]; then
+        fs_img_size="$(du -bsk "$fs_img" | cut -f 1)"
+
+        if [ "$fs_img_size" -lt 4194304 ] && [ "$(awk '$1 == "MemAvailable:" { print $2 }' /proc/meminfo)" -gt $((fs_img_size + 2097152)) ]; then
+            copytoram="y"
+        fi
+    fi
     if [ "${copytoram}" = "y" ]; then
         msg ":: Mounting /run/archiso/copytoram (tmpfs) filesystem, size=${copytoram_size}"
         mount --mkdir -t tmpfs -o "size=${copytoram_size}",mode=0755 copytoram /run/archiso/copytoram
@@ -230,14 +302,6 @@ archiso_mount_handler() {
     mkdir -p "/run/archiso/cowspace/${cow_directory}"
     chmod 0700 "/run/archiso/cowspace/${cow_directory}"
 
-    if [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs" ]; then
-        fs_img="/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs"
-    elif [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs" ]; then
-        fs_img="/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs"
-    else
-        echo "ERROR: no root file system image found"
-        launch_interactive_shell
-    fi
     _mnt_fs "${fs_img}" "/run/archiso/airootfs"
     if [ -f "/run/archiso/airootfs/airootfs.img" ]; then
         _mnt_dmsnapshot "/run/archiso/airootfs/airootfs.img" "${newroot}" "/"
