@@ -635,7 +635,7 @@ _esp_bootloader_cfg_uefi-x64.grub.esp() {
 
 _esp_bootloader_cfg_uefi-x64.refind.esp() {
     # Copy new rEFInd config
-    cp -- "${WD}/${workdir}/iso/aui/liveusb/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
+    cp -- "${WD}/${workdir}/iso/aui/liveusb/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
     esp_files_settings+=('EFI/refind/refind.conf')
 }
 
