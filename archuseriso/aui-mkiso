@@ -641,7 +641,7 @@ _fat_image_efiboot_files_grub_common() {
     install -d -- "${work_dir}/grub"
 
     # Fill GRUB configuration files
-    for _cfg in "${profile}/grub/"*'.cfg'; do
+    for _cfg in "${profile}/efiboot/grub/"*'.cfg'; do
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
@@ -669,7 +669,7 @@ EOF
 
     # Add all GRUB files to the list of files used to calculate the required FAT image size.
     efiboot_files+=("${work_dir}/grub/"
-                    "${profile}/grub/"!(*.cfg))
+                    "${profile}/efiboot/grub/"!(*.cfg))
 }
 
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
@@ -916,8 +916,8 @@ _make_common_bootmode_grub_copy_to_efibootimg() {
     local _files_to_copy=()
 
     _files_to_copy+=("${work_dir}/grub/"*)
-    if compgen -G "${profile}/grub/!(*.cfg)" &> /dev/null; then
-        _files_to_copy+=("${profile}/grub/"!(*.cfg))
+    if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
+        _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
     fi
     mcopy -i "${efibootimg}" "${_files_to_copy[@]}" ::/EFI/grub/
 }
@@ -927,8 +927,8 @@ _make_common_bootmode_grub_copy_to_isofs() {
     local _files_to_copy=()
 
     _files_to_copy+=("${work_dir}/grub/"*)
-    if compgen -G "${profile}/grub/!(*.cfg)" &> /dev/null; then
-        _files_to_copy+=("${profile}/grub/"!(*.cfg))
+    if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
+        _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
     fi
     install -m 0644 -- "${_files_to_copy[@]}" "${isofs_dir}/EFI/grub/"
 }
@@ -1470,21 +1470,21 @@ _validate_requirements_bootmode_uefi-x64.grub.esp() {
     fi
 
     # Check if GRUB configuration files exist
-    if [[ ! -d "${profile}/grub" ]]; then
+    if [[ ! -d "${profile}//efiboot/grub" ]]; then
         (( validation_error=validation_error+1 ))
-        _msg_error "Validating '${bootmode}': The '${profile}/grub' directory is missing!" 0
+        _msg_error "Validating '${bootmode}': The '${profile}/efiboot/grub' directory is missing!" 0
     else
-        if [[ ! -e "${profile}/grub/grub.cfg" ]]; then
+        if [[ ! -e "${profile}/efiboot/grub/grub.cfg" ]]; then
             (( validation_error=validation_error+1 ))
-            _msg_error "Validating '${bootmode}': File '${profile}/grub/grub.cfg' not found!" 0
+            _msg_error "Validating '${bootmode}': File '${profile}/efiboot/grub/grub.cfg' not found!" 0
         fi
         local conffile
-        for conffile in "${profile}/grub/"*'.cfg'; do
+        for conffile in "${profile}/efiboot/grub/"*'.cfg'; do
             if [[ -e "${conffile}" ]]; then
                 break
             else
                 (( validation_error=validation_error+1 ))
-                _msg_error "Validating '${bootmode}': No configuration file found in '${profile}/grub/'!" 0
+                _msg_error "Validating '${bootmode}': No configuration file found in '${profile}/efiboot/grub/'!" 0
             fi
         done
     fi
