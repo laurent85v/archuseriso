@@ -1219,64 +1219,64 @@ _make_aui() {
         image_name="${iso_name}-${iso_version}-x64.iso"
     fi
 
-    cp -aT --no-preserve=ownership -- "${profile}/aui/" "${isofs_dir}/aui/"
-    printf 'bootmodes=( %s )\n' "${bootmodes[*]}" >> "${isofs_dir}/aui/mediumdef.sh"
-    printf 'x64_uefi_default_bootloader="%s"\n' "${x64_uefi_default_bootloader}" >> "${isofs_dir}/aui/mediumdef.sh"
+    cp -aT --no-preserve=ownership -- "${profile}/aui/" "${isofs_dir}/.aui/"
+    printf 'bootmodes=( %s )\n' "${bootmodes[*]}" >> "${isofs_dir}/.aui/mediumdef.sh"
+    printf 'x64_uefi_default_bootloader="%s"\n' "${x64_uefi_default_bootloader}" >> "${isofs_dir}/.aui/mediumdef.sh"
 
-    mv -- "${isofs_dir}/aui/liveusb/persistent" "${isofs_dir}/aui/liveusb/persistent_${iso_label}"
+    mv -- "${isofs_dir}/.aui/liveusb/persistent" "${isofs_dir}/.aui/liveusb/persistent_${iso_label}"
 
     ### esp
-    install -d -m 0755 -- "${isofs_dir}/aui/liveusb/esp/"
-    ln -s -- "../liveusb/esp" "${isofs_dir}/aui/hybrid/esp"
-    ln -s -- "../liveusb/esp" "${isofs_dir}/aui/install/esp"
+    install -d -m 0755 -- "${isofs_dir}/.aui/liveusb/esp/"
+    ln -s -- "../liveusb/esp" "${isofs_dir}/.aui/hybrid/esp"
+    ln -s -- "../liveusb/esp" "${isofs_dir}/.aui/install/esp"
 
     # syslinux
     if [[ -d "${isofs_dir}/syslinux" ]]; then
-        ln -s -- "../../../syslinux" "${isofs_dir}/aui/liveusb/esp/syslinux"
+        ln -s -- "../../../syslinux" "${isofs_dir}/.aui/liveusb/esp/syslinux"
     fi
 
     # live kernel & initramfs
-    install -d -m 0755 -- "${isofs_dir}/aui/liveusb/esp/${install_dir}/boot/x86_64/"
-    install -d -m 0755 -- "${isofs_dir}/aui/liveusb/esp/${install_dir}/boot/licenses/"
+    install -d -m 0755 -- "${isofs_dir}/.aui/liveusb/esp/${install_dir}/boot/x86_64/"
+    install -d -m 0755 -- "${isofs_dir}/.aui/liveusb/esp/${install_dir}/boot/licenses/"
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
             if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
-                ln -s -- "../../../../../${install_dir}/boot/${_ucode_image}" "${isofs_dir}/aui/liveusb/esp/${install_dir}/boot/"
+                ln -s -- "../../../../../${install_dir}/boot/${_ucode_image}" "${isofs_dir}/.aui/liveusb/esp/${install_dir}/boot/"
             fi
     done
     if [[ -d "${isofs_dir}/${install_dir}/boot/licenses" ]]; then
         for _license in "${isofs_dir}/${install_dir}/boot/licenses/"*; do
             ln -s -- "../../../../../../${install_dir}/boot/licenses/${_license##*/}/" \
-                     "${isofs_dir}/aui/liveusb/esp/${install_dir}/boot/licenses/${_license##*/}"
+                     "${isofs_dir}/.aui/liveusb/esp/${install_dir}/boot/licenses/${_license##*/}"
         done
     fi
     if [[ -f "${isofs_dir}/${install_dir}/boot/memtest" ]]; then
-        ln -s -- "../../../../../${install_dir}/boot/memtest" "${isofs_dir}/aui/liveusb/esp/${install_dir}/boot/"
+        ln -s -- "../../../../../${install_dir}/boot/memtest" "${isofs_dir}/.aui/liveusb/esp/${install_dir}/boot/"
     fi
     for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
                    "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
             ln -s -- "../../../../../../${install_dir}/boot/x86_64/${_kernel##*/}" \
-                  "${isofs_dir}/aui/liveusb/esp/${install_dir}/boot/x86_64/"
+                  "${isofs_dir}/.aui/liveusb/esp/${install_dir}/boot/x86_64/"
     done
 
     # persistent kernel & initramfs
-    install -d -m 0755 -- "${isofs_dir}/aui/liveusb/esp/EFI/"
+    install -d -m 0755 -- "${isofs_dir}/.aui/liveusb/esp/EFI/"
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
         if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
-            ln -s -- "../../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/aui/liveusb/esp/"
+            ln -s -- "../../../${install_dir}/boot/${_ucode_image}" "${work_dir}/iso/.aui/liveusb/esp/"
         fi
     done
     for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
                    "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
-        ln -s -- "../../../${install_dir}/boot/x86_64/${_kernel##*/}" "${work_dir}/iso/aui/liveusb/esp/"
+        ln -s -- "../../../${install_dir}/boot/x86_64/${_kernel##*/}" "${work_dir}/iso/.aui/liveusb/esp/"
     done
-    [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../../loader "${isofs_dir}/aui/liveusb/esp/loader"
-    [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../../EFI/BOOT "${isofs_dir}/aui/liveusb/esp/EFI/BOOT"
-    [[ -d "${isofs_dir}/EFI/grub" ]] && ln -s -- ../../../../EFI/grub "${isofs_dir}/aui/liveusb/esp/EFI/grub"
-    [[ -d "${isofs_dir}/EFI/refind" ]] && ln -s -- ../../../../EFI/refind "${isofs_dir}/aui/liveusb/esp/EFI/refind"
-    [[ -d "${isofs_dir}/EFI/systemd" ]] && ln -s -- ../../../../EFI/systemd "${isofs_dir}/aui/liveusb/esp/EFI/systemd"
-    [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/aui/liveusb/esp/shellx64.efi"
+    [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../../loader "${isofs_dir}/.aui/liveusb/esp/loader"
+    [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../../EFI/BOOT "${isofs_dir}/.aui/liveusb/esp/EFI/BOOT"
+    [[ -d "${isofs_dir}/EFI/grub" ]] && ln -s -- ../../../../EFI/grub "${isofs_dir}/.aui/liveusb/esp/EFI/grub"
+    [[ -d "${isofs_dir}/EFI/refind" ]] && ln -s -- ../../../../EFI/refind "${isofs_dir}/.aui/liveusb/esp/EFI/refind"
+    [[ -d "${isofs_dir}/EFI/systemd" ]] && ln -s -- ../../../../EFI/systemd "${isofs_dir}/.aui/liveusb/esp/EFI/systemd"
+    [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/.aui/liveusb/esp/shellx64.efi"
 
-    if [[ -f "${isofs_dir}/aui/mediumdef.sh" ]]; then
+    if [[ -f "${isofs_dir}/.aui/mediumdef.sh" ]]; then
         # Set medium def
         sed -i "s|%DESKTOP%|${desktop}|g;
                 s|%INSTALL_DIR%|${install_dir}|g;
@@ -1284,14 +1284,14 @@ _make_aui() {
                 s|%ISO_NAME%|${iso_name}|g;
                 s|%ISO_VERSION%|${iso_version}|g;
                 s|%LANG%|${lang}|g" \
-                "${isofs_dir}/aui/mediumdef.sh"
+                "${isofs_dir}/.aui/mediumdef.sh"
     fi
-    for auifile in "${isofs_dir}/aui/liveusb/loader/entries/"*.conf \
-                   "${isofs_dir}/aui/hybrid/loader/entries/"*.conf \
-                   "${isofs_dir}/aui/liveusb/grub/grub.cfg" \
-                   "${isofs_dir}/aui/hybrid/grub/grub.cfg" \
-                   "${isofs_dir}/aui/liveusb/syslinux/archiso_sys-linux.cfg" \
-                   "${isofs_dir}/aui/hybrid/syslinux/archiso_sys-linux.cfg"; do
+    for auifile in "${isofs_dir}/.aui/liveusb/loader/entries/"*.conf \
+                   "${isofs_dir}/.aui/hybrid/loader/entries/"*.conf \
+                   "${isofs_dir}/.aui/liveusb/grub/grub.cfg" \
+                   "${isofs_dir}/.aui/hybrid/grub/grub.cfg" \
+                   "${isofs_dir}/.aui/liveusb/syslinux/archiso_sys-linux.cfg" \
+                   "${isofs_dir}/.aui/hybrid/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${auifile}" ]]; then
             sed -i "s|%INSTALL_DIR%|${install_dir}|g;
                     s|%DESKTOP%|${desktop}|g" "${auifile}"
