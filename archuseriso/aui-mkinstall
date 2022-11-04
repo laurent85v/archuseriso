@@ -355,7 +355,7 @@ _usb_prepare() {
         # source medium def variables
         source "${WD}/${workdir}/iso/.aui/mediumdef.sh"
         if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-                echo "Error: ${iso_file} is not a compatible iso image!"
+                echo -e "Error: ${medium_version} gen iso image, gen version mismatch. ${appname} requires gen ${valid_medium_version}!"
                 echo
                 _usage 1
         fi
