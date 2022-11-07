@@ -136,7 +136,7 @@ gvfs-afc
 gvfs-mtp
 gvfs-smb
 intel-media-driver
-libcanberra-pulse
+libcanberra
 libva-intel-driver
 libva-mesa-driver
 libva-utils

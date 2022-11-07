@@ -129,7 +129,7 @@ alsa-firmware
 dmenu
 foot
 intel-media-driver
-libcanberra-pulse
+libcanberra
 libva-intel-driver
 libva-mesa-driver
 libva-utils
@@ -145,7 +145,7 @@ ttf-droid
 ttf-hack
 vdpauinfo
 weechat
-xorg-server-xwayland
+xorg-xwayland
 # Optional
 aspell-en
 jre-openjdk

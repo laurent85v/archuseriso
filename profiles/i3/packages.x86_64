@@ -133,7 +133,7 @@ feh
 gnome-themes-extra
 i3
 intel-media-driver
-libcanberra-pulse
+libcanberra
 libva-intel-driver
 libva-mesa-driver
 libva-utils

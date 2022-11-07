@@ -243,7 +243,6 @@ ksystemlog
 kteatime
 ktimer
 kwave
-kwrite
 kwrited
 mesa-demos
 networkmanager-openconnect
@@ -272,7 +271,6 @@ telepathy-salut
 xf86-input-elographics
 xf86-input-void
 xf86-input-wacom
-xorg-server-xwayland
 xorg-twm
 xorg-xgamma
 xorg-xhost
@@ -280,6 +278,7 @@ xorg-xkill
 xorg-xlsclients
 xorg-xrefresh
 xorg-xvinfo
+xorg-xwayland
 xorg-xwininfo
 
 ### Browser

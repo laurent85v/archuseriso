@@ -189,6 +189,7 @@ xorg-xinput
 xorg-xsetroot
 # Optional
 baobab
+endeavour
 fprintd
 gedit-plugins
 gnome-calculator
@@ -201,7 +202,6 @@ gnome-packagekit
 gnome-photos
 gnome-remote-desktop
 gnome-software-packagekit-plugin
-gnome-todo
 gnome-user-docs
 gnome-weather
 gsmartcontrol
