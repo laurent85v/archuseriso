@@ -311,7 +311,7 @@ _confirm_write() {
         _msg_info "USB device: ${usb_device}"
         _msg_info "username:   ${username}"
         echo
-        read -r -n1 -p "Confirm write to $(lsblk -dnro model,size -- "${usb_device}") (N/y)? "
+        read -r -n1 -p "Confirm write to $(lsblk -dno model,size -- "${usb_device}") (N/y)? "
         echo
         if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
                echo 'Canceled!'
