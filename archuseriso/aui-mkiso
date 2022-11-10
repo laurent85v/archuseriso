@@ -456,7 +456,6 @@ _make_packages() {
         export ARCHISO_TLSCA_FD
     fi
 
-
     # Unset TMPDIR to work around https://bugs.archlinux.org/task/70580
     if [[ "${quiet}" = "y" ]]; then
         env -u TMPDIR \
@@ -969,7 +968,7 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
     # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
+    _msg_info "Grub IA32: preparing EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,grub}
 
     # Copy GRUB EFI binary to the default/fallback boot path
@@ -1020,7 +1019,7 @@ _make_bootmode_uefi-x64.grub.eltorito() {
     # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
+    _msg_info "Grub x64: preparing EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,grub}
 
     # Copy GRUB EFI binary to the default/fallback boot path
@@ -1075,7 +1074,7 @@ _make_bootmode_uefi-x64.refind.eltorito() {
     # Additionally set up refind in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
+    _msg_info "rEFInd: preparing EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,refind}
 
     # Copy rEFInd files to EFI path
@@ -1137,7 +1136,7 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Preparing an /EFI directory for the ISO 9660 file system..."
+    _msg_info "Systemd-boot: preparing an EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,systemd}
 
     # Copy systemd-boot EFI binary to EFI path
