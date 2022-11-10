@@ -25,10 +25,20 @@ validpgpkeys=('4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027'  # Tony Hutter (GPG key
               'C33DF142657ED1F7C328A2960AB9E991C6AF658B') # Brian Behlendorf <behlendorf1@llnl.gov>
 
 prepare() {
+    local _src
+
     cd "${srcdir}"/zfs-${pkgver}
 
     # pyzfs is not built, but build system tries to check for python anyway
     ln -sf /bin/true python3-fake
+
+    for _src in "${source[@]}"; do
+        _src="${_src%%::*}"
+        _src="${_src##*/}"
+        [[ "${_src}" = *.patch ]] || continue
+        echo "Applying patch ${_src}..."
+        patch -Np1 < "../${_src}"
+    done
 }
 
 build() {
@@ -60,7 +70,8 @@ package() {
     #rm -r "${pkgdir}"/usr/lib/dracut
     rm -r "${pkgdir}"/usr/lib/modules-load.d
     rm -r "${pkgdir}"/usr/share/initramfs-tools
-    rm -r "${pkgdir}"/usr/share/zfs
+    rm -r "${pkgdir}"/usr/share/zfs/*.sh
+    rm -r "${pkgdir}"/usr/share/zfs/{runfiles,test-runner,zfs-tests}
 
     install -D -m644 "${srcdir}"/zfs.initcpio.hook "${pkgdir}"/usr/lib/initcpio/hooks/zfs
     install -D -m644 "${srcdir}"/zfs.initcpio.install "${pkgdir}"/usr/lib/initcpio/install/zfs
