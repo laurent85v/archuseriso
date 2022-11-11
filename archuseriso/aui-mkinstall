@@ -346,14 +346,14 @@ _usb_prepare() {
         fi
 
         # check iso
-        if [[ ! -e "${WD}/${workdir}/iso/.aui/mediumdef.sh" ]]; then
+        if [[ ! -e "${WD}/${workdir}/iso/.drive/mediumdef.sh" ]]; then
                 echo "Error: ${iso_file} is not a compatible iso image!"
                 echo
                 _usage 1
         fi
 
         # source medium def variables
-        source "${WD}/${workdir}/iso/.aui/mediumdef.sh"
+        source "${WD}/${workdir}/iso/.drive/mediumdef.sh"
         if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
                 echo -e "Error: ${medium_version} gen iso image, gen version mismatch. ${appname} requires gen ${valid_medium_version}!"
                 echo
@@ -519,7 +519,7 @@ _copy() {
         _msg_info "Install to ${WD}/${workdir}/usbrw, may take some time"
         cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usbrw"
         # Copy install setup
-        cp -aT -- "${WD}/${workdir}/iso/.aui/install/auirootfs" "${WD}/${workdir}/usbrw"
+        cp -aT -- "${WD}/${workdir}/iso/.drive/install/auirootfs" "${WD}/${workdir}/usbrw"
         mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/boot"
         _msg_info "Done!"
 }
@@ -566,7 +566,7 @@ EOF
 
 _esp_bootloader_cfg_uefi-ia32.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.aui/install/grub" "${WD}/${workdir}/usbesp/EFI/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/install/grub" "${WD}/${workdir}/usbesp/EFI/"
 
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
 
@@ -576,15 +576,15 @@ _esp_bootloader_cfg_uefi-ia32.grub.esp() {
 
 _esp_bootloader_cfg_uefi-x64.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.aui/install/grub" "${WD}/${workdir}/usbesp/EFI/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/install/grub" "${WD}/${workdir}/usbesp/EFI/"
 
     _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
 }
 
 _esp_bootloader_cfg_uefi-x64.refind.esp() {
     # Copy new rEFInd config
-    cp -- "${WD}/${workdir}/iso/.aui/install/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
-    cp -- "${WD}/${workdir}/iso/.aui/install/refind/refind_linux.conf" "${WD}/${workdir}/usbesp/"
+    cp -- "${WD}/${workdir}/iso/.drive/install/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
+    cp -- "${WD}/${workdir}/iso/.drive/install/refind/refind_linux.conf" "${WD}/${workdir}/usbesp/"
     if [[ -f "${WD}/${workdir}/iso/EFI/refind/icons/os_arch.png" ]]; then
         cp -- "${WD}/${workdir}/iso/EFI/refind/icons/os_arch.png" "${WD}/${workdir}/usbesp/vmlinuz-linux.png"
     fi
@@ -596,12 +596,12 @@ _esp_bootloader_cfg_uefi-x64.systemd-boot.esp() {
     # Remove live config
     [[ -d "${WD}/${workdir}/usbesp/loader/" ]] && rm -r -- "${WD}/${workdir}/usbesp/loader/"
     # Copy new systemd-boot config
-    cp -r -- "${WD}/${workdir}/iso/.aui/install/loader/" "${WD}/${workdir}/usbesp/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/install/loader/" "${WD}/${workdir}/usbesp/"
 }
 
 _esp_bootloader_cfg_bios.syslinux.mbr() {
     # Copy new syslinux config
-    cp -r -- "${WD}/${workdir}/iso/.aui/install/syslinux/" "${WD}/${workdir}/usbesp/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/install/syslinux/" "${WD}/${workdir}/usbesp/"
 }
 
 _esp_default_bootloader_uefi-x64.grub.esp() {
@@ -621,8 +621,8 @@ _esp() {
         echo
         _msg_info "ESP setup"
         _msg_info "Copy to ${WD}/${workdir}/usbesp"
-        cp -LrT -- "${WD}/${workdir}/iso/.aui/install/esp" "${WD}/${workdir}/usbesp/"
-        cp -r -- "${WD}/${workdir}/iso/.aui/install/syslinux" "${WD}/${workdir}/usbesp/"
+        cp -LrT -- "${WD}/${workdir}/iso/.drive/install/esp" "${WD}/${workdir}/usbesp/"
+        cp -r -- "${WD}/${workdir}/iso/.drive/install/syslinux" "${WD}/${workdir}/usbesp/"
 
         # EFI boot loader setup
         for bootmode in "${bootmodes[@]}"; do
