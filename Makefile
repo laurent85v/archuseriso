@@ -10,7 +10,7 @@ DOC_FILES=AUTHORS.rst LICENSE readme.md
 
 all:
 
-install: install-scripts install-profiles install-doc
+install: install-scripts install-pkgbuild install-profiles install-doc
 
 install-scripts:
 	install -vD -m 755 archuseriso/aui-mkiso              -t $(BIN_DIR)/
@@ -19,6 +19,10 @@ install-scripts:
 	install -vD -m 755 archuseriso/aui-mkinstall          -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-run                -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-build_zfs_packages -t $(BIN_DIR)/
+
+install-pkgbuild:
+	install -d -m 755 $(PROFILE_DIR)
+	cp -a --no-preserve=ownership pkgbuild $(PROFILE_DIR)/
 
 install-profiles:
 	install -d -m 755 $(PROFILE_DIR)
