@@ -1212,7 +1212,8 @@ _make_x64_uefi_default_bootloader() {
     fi
 }
 
-# Archuseriso data
+# Archuseriso drive config
+# ISO data used by aui-mkusb, aui-mkhybrid and aui-mkinstall tools
 _make_drive() {
     if [[ -z "${image_name}" ]]; then
         image_name="${iso_name}-${iso_version}-x64.iso"
@@ -1299,6 +1300,9 @@ _make_drive() {
     if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
         cp -aT --no-preserve=ownership "${embed_dir}" "${isofs_dir}/data"
     fi
+
+    # Link to package list
+    ln -s -- "../${install_dir}/pkglist.${arch}.txt" "${isofs_dir}/.drive/pkglist.${arch}.txt"
 }
 
 _validate_requirements_bootmode_bios.syslinux.mbr() {
