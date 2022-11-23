@@ -18,7 +18,7 @@ install-scripts:
 	install -vD -m 755 archuseriso/aui-mkhybrid           -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-mkinstall          -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-run                -t $(BIN_DIR)/
-	install -vD -m 755 archuseriso/aui-build_zfs_packages -t $(BIN_DIR)/
+	install -vD -m 755 archuseriso/aui-buildzfs           -t $(BIN_DIR)/
 
 install-pkgbuild:
 	install -d -m 755 $(PROFILE_DIR)

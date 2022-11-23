@@ -1,0 +1,233 @@
+#!/usr/bin/env bash
+#
+# Copyright (C) 2021 Laurent Jourden <laurent85@enarel.fr>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Script to build the ZFS packages against the linux kernel 
+# for Arch Linux.
+
+set -e -u
+
+WD="$(pwd)"
+appname="${0##*/}"
+pkgbuild_dir="/usr/share/archuseriso/pkgbuild"
+AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
+auiwork="${WD}/$(mktemp -u auiwork.XXXXXXXX)"
+ar64="${auiwork}/archroot64"
+help="no"
+linuxtesting="no"
+linuxversion=""
+modulesversion=""
+pkgdest=""
+release=""
+SCRIPTUSER="${SUDO_USER:-}"
+zfsversion=""
+# https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
+# Tony Hutter public key
+ZFSPUBKEY="6AD860EED4598027"
+KEYSERVER="ha.pool.sks-keyservers.net"
+declare -a zfspackages
+declare -a zfssources
+
+_usage () {
+    echo
+    echo "${appname}, ZFS packages creation tool."
+    echo
+    echo 'Synopsis:'
+    echo "${appname} [options]"
+    echo
+    echo 'Help:'
+    echo "${appname} --help"
+    echo
+    exit "${1}"
+}
+
+_help () {
+    echo
+    echo "${appname}, ZFS packages creation tool."
+    echo
+    echo 'Synopsis:'
+    echo "${appname} [options]"
+    echo
+    echo 'Options:'
+    echo '-h, --help                Command line help'
+    echo "-P, --pkgbuild_dir=<path> pkgbuild directory path (default: ${pkgbuild_dir})"
+    echo '--linuxtesting            Build packages against the linux kernel in testing repository'
+    echo '-r, --release             Specify the zfs release version to build.'
+    echo "                          Example: ${appname} --release=2.1.2"
+    echo
+    exit "${1}"
+}
+
+_cleanup() {
+    [[ -d "${auiwork}" ]] && rm -r -- "${auiwork}"
+}
+
+_init () {
+    local _link="https://api.github.com/repos/openzfs/zfs/releases"
+    if ! pacman -Q devtools &> /dev/null; then
+        echo 'devtools package not installed, aborting!'
+        exit 0
+    fi
+    if ! pacman -Q pacman-contrib &> /dev/null; then
+        echo 'pacman-contrib package not installed, aborting!'
+        exit 0
+    else
+        # check host PKGDEST setting in /etc/makepkg.conf
+        # where packages created have to be placed
+        pkgdest="$(grep -s '^PKGDEST=' /etc/makepkg.conf || true)"
+        pkgdest="${pkgdest#PKGDEST=}"
+    fi
+    pkgdest="${pkgdest:-"${WD}/out"}"
+    mkdir -p -- "${ar64}"
+    sudo --user "${SCRIPTUSER}" mkdir -p -- "${pkgdest}"
+    if [[ -z "${release}" ]]; then
+        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
+                                  "${_link}"/latest |                                   \
+                                  grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+    else
+        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
+                                  "${_link}" | grep "${release}" | \
+                                  grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+        if [[ -z "${zfssources:-}" ]]; then 
+            echo "release ${release} not found, aborting!"
+            exit 0
+        fi
+    fi
+    zfsversion="${zfssources[0]%/zfs-*}"
+    zfsversion="${zfsversion#*-}"
+    if [[ -z "${zfsversion}" ]]; then
+        echo 'Retrieving ZFS data failed, aborting!'
+        exit 0
+    fi
+}
+
+_create_archroot64 () {
+    LC_ALL=C mkarchroot -C "${pkgbuild_dir}/pacman.conf" -c /var/cache/pacman/pkg -- "${ar64}/root" base linux linux-headers base-devel
+    if [[ "${linuxtesting}" == "yes" ]]; then
+        unshare --fork --pid pacman --config "${pkgbuild_dir}/pacman-testing.conf" --root "${ar64}/root" -Sy
+        if unshare --fork --pid pacman --config "${pkgbuild_dir}/pacman-testing.conf" --root "${ar64}/root" -Si testing/linux; then
+            pacstrap -C "${pkgbuild_dir}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers
+        else
+            echo
+            echo 'No linux package in testing currently, aborting!'
+            echo
+            rm -r -- "${auiwork}"
+            exit 1
+        fi
+    fi
+}
+
+_build_zfs () {
+    linuxversion=$(pacman --sysroot "${ar64}/root" -Q linux | cut -d' ' -f2)
+    if [[ "$(cut -d'.' -f3 <<< "${linuxversion}")" =~ 'arch' ]]; then
+        modulesversion="${linuxversion%.arch*}.0-${linuxversion##*.}"
+    else
+        modulesversion="${linuxversion%.arch*}-${linuxversion##*.}"
+    fi
+    cp -arT -- "${pkgbuild_dir}/zfs-utils/" "${auiwork}/zfs-utils/"
+    cp -arT -- "${pkgbuild_dir}/zfs-linux/" "${auiwork}/zfs-linux/"
+    sed -i -- "s/%ZFSVERSION%/${zfsversion}/;
+               s/%LINUXVERSION%/${linuxversion}/;
+               s/%MODULESVERSION%/${modulesversion}/" \
+              "${auiwork}/zfs-utils/PKGBUILD" "${auiwork}/zfs-linux/PKGBUILD"
+    cd -- "${auiwork}/zfs-utils/"
+    for _zfslink in "${zfssources[@]}"; do
+        if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
+            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
+            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}".asc
+            break
+        fi
+    done
+    cp -a -- zfs-*.tar.gz{,.asc} ../zfs-linux
+    chown -R -- "${SCRIPTUSER}": "${auiwork}/"{zfs-utils,zfs-linux}
+    sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
+    sudo --user "${SCRIPTUSER}" updpkgsums
+    cd "${auiwork}/zfs-linux/"
+    sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
+    sudo --user "${SCRIPTUSER}" updpkgsums
+    cd "${auiwork}/zfs-utils/"
+    LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+    mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
+    cd -- "${auiwork}/zfs-linux/"
+    LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+    mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
+    cp -- "${zfspackages[@]}" "${pkgdest}"
+    rm -r -- "${auiwork}"
+}
+
+OPTS=$(getopt -o 'C:,h,P:,r:' -l 'pkgbuild_dir:,help,linuxtesting,release:' -n "${appname}" -- "$@")
+[[ $? -eq 0 ]] || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+
+while true; do
+    case "${1}" in
+        '-h'|'--help')
+            help="yes"
+            shift ;;
+        '--linuxtesting')
+            linuxtesting="yes"
+            shift ;;
+        '-P'|'--pkgbuild_dir')
+            pkgbuild_dir="${2}"
+            shift 2 ;;
+        '-r'|'--release')
+            release="${2}"
+            shift 2 ;;
+        '--')
+            shift
+            break ;;
+    esac
+done
+
+if [[ "${help}" == "yes" ]]; then
+    _help 0
+fi
+
+if [[ ${EUID} -ne 0 ]]; then
+    echo "This script must be run as root."
+    echo
+    echo "Get help:"
+    echo "${appname} --help"
+    exit 1
+fi
+
+if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
+    echo
+    echo 'The script must be run from a _user session_ using sudo!'
+    echo 'Aborting...'
+    exit 0
+fi
+
+if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/null; then
+    echo
+    read -r -n1 -p 'Retreive missing ZFS on Linux public key (N/y)? '
+    echo
+    if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+        echo 'Operation canceled by user!'
+        exit 0
+    fi
+    if ! sudo --user "${SCRIPTUSER}" gpg --keyserver "${KEYSERVER}" --recv "${ZFSPUBKEY}"; then
+        echo
+        echo "Retreiving ZFS public key ${ZFSPUBKEY} failed, aborting!"
+        echo
+    fi
+fi
+
+trap _cleanup EXIT
+_init
+_create_archroot64
+_build_zfs
+
+cd "${WD}"
+
+echo 'Done!'
+echo
+echo "${zfspackages[*]}" | sed 's|\s|\n|g' | sed 's|.*/||'
+echo
+echo 'ZFS packages directory location: '\'"${pkgdest}"\'
+echo
+
+# vim:ts=4:sw=4:et:
