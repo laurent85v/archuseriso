@@ -361,7 +361,7 @@ _make_pacman_conf() {
     # append CacheDir and HookDir to [options] section
     # HookDir is *always* set to the airootfs' override directory
     sed "/\[options\]/a CacheDir = ${_cache_dirs}
-        /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
+         /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
         -i "${work_dir}/${buildmode}.pacman.conf"
     _msg_info "Done!"
 }
@@ -391,7 +391,7 @@ _make_pacman_testing_conf() {
     # append CacheDir and HookDir to [options] section
     # HookDir is *always* set to the airootfs' override directory
     sed "/\[options\]/a CacheDir = ${_cache_dirs}
-        /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
+         /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
         -i "${work_dir}/pacman-testing.conf"
     _msg_info "Done!"
 }
@@ -644,7 +644,7 @@ _fat_image_efiboot_files_grub_common() {
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g" \
+             s|%ARCH%|${arch}|g"               \
             "${_cfg}" > "${work_dir}/grub/${_cfg##*/}"
     done
 
@@ -678,17 +678,17 @@ _fat_image_efiboot_files_uefi-ia32.grub.esp() {
 
     # Create EFI binary
     # Module list from https://bugs.archlinux.org/task/71382#comment202911
-    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font \
-                 gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
-                 minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file \
-                 search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi usbserial_pl2303 \
-                 usbserial_usbdebug video xfs zstd)
-    grub-mkstandalone -O i386-efi \
-                      --modules="${_grubmodules[*]}" \
-                      --locales="en@quot" \
-                      --themes="" \
+    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font  \
+                  gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
+                  minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file       \
+                  search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi                 \
+                  usbserial_pl2303 usbserial_usbdebug video xfs zstd)
+    grub-mkstandalone -O i386-efi                     \
+                      --modules="${_grubmodules[*]}"  \
+                      --locales="en@quot"             \
+                      --themes=""                     \
                       --sbat=/usr/share/grub/sbat.csv \
-                      --disable-shim-lock \
+                      --disable-shim-lock             \
                       -o "${work_dir}/grubia32.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
@@ -705,17 +705,17 @@ _fat_image_efiboot_files_uefi-x64.grub.esp() {
 
     # Create EFI binary
     # Module list from https://bugs.archlinux.org/task/71382#comment202911
-    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font \
-                 gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
-                 minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file \
-                 search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi usbserial_pl2303 \
-                 usbserial_usbdebug video xfs zstd)
-    grub-mkstandalone -O x86_64-efi \
-                      --modules="${_grubmodules[*]}" \
-                      --locales="en@quot" \
-                      --themes="" \
+    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font  \
+                  gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
+                  minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file       \
+                  search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi                 \
+                  usbserial_pl2303 usbserial_usbdebug video xfs zstd)
+    grub-mkstandalone -O x86_64-efi                   \
+                      --modules="${_grubmodules[*]}"  \
+                      --locales="en@quot"             \
+                      --themes=""                     \
                       --sbat=/usr/share/grub/sbat.csv \
-                      --disable-shim-lock \
+                      --disable-shim-lock             \
                       -o "${work_dir}/grubx64.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
@@ -781,8 +781,8 @@ _make_bootmode_bios.syslinux.mbr() {
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g" \
-             "${_cfg}" > "${isofs_dir}/syslinux/${_cfg##*/}"
+             s|%ARCH%|${arch}|g"               \
+            "${_cfg}" > "${isofs_dir}/syslinux/${_cfg##*/}"
     done
     if [[ -e "${profile}/syslinux/splash.png" ]]; then
         install -m 0644 -- "${profile}/syslinux/splash.png" "${isofs_dir}/syslinux/"
@@ -1286,15 +1286,14 @@ _make_drive() {
                 s|%LANG%|${lang}|g" \
                 "${isofs_dir}/.drive/mediumdef.sh"
     fi
-    for drivefile in "${isofs_dir}/.drive/liveusb/loader/entries/"*.conf \
-                   "${isofs_dir}/.drive/hybrid/loader/entries/"*.conf \
-                   "${isofs_dir}/.drive/liveusb/grub/grub.cfg" \
-                   "${isofs_dir}/.drive/hybrid/grub/grub.cfg" \
-                   "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
-                   "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"; do
+    for drivefile in "${isofs_dir}/.drive/liveusb/loader/entries/"*.conf          \
+                     "${isofs_dir}/.drive/hybrid/loader/entries/"*.conf           \
+                     "${isofs_dir}/.drive/liveusb/grub/grub.cfg"                  \
+                     "${isofs_dir}/.drive/hybrid/grub/grub.cfg"                   \
+                     "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
+                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${drivefile}" ]]; then
-            sed -i "s|%INSTALL_DIR%|${install_dir}|g;
-                    s|%DESKTOP%|${desktop}|g" "${drivefile}"
+            sed -i "s|%INSTALL_DIR%|${install_dir}|g;s|%DESKTOP%|${desktop}|g" "${drivefile}"
         fi
     done
     if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
@@ -1626,8 +1625,7 @@ _validate_requirements_buildmode_bootstrap() {
 
     # Check if packages for the bootstrap image are specified
     if [[ -e "${bootstrap_packages}" ]]; then
-        mapfile -t bootstrap_pkg_list_from_file < \
-            <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d' "${bootstrap_packages}")
+        mapfile -t bootstrap_pkg_list_from_file < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d' "${bootstrap_packages}")
         bootstrap_pkg_list+=("${bootstrap_pkg_list_from_file[@]}")
         if (( ${#bootstrap_pkg_list_from_file[@]} < 1 )); then
             (( validation_error=validation_error+1 ))
@@ -2159,7 +2157,7 @@ _make_version() {
     if [[ "${buildmode}" == @("iso"|"netboot") ]]; then
         if [[ -z "${iso_version}" ]]; then
             iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
-                           cut -d' ' -f2 | \
+                           cut -d' ' -f2 |                                                        \
                            sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
         fi
         install -d -m 0755 -- "${isofs_dir}/${install_dir}"
