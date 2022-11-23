@@ -10,7 +10,6 @@
 set -e -u
 
 appname="${0##*/}"
-btrfs="no"
 btrfs_compress=""
 btrfs_subvol_home=""
 btrfs_subvol_root=""
@@ -20,508 +19,586 @@ esp_files_settings=()
 esp_label=""
 esp_size=""
 ext4_journal="yes"
-f2fs="no"
 img_label=""
 iso_label=""
 iso_file=""
+lock_fs_options="no"
 medium_version=""
-# Drive min size in bytes
-MINCAPACITY=16000000000
+# Drive min size in GiB
+MINCAPACITY="16"
+partuuid=""
 root_files_settings=()
 root_flags="defaults"
+rootfs_type="ext4"
 root_label=""
 root_size=""
 usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v6"
+valid_medium_version="v7"
+zroot=""
 
-_usage () {
-        echo
-        echo "${appname}, make a standard installation on a usb drive."
-        echo
-        echo 'Synopsis:'
-        echo "${appname} [options] <archuseriso iso image> <usb device>"
-        echo
-        echo 'Help:'
-        echo "${appname} --help"
-        exit "${1}"
+_usage() {
+    echo
+    echo "${appname}, make a standard installation on a usb drive."
+    echo
+    echo 'Synopsis:'
+    echo "${appname} [options] <archuseriso iso image> <usb device>"
+    echo
+    echo 'Help:'
+    echo "${appname} --help"
+    exit "${1}"
 }
 
-_help () {
-        echo
-        echo "${appname}, make a standard installaiton on a usb drive."
-        echo
-        echo 'Synopsis:'
-        echo "${appname} [options] <archuseriso iso image> <usb device>"
-        echo
-        echo 'Options:'
-        echo '-h, --help                  Command line help'
-        echo '--btrfs                     Btrfs file system for the root partition'
-        echo '--btrfs-compress algo       Btrfs compression algorithm: lzo, none, zlib, zstd (Default)'
-        echo '--encrypt                   Disk encryption, encrypt the root partition'
-        echo '--f2fs                      F2FS file system for the root partition'
-        echo '--no-journal                Disable ext4 journal'
-        echo '--size-esp=integer[g|G]     EFI System Partition size (ESP)'
-        echo '--size-rootfs=integer[g|G]  Root file system partition size'
-        echo "--username=<user>           Custom username, defaults to ${username}"
-        echo
-        echo 'Example:'
-        echo "sudo ${appname} --username=paul archuseriso-xfce-1231-x64.iso /dev/sdc"
-        echo
-        exit "${1}"
+_help() {
+    echo
+    echo "${appname}, make a standard installaiton on a usb drive."
+    echo
+    echo 'Synopsis:'
+    echo "${appname} [options] <archuseriso iso image> <usb device>"
+    echo
+    echo 'Options:'
+    echo '-h, --help                  Command line help'
+    echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo, none, zlib, zstd (Default)'
+    echo '--encrypt                   Disk encryption, encrypt the root partition'
+    echo '                            Option not applying to zfs filesystem'
+    echo '--ext4-no-journal           Disable ext4 journal'
+    echo '--rootfs=fstype             Root filesystem type: btrfs, ext4 (default), f2fs, zfs'
+    echo '                            type zfs requires an iso image with zfs support' 
+    echo '--size-esp=integer[g|G]     EFI System Partition size in GiB (ESP)'
+    echo '--size-rootfs=integer[g|G]  Root file system partition size in GiB'
+    echo "--username=<user>           Custom username, defaults to ${username}"
+    echo '--zfsonroot                 Same as --rootfs=zfs'
+    echo '                            Option requires an iso image with zfs support' 
+    echo
+    echo 'Example:'
+    echo "sudo ${appname} --username=foobar archuseriso-xfce-1231-x64.iso /dev/sdc"
+    echo
+    exit "${1}"
 }
 
-_msg_info () {
-        local _msg="${1}"
-        printf '[%s] INFO: %s\n' "${appname}" "${_msg}"
+_msg_info() {
+    local _msg="${1}"
+    printf '[%s] INFO: %s\n' "${appname}" "${_msg}"
 }
 
 _cleanup() {
-        local _workdirs
-        _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/home' 'usbrw/boot' 'usbesp' 'usbrw')
-        for _workdir in ${_workdirs[*]}; do
-                if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
-                        umount -- "${WD}/${workdir}/${_workdir}"
-                fi
-        done
-        for _workdir in ${_workdirs[*]}; do
-                if [[ -d "${WD}/${workdir}/${_workdir}" ]]; then
-                        rmdir -- "${WD}/${workdir}/${_workdir}"
-                fi
-        done
-        if [[ -f "${WD}/${workdir}/grub-embed.cfg" ]]; then
-                rm -- "${WD}/${workdir}/grub-embed.cfg"
+    local _workdirs
+    _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/boot' 'usbrw/home' 'usbrw/root' 'usbesp' 'usbrw')
+    if [[ "${rootfs_type}" == "zfs" ]]; then
+        if zpool status "${zroot}" &> /dev/null; then
+            [[ "$(zfs get mounted "${zroot}/data/home" -H -o value)" == "yes" ]] && \
+                  zfs unmount "${zroot}/data/home"
+            [[ "$(zfs get mounted "${zroot}/data/root" -H -o value)" == "yes" ]] && \
+                  zfs unmount "${zroot}/data/root"
+            if mountpoint -q -- "${WD}/${workdir}/usbrw/boot"; then
+                umount -- "${WD}/${workdir}/usbrw/boot"
+            fi
+            [[ "$(zfs get mounted "${zroot}/ROOT/default" -H -o value)" == "yes" ]] && \
+                  zfs unmount "${zroot}/ROOT/default"
+                                                                                                                            zpool export "${zroot}"
+                                                                                                                            sleep 5
         fi
-        if [[ -d "${WD}/${workdir}" ]]; then
-                rmdir -- "${WD}/${workdir}"
+    fi
+    for _workdir in ${_workdirs[*]}; do
+        if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
+            umount -- "${WD}/${workdir}/${_workdir}"
         fi
-        if [[ "${encryption}" == "yes" && -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
-                cryptsetup close "${crypt_mapper:-auicrypt}"
+    done
+    for _workdir in ${_workdirs[*]}; do
+        if [[ -d "${WD}/${workdir}/${_workdir}" ]]; then
+            rmdir -- "${WD}/${workdir}/${_workdir}"
         fi
+    done
+    if [[ -f "${WD}/${workdir}/grub-embed.cfg" ]]; then
+        rm -- "${WD}/${workdir}/grub-embed.cfg"
+    fi
+    if [[ -d "${WD}/${workdir}" ]]; then
+        rmdir -- "${WD}/${workdir}"
+    fi
+    if [[ "${encryption}" == "yes" && -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
+        cryptsetup close "${crypt_mapper:-auicrypt}"
+    fi
 }
 
 _unmount() {
-        echo
-        _msg_info "Unmount working directories, may take some time"
-        _cleanup
-        _msg_info "Done!"
+    echo
+    _msg_info "Unmount working directories, may take some time"
+    _cleanup
+    _msg_info "Done!"
 }
 
 _luks() {
-        echo
-        _msg_info "Disk encryption setup, type in a passphrase of your choice"
-        if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}2" > /dev/null; then
-                echo 'Encryption setup failed!'
-                exit 1
-        fi
-        _msg_info "Done!"
-        echo
-        _msg_info "Type in your passphrase to unlock partition"
-        if ! cryptsetup -- open "${usb_device}2" "${crypt_mapper:-auicrypt}"; then
-                echo 'Error: Could not unlock partition! Exiting.'
-                exit 1
-        fi
-        root_device="/dev/mapper/${crypt_mapper:-auicrypt}"
-        _msg_info "Done!"
-        echo
+    echo
+    _msg_info "Disk encryption setup, type in a passphrase of your choice"
+    if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}2" > /dev/null; then
+        echo 'Encryption setup failed!'
+        exit 1
+    fi
+    _msg_info "Done!"
+    echo
+    _msg_info "Type in your passphrase to unlock partition"
+    if ! cryptsetup -- open "${usb_device}2" "${crypt_mapper:-auicrypt}"; then
+        echo 'Error: Could not unlock partition! Exiting.'
+        exit 1
+    fi
+    root_device="/dev/mapper/${crypt_mapper:-auicrypt}"
+    _msg_info "Done!"
+    echo
 }
 
-_encryption_settings() {
-        echo
-        _msg_info "Encryption boot setup"
-        sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
-        _msg_info "initramfs update"
-        arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
-        _msg_info "Done!"
-        if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
-                sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                          "${WD}/${workdir}/usbrw/boot/EFI/grub/grub.cfg"
-        fi
-        if [[ "${bootmodes[*]}" =~ 'uefi-x64.refind.esp' ]]; then
-                sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                          "${WD}/${workdir}/usbrw/boot/refind_linux.conf"
-        fi
-        if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
-                sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                          "${WD}/${workdir}/usbrw/boot/loader/entries/"*.conf
-        fi
-        if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
-                sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                          "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
-        fi
-        _msg_info "Done!"
+_encryption() {
+    echo
+    _msg_info "Encryption boot setup"
+    sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
+    _msg_info "initramfs update"
+    arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
+    _msg_info "Done!"
+    if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
+        sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
+                  "${WD}/${workdir}/usbrw/boot/EFI/grub/grub.cfg"
+    fi
+    if [[ "${bootmodes[*]}" =~ 'uefi-x64.refind.esp' ]]; then
+        sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
+                  "${WD}/${workdir}/usbrw/boot/refind_linux.conf"
+    fi
+    if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
+        sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
+                  "${WD}/${workdir}/usbrw/boot/loader/entries/"*.conf
+    fi
+    if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
+        sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
+                  "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
+    fi
+    _msg_info "Done!"
 }
 
 _check() {
-        if [[ $# -ne 2 ]]; then
-                echo 'Error: Invalid arguments!'
-                _usage 1
+    if [[ $# -ne 2 ]]; then
+        echo 'Error: Invalid arguments!'
+        _usage 1
+    fi
+    if [[ ${EUID} -ne 0 ]]; then
+        echo 'This script must be run as root!'
+        exit 1
+    fi
+    iso_file="${1}"
+    usb_device="${2}"
+    if [[ ! $(LC_ALL=C stat -c %F -- "${usb_device}" 2> /dev/null) =~ 'block special file' ]]; then
+        echo "Error: ${usb_device} is not a block device!"
+        _usage 1
+    fi
+    case "$(LC_ALL=C stat -c %t -- "${usb_device}" 2> /dev/null)" in
+        '8')
+            # SCSI disk devices (0-15)
+            ;;
+        '65')
+            # SCSI disk devices (16-31)
+            ;;
+        '66')
+            # SCSI disk devices (32-47)
+            ;;
+        '67')
+            # SCSI disk devices (48-63)
+            ;;
+        '68')
+            # SCSI disk devices (64-79)
+            ;;
+        '69')
+            # SCSI disk devices (80-95)
+            ;;
+        '70')
+            # SCSI disk devices (96-111)
+            ;;
+        '71')
+            # SCSI disk devices (112-127)
+            ;;
+        '128')
+            # SCSI disk devices (128-143)
+            ;;
+        '129')
+            # SCSI disk devices (144-159)
+            ;;
+        '130')
+            # SCSI disk devices (160-175)
+            ;;
+        '131')
+            # SCSI disk devices (176-191)
+            ;;
+        '132')
+            # SCSI disk devices (192-207)
+            ;;
+        '133')
+            # SCSI disk devices (208-223)
+            ;;
+        '134')
+            # SCSI disk devices (234-239)
+            ;;
+        '135')
+            # SCSI disk devices (240-255)
+            ;;
+        *)
+            echo "Error: ${usb_device} is not a scsi disk device!"
+            _usage 1
+    esac
+    if [[ ! $(lsblk -dnro hotplug -- "${usb_device}" 2> /dev/null) -eq 1 ]]; then
+        echo "Error: ${usb_device} is not a removable block device!"
+        _usage 1
+    fi
+    if [[ ! "$(lsblk -dnro tran -- "${usb_device}" 2> /dev/null)" == 'usb' ]]; then
+        echo "Error: ${usb_device} is not a usb device!"
+        _usage 1
+    fi
+    if grep -q -- "${usb_device}" /proc/self/mountinfo > /dev/null; then
+        echo "Error: ${usb_device} appears in active mounts, unmount drive partitions before proceeding!"
+        exit 1
+    fi
+    if [[ ! -f "${iso_file}" ]]; then
+        echo "file ${iso_file} not found!"
+        _usage 1
+    fi
+    if [[ ! $(file -- "${iso_file}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
+        echo "Error: ${iso_file} is not an iso image!"
+        _usage 1
+    fi
+    # Set efi boot partition size in MiB
+    if [[ -n "${esp_size}" ]]; then
+        if ! [[ "${esp_size}" =~ ^[1-9][0-9]?+$ ]]; then
+            echo "FAT partition size error: Invalid size argument (GiB): ${esp_size}"
+            _usage 1
         fi
-        if [[ ${EUID} -ne 0 ]]; then
-                echo 'This script must be run as root!'
-                exit 1
+        esp_size=$(( esp_size * 1024 ))
+    else
+        esp_size=512
+    fi
+    # Set root partition size in MiB, free space left by default
+    if [[ -n "${root_size}" ]]; then
+        if ! [[ "${root_size}" =~ ^[1-9][0-9]?+$ ]]; then
+            echo "Persistent partition size error: Invalid size argument (GiB): ${root_size}"
+            _usage 1
         fi
-        iso_file="${1}"
-        usb_device="${2}"
-        if [[ ! $(LC_ALL=C stat -c %F -- "${usb_device}" 2> /dev/null) =~ 'block special file' ]]; then
-                echo "Error: ${usb_device} is not a block device!"
-                _usage 1
+        root_size=$(( root_size * 1024 ))
+    fi
+    if [[ "${rootfs_type}" == "btrfs" ]]; then
+        if ! pacman -Q btrfs-progs &> /dev/null; then
+            echo 'btrfs-progs package not installed, aborting!'
+            exit 0
         fi
-        case "$(LC_ALL=C stat -c %t -- "${usb_device}" 2> /dev/null)" in
-                '8')
-                        # SCSI disk devices (0-15)
-                        ;;
-                '65')
-                        # SCSI disk devices (16-31)
-                        ;;
-                '66')
-                        # SCSI disk devices (32-47)
-                        ;;
-                '67')
-                        # SCSI disk devices (48-63)
-                        ;;
-                '68')
-                        # SCSI disk devices (64-79)
-                        ;;
-                '69')
-                        # SCSI disk devices (80-95)
-                        ;;
-                '70')
-                        # SCSI disk devices (96-111)
-                        ;;
-                '71')
-                        # SCSI disk devices (112-127)
-                        ;;
-                '128')
-                        # SCSI disk devices (128-143)
-                        ;;
-                '129')
-                        # SCSI disk devices (144-159)
-                        ;;
-                '130')
-                        # SCSI disk devices (160-175)
-                        ;;
-                '131')
-                        # SCSI disk devices (176-191)
-                        ;;
-                '132')
-                        # SCSI disk devices (192-207)
-                        ;;
-                '133')
-                        # SCSI disk devices (208-223)
-                        ;;
-                '134')
-                        # SCSI disk devices (234-239)
-                        ;;
-                '135')
-                        # SCSI disk devices (240-255)
-                        ;;
-                *)
-                        echo "Error: ${usb_device} is not a scsi disk device!"
-                        _usage 1
-        esac
-        if [[ ! $(lsblk -dnro hotplug -- "${usb_device}" 2> /dev/null) -eq 1 ]]; then
-                echo "Error: ${usb_device} is not a removable block device!"
-                _usage 1
+    fi
+    if [[ "${rootfs_type}" == "f2fs" ]]; then
+        if ! pacman -Q f2fs-tools &> /dev/null; then
+            echo 'f2fs-tools package not installed, aborting!'
+            exit 0
         fi
-        if [[ ! "$(lsblk -dnro tran -- "${usb_device}" 2> /dev/null)" == 'usb' ]]; then
-                echo "Error: ${usb_device} is not a usb device!"
-                _usage 1
-        fi
-        if grep -q -- "${usb_device}" /proc/self/mountinfo > /dev/null; then
-                echo "Error: ${usb_device} appears in active mounts, unmount drive partitions before proceeding!"
-                exit 1
-        fi
-        if [[ ! -f "${iso_file}" ]]; then
-               echo "file ${iso_file} not found!"
-               _usage 1
-        fi
-        if [[ ! $(file -- "${iso_file}" 2> /dev/null) =~ 'MBR boot sector' ]]; then
-                echo "Error: ${iso_file} is not an iso image!"
-                _usage 1
-        fi
-        # Set efi boot partition size in MiB
-        if [[ -n "${esp_size}" ]]; then
-                if ! [[ "${esp_size}" =~ ^[1-9][0-9]?+$ ]]; then
-                        echo "FAT partition size error: Invalid size argument (GiB): ${esp_size}"
-                        _usage 1
-                fi
-                esp_size=$(( esp_size * 1024 ))
-        else
-                esp_size=512
-        fi
-        # Set root partition size in MiB, free space left by default
-        if [[ -n "${root_size}" ]]; then
-                if ! [[ "${root_size}" =~ ^[1-9][0-9]?+$ ]]; then
-                        echo "Persistent partition size error: Invalid size argument (GiB): ${root_size}"
-                        _usage 1
-                fi
-                root_size=$(( root_size * 1024 ))
-        fi
-        if [[ "${btrfs}" == "yes" ]]; then
-                if ! pacman -Q btrfs-progs &> /dev/null; then
-                        echo 'btrfs-progs package not installed, aborting!'
-                        exit 0
-                fi
-        fi
-        if [[ "${f2fs}" == "yes" ]]; then
-                if ! pacman -Q f2fs-tools &> /dev/null; then
-                        echo 'f2fs-tools package not installed, aborting!'
-                        exit 0
-                fi
-        fi
+    fi
 }
 
 _init() {
-        local _esp_size _root_size
-        drivesize=$(blockdev --getsize64 "${usb_device}")
-        # Logical sector size
-        LOGICSEC=$(blockdev --getss "${usb_device}")
-        # Drive partition #1, first sector at 1 MiB
-        STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
-        # Check usb drive capacity
-        if [[ ${drivesize} -lt ${MINCAPACITY} ]]; then
-                echo 'Storage capacity error!'
-                exit 1
-        fi
-        # check partitions size don't exceed drive's capacity
-        _esp_size=$(( esp_size * 1024 * 1024 ))
-        if [[ -n "${root_size}" ]]; then
-                _root_size=$(( root_size * 1024 * 1024 ))
-        else
-                _root_size=0
-        fi
-        if [[ ! ${drivesize} -gt $(( _esp_size + _root_size )) ]]; then
-                echo "Size settings error: exceeds drive storage capacity!"
-                exit 1
-        fi
+    local _esp_size _root_size
+    drivesize=$(blockdev --getsize64 "${usb_device}")
+    # Logical sector size
+    LOGICSEC=$(blockdev --getss "${usb_device}")
+    # Drive partition #1, first sector at 1 MiB
+    STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
+    # Check usb drive capacity
+    if [[ ${drivesize} -lt $(( MINCAPACITY * 1024 * 1024 )) ]]; then
+        echo 'Storage capacity error!'
+        exit 1
+    fi
+    # check partitions size don't exceed drive's capacity
+    _esp_size=$(( esp_size * 1024 * 1024 ))
+    if [[ -n "${root_size}" ]]; then
+        _root_size=$(( root_size * 1024 * 1024 ))
+    else
+        _root_size=0
+    fi
+    if [[ ! ${drivesize} -gt $(( _esp_size + _root_size )) ]]; then
+        echo "Size settings error: exceeds drive storage capacity!"
+        exit 1
+    fi
 }
 
 _confirm_write() {
-        # Confim write
-        echo
-        _msg_info "The process may take a long time depending on the drive's speed, be patient!"
-        _msg_info ""
-        _msg_info "ISO file:   ${iso_file}"
-        _msg_info "USB device: ${usb_device}"
-        _msg_info "Username:   ${username}"
-        echo
-        read -r -n1 -p "Confirm write to $(lsblk -dno model,size -- "${usb_device}") (N/y)? "
-        echo
-        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
-               echo 'Aborted!'
-               exit 0
-        fi
+    # Confim write
+    echo
+    _msg_info "The process may take a long time depending on the drive's speed, be patient!"
+    _msg_info ""
+    _msg_info "ISO file:   ${iso_file}"
+    _msg_info "USB device: ${usb_device}"
+    _msg_info "Username:   ${username}"
+    echo
+    read -r -n1 -p "Confirm write to $(lsblk -dno model,size -- "${usb_device}") (N/y)? "
+    echo
+    if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+        echo 'Aborted!'
+        exit 0
+    fi
 }
 
 _usb_prepare() {
-        # Check & prepare working directory
-        for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
-                if findmnt -nr -- "${mountpoint}" > /dev/null; then
-                       echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
-                       exit 1
-                fi
-        done
-        for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
-                if [[ -e "${WD}/${mountpoint}" ]]; then
-                        echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
-                        exit 1
-                fi
-        done
-        if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
-                echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
-                exit 1
+    # Check & prepare working directory
+    for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
+        if findmnt -nr -- "${mountpoint}" > /dev/null; then
+            echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
+            exit 1
         fi
-        mkdir -p -- "${WD}/${workdir}"/{iso,squashfs} "${WD}/${workdir}/usb"{esp,rw}
+    done
+    for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
+        if [[ -e "${WD}/${mountpoint}" ]]; then
+            echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
+            exit 1
+        fi
+    done
+    if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
+        echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
+        exit 1
+    fi
+    mkdir -p -- "${WD}/${workdir}"/{iso,squashfs} "${WD}/${workdir}/usb"{esp,rw}
 
-        # Mount iso
+    # Mount iso
+    echo
+    _msg_info 'Mount iso'
+    _msg_info "mountpoint: ${WD}/${workdir}/iso"
+    if ! mount -o ro -- "${iso_file}" "${WD}/${workdir}/iso"; then
+        echo "Error: mount iso failed!"
+        exit 1
+    fi
+
+    # check iso
+    if [[ ! -e "${WD}/${workdir}/iso/.drive/mediumdef.sh" ]]; then
+        echo "Error: ${iso_file} is not a compatible iso image!"
         echo
-        _msg_info 'Mount iso'
-        _msg_info "mountpoint: ${WD}/${workdir}/iso"
-        if ! mount -o ro -- "${iso_file}" "${WD}/${workdir}/iso"; then
-                echo "Error: mount iso failed!"
-                exit 1
-        fi
+        _usage 1
+    fi
 
-        # check iso
-        if [[ ! -e "${WD}/${workdir}/iso/.drive/mediumdef.sh" ]]; then
-                echo "Error: ${iso_file} is not a compatible iso image!"
-                echo
-                _usage 1
+    # source medium def variables
+    source "${WD}/${workdir}/iso/.drive/mediumdef.sh"
+    if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
+        echo -e "Error: ${medium_version} gen iso image, gen version mismatch. ${appname} requires gen ${valid_medium_version}!"
+       echo
+       _usage 1
+    fi
+    
+    # check ZFS support
+    if [[ "${rootfs_type}"="zfs" ]]; then
+        if ! grep -q 'zfs-utils ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt" && \
+           ! grep -q 'zfs-linux ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt"; then
+            echo "Error: ZFS support is missing in this ISO image ${iso_file}!"
+            _usage 1
         fi
+    fi
 
-        # source medium def variables
-        source "${WD}/${workdir}/iso/.drive/mediumdef.sh"
-        if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-                echo -e "Error: ${medium_version} gen iso image, gen version mismatch. ${appname} requires gen ${valid_medium_version}!"
-                echo
-                _usage 1
-        fi
+    if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
+        echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
+        echo
+        _usage 1
+    fi
 
-        if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
-                echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
-                echo
-                _usage 1
-        fi
-
-        _msg_info "Done!"
+    _msg_info "Done!"
 }
 
 _partitions() {
-        local _part_type_linux _part_type_msft
-        local _start_esp_part _start_rw_part
-        local _sectors_esp_part _sectors_rw_part
-        local _size_esp_part _size_rw_part
+    local _part_type_linux _part_type_msft _part_type_solaris_root
+    local _part_type_linux_or_solaris
+    local _start_esp_part _start_rw_part
+    local _sectors_esp_part _sectors_rw_part
+    local _size_esp_part _size_rw_part
 
-        # GPT Partition type : Linux Filesystem
-        _part_type_linux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
-        # GPT Partition type : Microsoft basic data
-        _part_type_msft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
+    # GPT Partition type : Linux Filesystem
+    _part_type_linux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+    # GPT Partition type : Microsoft basic data
+    _part_type_msft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
+    # GPT Partition type : Solaris root
+    _part_type_solaris_root="6A85CF4D-1DD2-11B2-99A6-080020736631"
 
-        # Start sector, partition size in both sectors and MiB
-        _start_esp_part=$(( STARTSEC ))
-        _size_esp_part=$(( esp_size * 1024 * 1024 ))
-        _sectors_esp_part=$(( _size_esp_part / LOGICSEC ))
-        _start_rw_part=$(( _start_esp_part + _sectors_esp_part ))
-        if [[ -n "${root_size}" ]]; then
-                _size_rw_part=$(( root_size * 1024 * 1024 ))
-                _sectors_rw_part=$(( _size_rw_part / LOGICSEC ))
-        else
-                _size_rw_part=$(( drivesize - _size_esp_part - (STARTSEC * LOGICSEC) ))
-        fi
+    # Root partition type
+    # Linux type for ext4, f2fs, btrfs
+    # Solaris root type for zfs
+    if [[ "${rootfs_type}" == "zfs" ]]; then
+        _part_type_linux_or_solaris="${_part_type_solaris_root}"
+    else
+        _part_type_linux_or_solaris="${_part_type_linux}"
+    fi
 
-        # Wipe drive
-        flock -- "${usb_device}" wipefs --all --force -- "${usb_device}"* > /dev/null
-        sleep 5
-        partprobe -- "${usb_device}"
-        echo
+    # Start sector, partition size in both sectors and MiB
+    _start_esp_part=$(( STARTSEC ))
+    _size_esp_part=$(( esp_size * 1024 * 1024 ))
+    _sectors_esp_part=$(( _size_esp_part / LOGICSEC ))
+    _start_rw_part=$(( _start_esp_part + _sectors_esp_part ))
+    if [[ -n "${root_size}" ]]; then
+        _size_rw_part=$(( root_size * 1024 * 1024 ))
+        _sectors_rw_part=$(( _size_rw_part / LOGICSEC ))
+    else
+        _size_rw_part=$(( drivesize - _size_esp_part - (STARTSEC * LOGICSEC) ))
+    fi
 
-        # New gpt partition table
-        _msg_info "Drive partitions"
-        _msg_info "New gpt label"
-        if ! echo 'label: gpt' | sfdisk -W always -- "${usb_device}" > /dev/null; then
-                echo 'Failed to create new gpt partition table!'
-                exit 1
-        fi
-        sleep 5
-        partprobe -- "${usb_device}"
+    # Wipe drive
+    flock -- "${usb_device}" wipefs --all --force -- "${usb_device}"* > /dev/null
+    sleep 5
+    partprobe -- "${usb_device}"
+    echo
 
-        # partition #1 boot & efi partition
-        _msg_info "partition #1, boot partition: $(( _size_esp_part / 1024 / 1024 )) MiB"
-        if ! echo "$(( _start_esp_part )),$(( _sectors_esp_part )),${_part_type_msft}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
-                echo 'Failed to create new partition layout!'
-                exit 1
-        fi
-        sleep 5
+    # New gpt partition table
+    _msg_info "Drive partitions"
+    _msg_info "New gpt label"
+    if ! echo 'label: gpt' | sfdisk -W always -- "${usb_device}" > /dev/null; then
+        echo 'Failed to create new gpt partition table!'
+        exit 1
+    fi
+    sleep 5
+    partprobe -- "${usb_device}"
 
-        # partition #2 root partition
-        _msg_info "partition #2, root partition: $(( _size_rw_part / 1024 / 1024 )) MiB"
-        if ! echo "$(( _start_rw_part )),${_sectors_rw_part:-},${_part_type_linux}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
-                echo 'Failed to create new partition layout!'
-                exit 1
-        fi
-        sleep 5
+    # partition #1 boot & efi partition
+    _msg_info "partition #1, boot partition: $(( _size_esp_part / 1024 / 1024 )) MiB"
+    if ! echo "$(( _start_esp_part )),$(( _sectors_esp_part )),${_part_type_msft}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
+        echo 'Failed to create new partition layout!'
+        exit 1
+    fi
+    sleep 5
 
-        partprobe -- "${usb_device}"
-        _msg_info "Done!"
+    # partition #2 root partition
+    _msg_info "partition #2, root partition: $(( _size_rw_part / 1024 / 1024 )) MiB"
+    if ! echo "$(( _start_rw_part )),${_sectors_rw_part:-},${_part_type_linux_or_solaris}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
+        echo 'Failed to create new partition layout!'
+        exit 1
+    fi
+    sleep 5
+
+    partprobe -- "${usb_device}"
+    _msg_info "Done!"
 }
 
 _format_btrfs() {
-        _msg_info "partition #2: type Btrfs, label ${root_label}"
-        if ! flock -- "${root_device}" mkfs.btrfs -L "${root_label}" -- "${root_device}" > /dev/null; then
-               echo 'Format failed!'
-               exit 1
-        fi
+    _msg_info "partition #2: type Btrfs, label ${root_label}"
+    if ! flock -- "${root_device}" mkfs.btrfs -L "${root_label}" -- "${root_device}" > /dev/null; then
+        echo 'Format failed!'
+        exit 1
+    fi
 }
 
 _format_f2fs() {
-        _msg_info "partition #2: type F2FS, label ${root_label}"
-        if ! flock -- "${root_device}" mkfs.f2fs -l "${root_label}" -O encrypt,extra_attr,compression -- "${root_device}" > /dev/null; then
-               echo 'Format failed!'
-               exit 1
-        fi
+    _msg_info "partition #2: type F2FS, label ${root_label}"
+    if ! flock -- "${root_device}" mkfs.f2fs -l "${root_label}" -O encrypt,extra_attr,compression -- "${root_device}" > /dev/null; then
+        echo 'Format failed!'
+        exit 1
+    fi
 }
 
 _format_ext4() {
-        _msg_info "partition #2: type Ext4, label ${root_label}"
-        if ! flock -- "${root_device}" mkfs.ext4 -L "${root_label}" -O encrypt -q -- "${root_device}" > /dev/null; then
-               echo 'Format failed!'
-               exit 1
-        fi
-        # disable ext4 journal
-        if [[ "${ext4_journal}" == "no" ]]; then
-                _msg_info "Ext4 partitions: disable journal"
-                tune2fs -O '^has_journal' -- "${root_device}" &> /dev/null
-        fi
+    _msg_info "partition #2: type Ext4, label ${root_label}"
+    if ! flock -- "${root_device}" mkfs.ext4 -L "${root_label}" -O encrypt -q -- "${root_device}" > /dev/null; then
+        echo 'Format failed!'
+        exit 1
+    fi
+    # disable ext4 journal
+    if [[ "${ext4_journal}" == "no" ]]; then
+        _msg_info "Ext4 partitions: disable journal"
+        tune2fs -O '^has_journal' -- "${root_device}" &> /dev/null
+    fi
+}
+
+_format_zfs() {
+    partuuid=/dev/disk/by-partuuid/"$(blkid -s PARTUUID -o value "${root_device}")"
+    zroot="zroot${aui_suffix,,}"
+
+    _msg_info "partition #2: type ZFS, pool name ${root_label}"
+    if ! flock -- "${root_device}"                   \
+        zpool create -f -o ashift=12                \
+        -O acltype=posixacl         \
+        -O relatime=on              \
+        -O xattr=sa                 \
+        -O dnodesize=legacy         \
+        -O normalization=formD      \
+        -O mountpoint=none          \
+        -O canmount=off             \
+        -O devices=off              \
+        -O compression=lz4          \
+        -R "${WD}/${workdir}/usbrw" \
+        "${zroot}" "${partuuid}" > /dev/null; then
+            echo 'Format failed!'
+            exit 1
+    fi
+    zfs create -o mountpoint=none "${zroot}/data"
+    zfs create -o mountpoint=none "${zroot}/ROOT"
+    zfs create -o mountpoint=/ -o canmount=noauto "${zroot}/ROOT/default"
+    zfs create -o mountpoint=/home "${zroot}/data/home"
+    zfs create -o mountpoint=/root "${zroot}/data/root"
+    zpool set bootfs="${zroot}/ROOT/default" "${zroot}"
+    zpool export "${zroot}"
+    sleep 5
 }
 
 _format() {
-        echo
-        _msg_info "Format partitions"
-        _msg_info "partition #1: type FAT, label ${esp_label}"
-        if ! flock -- "${usb_device}1" mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}1" &> /dev/null; then
-               echo 'Format failed!'
-               exit 1
-        fi
-        root_device="${usb_device}2"
-        if [[ "${encryption}" == "yes" ]]; then
-               _luks
-        fi
-        # root partition, filesystem type
-        # Default ext4
-        if [[ "${btrfs}" == "yes" ]]; then
-                _format_btrfs
-        elif [[ "${f2fs}" == "yes" ]]; then
-                _format_f2fs
-        else
-                _format_ext4
-        fi
-        _msg_info "Done!"
-}
+    echo
+    _msg_info "Format partitions"
+    _msg_info "partition #1: type FAT, label ${esp_label}"
+    if ! flock -- "${usb_device}1" mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}1" &> /dev/null; then
+        echo 'Format failed!'
+        exit 1
+    fi
+    root_device="${usb_device}2"
+    if [[ "${encryption}" == "yes" ]]; then
+        _luks
+    fi
 
-_btrfs_subvolumes() {
-       # rootfs and home subvolumes creation for persistence
-        btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_root}" > /dev/null
-        btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_home}" > /dev/null
-}
+    # format root partition
+    # Default ext4
+    _format_"${rootfs_type}"
 
-_mount_subvolumes() {
-        umount "${WD}/${workdir}/usbrw"
-        sleep 5
-        mount -o "${root_flags}" -- "${root_device}" "${WD}/${workdir}/usbrw"
-        mkdir -p -- "${WD}/${workdir}/usbrw/home"
-        mount -o subvol="${btrfs_subvol_home}" -- "${root_device}" "${WD}/${workdir}/usbrw/home"
+    _msg_info "Done!"
 }
 
 _mount() {
-        # Mount usb device
-        echo
-        _msg_info "Mount usb partitions"
-        _msg_info "device: ${usb_device}1, mountpoint: ${WD}/${workdir}/usbesp"
-        mount -- "${usb_device}1" "${WD}/${workdir}/usbesp"
-        _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
-        mount -- "${root_device}" "${WD}/${workdir}/usbrw"
-        if [[ "${btrfs}" == "yes" ]]; then
-                _btrfs_subvolumes
-                _mount_subvolumes
-        fi
-        _msg_info "Done!"
-        # Mount squashfs
-        _msg_info "Mount live image: mountpoint ${WD}/${workdir}/squashfs"
-        mount -o ro -- "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
-        _msg_info "Done!"
+    # Mount usb device
+    echo
+    _msg_info "Mount usb partitions"
+    _msg_info "device: ${usb_device}1, mountpoint: ${WD}/${workdir}/usbesp"
+    mount -- "${usb_device}1" "${WD}/${workdir}/usbesp"
+
+    _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
+    case "${rootfs_type}" in
+        'btrfs')
+            mount -t btrfs -- "${root_device}" "${WD}/${workdir}/usbrw"
+            # create rootfs and home subvolumes for persistence
+            btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_root}" > /dev/null
+            btrfs subvolume create -- "${WD}/${workdir}/usbrw/${btrfs_subvol_home}" > /dev/null
+            umount "${WD}/${workdir}/usbrw"
+            sleep 5
+            mount -o "${root_flags}" -- "${root_device}" "${WD}/${workdir}/usbrw"
+            mkdir -p -- "${WD}/${workdir}/usbrw/home"
+            mount -o subvol="${btrfs_subvol_home}" -- "${root_device}" "${WD}/${workdir}/usbrw/home"
+            ;;
+        'ext4' | 'f2fs')
+            mount -t "${rootfs_type}" -- "${root_device}" "${WD}/${workdir}/usbrw"
+            ;;
+        'zfs')
+            zpool import -d /dev/disk/by-partuuid -R "${WD}/${workdir}/usbrw" -N "${zroot}"
+            zfs mount "${zroot}/ROOT/default"
+            zfs mount "${zroot}/data/root"
+            zfs mount "${zroot}/data/home"
+            ;;
+        *)
+            echo "rootfs type unkown!"
+            _usage 1
+            ;;
+    esac
+    _msg_info "Done!"
+
+    # Mount squashfs
+    _msg_info "Mount live image: mountpoint ${WD}/${workdir}/squashfs"
+    mount -o ro -- "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
+    _msg_info "Done!"
 }
 
 _copy() {
-        echo
-        _msg_info "Install to ${WD}/${workdir}/usbrw, may take some time"
-        cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usbrw"
-        # Copy install setup
-        cp -aT -- "${WD}/${workdir}/iso/.drive/install/auirootfs" "${WD}/${workdir}/usbrw"
-        mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/boot"
-        _msg_info "Done!"
+    echo
+    _msg_info "Install to ${WD}/${workdir}/usbrw, may take some time"
+    cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usbrw"
+    # Copy install setup
+    cp -aT -- "${WD}/${workdir}/iso/.drive/install/auirootfs" "${WD}/${workdir}/usbrw"
+    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/boot"
+    _msg_info "Done!"
 }
 
 # Make GRUB standalone EFI binary
@@ -545,21 +622,21 @@ fi
 configfile "${isodevice}/EFI/grub/grub.cfg"
 EOF
 
-    printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
+printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
 
     # Create EFI binary
     # Module list from https://bugs.archlinux.org/task/71382#comment202911
-    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font \
-                 gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
-                 minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file \
-                 search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi usbserial_pl2303 \
-                 usbserial_usbdebug video xfs zstd)
-    grub-mkstandalone -O "${_grub_efi_arch}" \
-                      --modules="${_grubmodules[*]}" \
-                      --locales="en@quot" \
-                      --themes="" \
-                      --sbat=/usr/share/grub/sbat.csv \
-                      --disable-shim-lock \
+    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font  \
+                  gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
+                  minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file       \
+                  search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi                 \
+                  usbserial_pl2303 usbserial_usbdebug video xfs zstd)
+    grub-mkstandalone -O "${_grub_efi_arch}"                                  \
+                      --modules="${_grubmodules[*]}"                          \
+                      --locales="en@quot"                                     \
+                      --themes=""                                             \
+                      --sbat=/usr/share/grub/sbat.csv                         \
+                      --disable-shim-lock                                     \
                       -o "${WD}/${workdir}/usbesp/EFI/grub/${_grub_efi_name}" \
                       "boot/grub/grub.cfg=${WD}/${workdir}/grub-embed.cfg"
 }
@@ -582,7 +659,7 @@ _esp_bootloader_cfg_uefi-x64.grub.esp() {
 }
 
 _esp_bootloader_cfg_uefi-x64.refind.esp() {
-    # Copy new rEFInd config
+# Copy new rEFInd config
     cp -- "${WD}/${workdir}/iso/.drive/install/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
     cp -- "${WD}/${workdir}/iso/.drive/install/refind/refind_linux.conf" "${WD}/${workdir}/usbesp/"
     if [[ -f "${WD}/${workdir}/iso/EFI/refind/icons/os_arch.png" ]]; then
@@ -617,138 +694,160 @@ _esp_default_bootloader_uefi-x64.refind.esp() {
 }
 
 _esp() {
-        # ESP setup
-        echo
-        _msg_info "ESP setup"
-        _msg_info "Copy to ${WD}/${workdir}/usbesp"
-        cp -LrT -- "${WD}/${workdir}/iso/.drive/install/esp" "${WD}/${workdir}/usbesp/"
-        cp -r -- "${WD}/${workdir}/iso/.drive/install/syslinux" "${WD}/${workdir}/usbesp/"
+    # ESP setup
+    echo
+    _msg_info "ESP setup"
+    _msg_info "Copy to ${WD}/${workdir}/usbesp"
+    cp -LrT -- "${WD}/${workdir}/iso/.drive/install/esp" "${WD}/${workdir}/usbesp/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/install/syslinux" "${WD}/${workdir}/usbesp/"
 
-        # EFI boot loader setup
-        for bootmode in "${bootmodes[@]}"; do
-            if typeset -f "_esp_bootloader_cfg_${bootmode}" &> /dev/null; then
-                _esp_bootloader_cfg_${bootmode}
-            fi
-        done
+    # EFI boot loader setup
+    for bootmode in "${bootmodes[@]}"; do
+        if typeset -f "_esp_bootloader_cfg_${bootmode}" &> /dev/null; then
+            _esp_bootloader_cfg_${bootmode}
+        fi
+    done
 
+    for _mediumfile in "${esp_files_settings[@]}"; do
+        if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
+            sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
+                       s|%DESKTOP%|${desktop}|g;
+                       s|%ESP_LABEL%|${esp_label}|g;
+                       s|%ROOT_LABEL%|${root_label}|g;
+                       s|%ROOT_FLAGS%|${root_flags}|g;
+                       s|=${iso_label}|=${img_label}|g"  \
+                      "${WD}/${workdir}/usbesp/${_mediumfile}"
+        fi
+    done
+
+    # ZFS boot setup
+    if [[ "${rootfs_type}" == "zfs" ]]; then
         for _mediumfile in "${esp_files_settings[@]}"; do
             if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
-                sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
-                           s|%DESKTOP%|${desktop}|g;
-                           s|%ESP_LABEL%|${esp_label}|g;
-                           s|%ROOT_LABEL%|${root_label}|g;
-                           s|%ROOT_FLAGS%|${root_flags}|g;
-                           s|=${iso_label}|=${img_label}|g" \
+                sed -i -- "s|root=.*rootflags=defaults|zfs="${zroot}/ROOT/default" zfs_import_dir="${partuuid}" zfs_force=1|" \
                           "${WD}/${workdir}/usbesp/${_mediumfile}"
             fi
         done
+    fi
 
-        # Set default EFI boot loader
-        if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
-            _esp_default_bootloader_${x64_uefi_default_bootloader}
-        fi
-        _msg_info "Done!"
+    # Set default EFI boot loader
+    if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
+        _esp_default_bootloader_${x64_uefi_default_bootloader}
+    fi
+    _msg_info "Done!"
 }
 
-_settings() {
-        # System settings
-        # * remove live settings except volatile journal
-        # * fstab
-        # * live user renamed 'archie', no password set
+_rootfs() {
+    # System settings
+    # * remove live settings except volatile journal
+    # * fstab
+    # * live user renamed 'archie', no password set
 
-        _msg_info "Remove live settings"
+    _msg_info "Remove live settings"
 
-        # fstab
-        for _mediumfile in "${root_files_settings[@]}"; do
-                if [[ -f "${WD}/${workdir}/usbrw/${_mediumfile}" ]]; then
-                        sed -i -- "s|%ESP_LABEL%|${esp_label}|g;
-                                   s|%ROOT_LABEL%|${root_label}|g;
-                                   s|%BTRFS_SUBVOL_HOME%|${btrfs_subvol_home}|g" \
-                                  "${WD}/${workdir}/usbrw/${_mediumfile}"
-                        if [[ "${btrfs}" == "no" && "${_mediumfile}" =~ 'fstab' ]]; then
-                                # remove unused btrfs line in fstab
-                                sed -i -- '/btrfs/d' "${WD}/${workdir}/usbrw/${_mediumfile}"
-                        fi
-                fi
-        done
-
-        # sshd, mirrorlist, logind.conf
-        sed -i -- 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usbrw/etc/ssh/sshd_config"
-        rm -r -- "${WD}/${workdir}/usbrw/etc/systemd/logind.conf.d"
-
-        # live services
-        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl disable pacman-init.service choose-mirror.service --quiet
-        rm -r -- "${WD}/${workdir}/usbrw/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
-        rm -- "${WD}/${workdir}/usbrw/root/"{.automated_script.sh,.zlogin}
-        rm -- "${WD}/${workdir}/usbrw/etc/initcpio/hooks/archiso"
-
-        # autologin
-        if [[ -e "${WD}/${workdir}/usbrw/etc/lightdm/lightdm.conf" ]]; then
-                sed -i -- 's/^\(autologin-user=\)live$/#\1/' "${WD}/${workdir}/usbrw/etc/lightdm/lightdm.conf"
-                sed -i -- 's/^\(autologin-session=\).*/#\1/' "${WD}/${workdir}/usbrw/etc/lightdm/lightdm.conf"
+    # fstab
+    for _mediumfile in "${root_files_settings[@]}"; do
+        if [[ -f "${WD}/${workdir}/usbrw/${_mediumfile}" ]]; then
+            sed -i -- "s|%ESP_LABEL%|${esp_label}|g;
+                       s|%ROOT_LABEL%|${root_label}|g;
+                       s|%BTRFS_SUBVOL_HOME%|${btrfs_subvol_home}|g" \
+                      "${WD}/${workdir}/usbrw/${_mediumfile}"
+            if [[ "${rootfs_type}" != "btrfs" && "${_mediumfile}" =~ 'fstab' ]]; then
+                # remove unused btrfs line in fstab
+                sed -i -- '/btrfs/d' "${WD}/${workdir}/usbrw/${_mediumfile}"
+            fi
         fi
-        if [[ -e "${WD}/${workdir}/usbrw/etc/sddm.conf.d/autologin.conf" ]]; then
-                rm -- "${WD}/${workdir}/usbrw/etc/sddm.conf.d/autologin.conf"
+    done
+
+    # sshd, mirrorlist, logind.conf
+    sed -i -- 's/^\(PermitRootLogin \).\+/#\1prohibit-password/' "${WD}/${workdir}/usbrw/etc/ssh/sshd_config"
+    rm -r -- "${WD}/${workdir}/usbrw/etc/systemd/logind.conf.d"
+
+    # live services
+    arch-chroot -- "${WD}/${workdir}/usbrw" systemctl disable pacman-init.service choose-mirror.service --quiet
+    rm -r -- "${WD}/${workdir}/usbrw/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
+    rm -- "${WD}/${workdir}/usbrw/root/"{.automated_script.sh,.zlogin}
+    rm -- "${WD}/${workdir}/usbrw/etc/initcpio/hooks/archiso"
+
+    # autologin
+    if [[ -e "${WD}/${workdir}/usbrw/etc/lightdm/lightdm.conf" ]]; then
+        sed -i -- 's/^\(autologin-user=\)live$/#\1/' "${WD}/${workdir}/usbrw/etc/lightdm/lightdm.conf"
+        sed -i -- 's/^\(autologin-session=\).*/#\1/' "${WD}/${workdir}/usbrw/etc/lightdm/lightdm.conf"
+    fi
+    if [[ -e "${WD}/${workdir}/usbrw/etc/sddm.conf.d/autologin.conf" ]]; then
+        rm -- "${WD}/${workdir}/usbrw/etc/sddm.conf.d/autologin.conf"
+    fi
+
+    # sudo
+    sed -i -- 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usbrw/etc/sudoers"
+    sed -i -- 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usbrw/etc/sudoers"
+
+    _msg_info "Done!"
+
+    # Arch keyring
+    _msg_info "Initialize pacman keys"
+    arch-chroot -- "${WD}/${workdir}/usbrw" pacman-key --init &> /dev/null
+    arch-chroot -- "${WD}/${workdir}/usbrw" pacman-key --populate archlinux &> /dev/null
+    _msg_info "Done!"
+
+    # username
+    if [[ -d "${WD}/${workdir}/usbrw/home/live" ]]; then
+        _msg_info "User setup ${username}"
+        mv -- "${WD}/${workdir}/usbrw/home/live" "${WD}/${workdir}/usbrw/home/${username}"
+        sed -i -- "s/live/${username}/g" "${WD}/${workdir}/usbrw/etc/"{passwd,group,shadow,gshadow}
+        if [[ -e "${WD}/${workdir}/usbrw/etc/samba/smb.conf" ]]; then
+            sed -i -- "s/live/${username}/g" "${WD}/${workdir}/usbrw/etc/samba/smb.conf"
         fi
+    else
+        _msg_info "no user account found on the live image!"
+        username="root"
+    fi
+    _msg_info "Done!"
 
-        # sudo
-        sed -i -- 's/^#\s\(%wheel\s.*)\sALL\)$/\1/' "${WD}/${workdir}/usbrw/etc/sudoers"
-        sed -i -- 's/^\(%wheel\s.*NOPASSWD\)/# \1/' "${WD}/${workdir}/usbrw/etc/sudoers"
+    # ZFS on root setup
+    if [[ "${rootfs_type}" == "zfs" ]]; then
+        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable zfs.target
+        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable zfs-mount.service
+        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable zfs-import.target
+        arch-chroot -- "${WD}/${workdir}/usbrw" zgenhostid
+        arch-chroot -- "${WD}/${workdir}/usbrw" zpool set cachefile="/etc/zfs/zpool.cache" "${zroot}"
+        sed -i -- 's/\(^HOOKS.*\)filesystems/\1zfs filesystems/;
+                   s/\(^HOOKS.*\)fsck/\1/;
+                   s/^MODULES=(/&zfs/' \
+                  "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
+    fi
 
-        _msg_info "Done!"
+    # initramfs
+    _msg_info "initramfs update"
+    arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
+    _msg_info "Done!"
 
-        # Arch keyring
-        _msg_info "Initialise  pacman keys"
-        arch-chroot -- "${WD}/${workdir}/usbrw" pacman-key --init &> /dev/null
-        arch-chroot -- "${WD}/${workdir}/usbrw" pacman-key --populate archlinux &> /dev/null
-        _msg_info "Done!"
-
-        # username
-        if [[ -d "${WD}/${workdir}/usbrw/home/live" ]]; then
-                _msg_info "User setup ${username}"
-                mv -- "${WD}/${workdir}/usbrw/home/live" "${WD}/${workdir}/usbrw/home/${username}"
-                sed -i -- "s/live/${username}/g" \
-                          "${WD}/${workdir}/usbrw/etc/"{passwd,group,shadow,gshadow}
-                if [[ -e "${WD}/${workdir}/usbrw/etc/samba/smb.conf" ]]; then
-                        sed -i -- "s/live/${username}/g" \
-                                  "${WD}/${workdir}/usbrw/etc/samba/smb.conf"
-                fi
-        else
-                _msg_info "no user account found on the live image!"
-                username="root"
-        fi
-        _msg_info "Done!"
-
-        # initramfs
-        _msg_info "initramfs update"
-        arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
-        _msg_info "Done!"
-
-        if [[ "${encryption}" == "yes" ]]; then
-                _encryption_settings
-        fi
-}
+    if [[ "${encryption}" == "yes" ]]; then
+        _encryption
+    fi
+    }
 
 _biosbootloader() {
-        _msg_info "Install boot loader"
-        if ! syslinux --directory syslinux --install -- "${usb_device}1" &> /dev/null; then
-                echo 'Boot loader installation failed!'
-                exit 1
-        fi
-        if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usb_device}" 2> /dev/null; then
-                echo 'Boot loader installation failed!'
-                exit 1
-        fi
-        if ! sfdisk --part-attrs "${usb_device}" 1 LegacyBIOSBootable &> /dev/null; then
-                echo 'Boot loader installation failed!'
-                exit 1
-        fi
-        _msg_info "Done!"
+    _msg_info "Install boot loader"
+    if ! syslinux --directory syslinux --install -- "${usb_device}1" &> /dev/null; then
+        echo 'Boot loader installation failed!'
+        exit 1
+    fi
+    if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usb_device}" 2> /dev/null; then
+        echo 'Boot loader installation failed!'
+        exit 1
+     fi
+     if ! sfdisk --part-attrs "${usb_device}" 1 LegacyBIOSBootable &> /dev/null; then
+         echo 'Boot loader installation failed!'
+         exit 1
+     fi
+     _msg_info "Done!"
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'btrfs,encrypt,f2fs,help,no-journal,nojournal' \
-                     --long 'size-esp:,sizeesp:,size-rootfs:,sizerootfs:,username:' \
+OPTS=$(getopt -o 'h' --long 'btrfs-compress:,encrypt,ext4-no-journal,help' \
+                     --long 'rootfs:,size-esp:,size-rootfs:,username:'     \
+                     --long 'zfsonroot'                                    \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -756,48 +855,62 @@ unset OPTS
 [[ $# -eq 1 ]] && _usage 1
 
 while true; do
-        case "$1" in
-                '-h'|'--help')
-                        _help 0 ;;
-                '--encrypt')
-                        encryption="yes"
-                        shift ;;
-                '--no-journal'|'--nojournal')
-                        ext4_journal="no"
-                        shift ;;
-                '--btrfs')
-                        btrfs="yes"
+    case "$1" in
+        '-h'|'--help')
+            _help 0 ;;
+        '--btrfs-compress')
+            if [[ "${2}" == 'lzo'  || \
+                  "${2}" == 'no'   || \
+                  "${2}" == 'none' || \
+                  "${2}" == 'zlib' || \
+                  "${2}" == 'zstd'      ]]; then
+                btrfs_compress="${2}"
+            fi
+            shift 2 ;;
+        '--encrypt')
+            if ! [[ "${rootfs_type}" == "zfs" ]]; then 
+                encryption="yes"
+            fi
+            shift ;;
+        '--ext4-no-journal')
+            ext4_journal="no"
+            shift ;;
+        '--rootfs')
+            if ! [[ "${rootfs_type}" == "zfs" ]]; then 
+                case "${2}" in
+                    'btrfs')
                         btrfs_subvol_home="/home"
                         btrfs_subvol_root="/rootfs"
                         root_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-zstd}"
-                        f2fs="no"
-                        shift ;;
-                '--btrfs-compress')
-                        if [[ "${2}" == 'lzo'  || \
-                              "${2}" == 'no'   || \
-                              "${2}" == 'none' || \
-                              "${2}" == 'zlib' || \
-                              "${2}" == 'zstd'      ]]; then
-                                btrfs_compress="${2}"
-                        fi
-                        shift 2 ;;
-                '--f2fs')
-                        f2fs="yes"
-                        btrfs="no"
-                        shift ;;
-                '--size-esp'|'--sizeesp')
-                        esp_size="${2/[gG]}"
-                        shift 2 ;;
-                '--size-rootfs'|'--sizerootfs')
-                        root_size="${2/[gG]}"
-                        shift 2 ;;
-                '--username')
-                        username="${2}"
-                        shift 2 ;;
-                '--')
-                        shift
-                        break ;;
-        esac
+                        rootfs_type="${2}" ;;
+                    'f2fs'|'ext4')
+                        rootfs_type="${2}" ;;
+                    'zfs')
+                        rootfs_type="${2}"
+                        encryption="no" ;;
+                    *)
+                        echo "${2} is not a valid file system type option"
+                        _usage 1 ;;
+                esac
+            fi
+            shift 2 ;;
+        '--size-esp')
+            esp_size="${2/[gG]}"
+            shift 2 ;;
+        '--size-rootfs')
+            root_size="${2/[gG]}"
+            shift 2 ;;
+        '--username')
+            username="${2}"
+            shift 2 ;;
+        '--zfsonroot')
+            rootfs_type="zfs"
+            encryption="no"
+            shift ;;
+        '--')
+            shift
+            break ;;
+    esac
 done
 
 trap _cleanup EXIT
@@ -810,14 +923,15 @@ _format
 _mount
 _copy
 _esp
-_settings
+_rootfs
 _unmount
 _biosbootloader
 echo
 _msg_info "Success!"
 echo
-echo "IMPORTANT NOTICE:"
-echo "- user account name is ${username} with no password"
-echo "- set a user password after first boot"
+echo "IMPORTANT NOTICE !!!"
+echo "- The root account has no password !!!"
+echo "- The user account name is ${username} and no password was set !!!"
+echo "- You must set a root and a user password by yourself after the first boot !!!"
 
 # vim:ts=4:sw=4:et:
