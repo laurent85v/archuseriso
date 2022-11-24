@@ -1,15 +1,13 @@
 Description
 ===========
 
-Archuseriso is a set of script programs written in Bash based on Archiso, the Arch Linux tool for building the official iso image released monthly.
+Archuseriso is a set of script programs based on Archiso, the Arch Linux tool for building the official iso image released monthly.
 
 Archuseriso aims at extending the base features of Archiso, providing pre-configured build profiles for building live iso images with desktop environment.
 
-Archuseriso brings additional tools for making a bootable live usb drive with persistence, allowing to run Arch Linux on a removable medium for many kinds of use cases.
+Archuseriso brings additional tools for making a bootable live usb drive with persistence, allowing to run Arch Linux on a removable medium for many use cases. Alternatively a standard installation on a usb drive can be performed if persistence is not an option for your needs.
 
-Alternatively a standard installation can be performed if persistence is not an option for your needs.
-
-Another cool feature of Archuseriso is optional disk encryption.
+Some cool features of Archuseriso include optional disk encryption, optional ZFS support and installation onto a ZFS root filesystem.
 
 AUR https://aur.archlinux.org/packages/archuseriso
 
@@ -20,20 +18,22 @@ Highlights
 
 * pre-configured build profiles
 * language choice
-* zstandard fast compressor
-* persistence, pacman updates compatible
+* zstandard compression algorithm
+* persistence and pacman updates compatible
 * standard installation on usb drive
-* Ext4 / Btrfs / F2FS file systems
+* Ext4 / Btrfs / F2FS filesystems
 * LUKS encryption
 * systemd UEFI boot loader
 * syslinux bios boot loader
 * boot loaders alternatives (rEFInd, Grub)
+* Script for building ZFS packages
 * ZFS support option
-* add user packages
-* add testing package to iso image
-* add any data to iso image
+* Installation onto a ZFS root filesystem
+* add package from testing repository
+* add user own packages
+* add any data to include in iso image
 * Nvidia and Optimus hardware options
-* samba public folder sharing
+* Samba public folder sharing
 
 Pre-configured build profiles
 -----------------------------
@@ -83,13 +83,13 @@ Kde Plasma profile and German language
 
     sudo aui-mkiso --language=de kde
 
-Gnome profile, add packages to profile, add user packages (directory containing pkg.tar.zst packages)
+Gnome profile, add packages from Arch repositories to profile, add user packages (directory containing pkg.tar.zst packages)
 
-    sudo aui-mkiso --add-pkg=ntop,vlc --pkg-dir=~/mypackages gnome
+    sudo aui-mkiso --add-pkg=firefox-ublock-origin,ntop,vlc --pkg-dir=~/mypackages gnome
 
 When done remove the `work` directory. The iso image is located in the `out` directory.
 
-Make live usb with persistence
+Make Live USB with persistence
 ------------------------------
 The live usb supports persistence by default. The boot menu offers to boot with or without persistence.
 
@@ -109,18 +109,29 @@ The drive partitioning is as follow:
     #2          EFI FAT           Boot
     #3          Ext4|Btrfs|F2FS   Persistence
 
-#### Btrfs file system
+#### Btrfs filesystem
 
-For the Btrfs file system two subvolumes are created: `rootfs` and `home`. The `rootfs` subvolume for root persistence and the `home` subvolume for home persistence.
-
+For the Btrfs filesystem two subvolumes are created: `rootfs` and `home`. The `rootfs` subvolume for root persistence and the `home` subvolume for home persistence.
 
 #### ZFS support
 
-Run `aui-build_zfs_packages` for building the ZFS package.
+Use the `--zfs-support` option. Using this option `aui-mkiso` will build the ZFS packages required for adding ZFS support to the iso image. 
+
+Example:
+
+    sudo aui-mkiso --zfs-support xfce
+
+#### ZFS packages
+
+To build `zfs-utils`, 'zfs-linux` and `zfs-linux-headers` against current Arch Linux kernel, run:
+
+    sudo aui-buildzfs
+
+The builti packages may be installed on any Arch Linux system for adding ZFS support.
 
 Standard installation on usb drive
 ----------------------------------
-A standard installation on a usb drive can be performed. The live settings are removed except systemd journal that remains configured in volatile mode to limit disk I/O.
+A standard installation on a usb drive can be performed. The live settings are removed except systemd journal remaining configured in volatile mode to limit disk I/O.
 
 Synopsis:
 
@@ -137,9 +148,9 @@ The drive partitioning is as follow:
     #1          EFI FAT           Boot
     #2          Ext4|Btrfs|F2FS   System
 
-Make hybrid usb drive
----------------------
-Combines both a live system and a standard installation. The boot menu offers to boot live or to boot the system installed on the usb drive.
+Make Live Hybrid USB drive
+--------------------------
+The live usb combines both a live system and a standard installation. The boot menu offers to boot live or to boot the system installed on the usb drive.
 
 Synopsis:
 
@@ -157,6 +168,18 @@ The drive partitioning is as follow:
     #1          Ext4              Squashfs image
     #2          EFI FAT           Boot
     #3          Ext4|Brtfs|F2FS   System
+
+Installation onto a ZFS root filesystem
+---------------------------------------
+Make an iso image with zfs support, example:
+
+    sudo aui-mkiso --zfs-support xfce
+
+The Xfce iso is located in the out directory.
+
+Make a standard installation on a usb drive with zfs as the root filesystem (ssd drive highly recommended):
+
+    sudo aui-mkinstall --rootfs=zfs --username=foobar ./out/aui-xfce-linux_6_0_9-1123-x64.iso /dev/sdc
 
 Test the iso image and the usb drive
 ------------------------------------
@@ -180,18 +203,18 @@ usb drive /dev/sdc test in uefi mode
 
     sudo aui-run -u -d /dev/sdc
 
-Script programs
----------------
+Archuseriso script programs list
+--------------------------------
 
-aui-mkiso : build live iso image
+`aui-mkiso`: make live iso image using a build profile
 
-aui-mkusb : make live usb drive with persistence
+`aui-mkusb`: make live usb drive with persistence
 
-aui-mkinstall : make standard installation on usb drive
+`aui-mkinstall`: make standard installation on usb drive
 
-aui-mkhybrid : make live usb drive and standard installation
+`aui-mkhybrid`: make live usb drive and standard installation
 
-aui-build_zfs_packages : build ZFS packages
+`aui-buildzfs`: build ZFS packages
 
 Documentation
 -------------
