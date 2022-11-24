@@ -114,26 +114,20 @@ _run() {
         else
             local ovmf_code='/usr/share/edk2-ovmf/x64/OVMF_CODE.fd'
         fi
-        qemu_options+=(
-            '-drive' "if=pflash,format=raw,unit=0,file=${ovmf_code},read-only=on"
-            '-drive' "if=pflash,format=raw,unit=1,file=${working_dir}/OVMF_VARS.fd"
-            '-global' "driver=cfi.pflash01,property=secure,value=${secure_boot}"
-        )
+        qemu_options+=('-drive' "if=pflash,format=raw,unit=0,file=${ovmf_code},read-only=on"
+                       '-drive' "if=pflash,format=raw,unit=1,file=${working_dir}/OVMF_VARS.fd"
+                       '-global' "driver=cfi.pflash01,property=secure,value=${secure_boot}")
     fi
 
     if [[ "${accessibility}" == 'on' ]]; then
-        qemu_options+=(
-            '-chardev' 'braille,id=brltty'
-            '-device' 'usb-braille,id=usbbrl,chardev=brltty'
-        )
+        qemu_options+=('-chardev' 'braille,id=brltty'
+                       '-device' 'usb-braille,id=usbbrl,chardev=brltty')
     fi
 
     if [[ "${isoimage}" == 'yes' ]]; then
-        qemu_options+=(
-            '-device' 'virtio-scsi-pci,id=scsi0'
-            '-device' "scsi-${mediatype%rom},bus=scsi0.0,drive=${mediatype}0"
-	    '-drive' "id=${mediatype}0,if=none,format=raw,media=${mediatype/hd/disk},read-only=on,file=${image}"
-        )
+        qemu_options+=('-device' 'virtio-scsi-pci,id=scsi0'
+                       '-device' "scsi-${mediatype%rom},bus=scsi0.0,drive=${mediatype}0"
+                       '-drive' "id=${mediatype}0,if=none,format=raw,media=${mediatype/hd/disk},read-only=on,file=${image}")
     fi
 
     if [[ "${usbdrive}" == 'yes' ]]; then
@@ -144,10 +138,8 @@ _run() {
         device="${device%%/*}"
         device="$(grep DEVNAME /sys/bus/usb/devices/"${device}"/uevent)"
         device="${device/DEVNAME=//dev/}"
-        qemu_options+=(
-            '-device' 'qemu-xhci,id=xhci'
-            '-device' "usb-host,bus=xhci.0,hostdevice=${device}"
-        )
+        qemu_options+=('-device' 'qemu-xhci,id=xhci'
+                       '-device' "usb-host,bus=xhci.0,hostdevice=${device}")
     fi
 
     qemu-system-x86_64 \
@@ -180,8 +172,8 @@ working_dir="$(mktemp -dt auirun.XXXXXXXX)"
 trap cleanup_working_dir EXIT
 
 OPTS=$(getopt -o     'abd:hi:r:suv' \
-	      --long 'bios,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
-	      -n 'aui-run' -- "$@")
+              --long 'bios,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
+              -n 'aui-run' -- "$@")
 [[ $? -eq 0 ]] || { print_help; exit 1; }
 eval set -- "${OPTS}"
 
@@ -190,48 +182,48 @@ unset OPTS
 
 while true; do
     case "${1}" in
-            '-a')
-                accessibility='on'
-                shift ;;
-            '-b'|'--bios')
-                boot_type='bios'
-                shift ;;
-            '-d'|'--device')
-                usbdrive='yes'
-                device="${2}"
-                shift 2 ;;
-            '-h'|'--help')
-                print_help
-                exit 0
-                ;;
-            '-i'|'--iso')
-                isoimage='yes'
-                image="${2}"
-                shift 2 ;;
-            '--hd')
-                mediatype='hd'
-                shift ;;
-            '-r'|'--ram')
-                ramsize="${2/[gG]}"
-                shift 2 ;;
-            '-s'|'--sb')
-                secure_boot='on'
-                shift ;;
-            '-u'|'--uefi')
-                boot_type='uefi'
-                shift ;;
-            '-v'|'--vnc')
-                display='none'
-                qemu_options+=(-vnc 'vnc=0.0.0.0:0,vnc=[::]:0')
-                shift ;;
-            '--')
-                shift
-                break 
-                exit 1 ;;
+        '-a')
+            accessibility='on'
+            shift ;;
+        '-b'|'--bios')
+            boot_type='bios'
+            shift ;;
+        '-d'|'--device')
+            usbdrive='yes'
+            device="${2}"
+            shift 2 ;;
+        '-h'|'--help')
+            print_help
+            exit 0
+            ;;
+        '-i'|'--iso')
+            isoimage='yes'
+            image="${2}"
+            shift 2 ;;
+        '--hd')
+            mediatype='hd'
+            shift ;;
+        '-r'|'--ram')
+            ramsize="${2/[gG]}"
+            shift 2 ;;
+        '-s'|'--sb')
+            secure_boot='on'
+            shift ;;
+        '-u'|'--uefi')
+            boot_type='uefi'
+            shift ;;
+        '-v'|'--vnc')
+            display='none'
+            qemu_options+=(-vnc 'vnc=0.0.0.0:0,vnc=[::]:0')
+            shift ;;
+        '--')
+            shift
+            break 
+            exit 1 ;;
     esac
 done
 
 _checks
 _run
 
-# vim: set expandtab:
+# vim:ts=4:sw=4:et:
