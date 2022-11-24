@@ -52,7 +52,7 @@ _help () {
     echo
     echo 'Options:'
     echo '-h, --help                Command line help'
-    echo "-P, --pkgbuild_dir=<path> pkgbuild directory path (default: ${pkgbuild_dir})"
+    echo "-D, --pkgbuild-dir=<path> Path to pkgbuild directory (default: ${pkgbuild_dir})"
     echo '--linuxtesting            Build packages against the linux kernel in testing repository'
     echo '-r, --release             Specify the zfs release version to build.'
     echo "                          Example: ${appname} --release=2.1.2"
@@ -157,7 +157,7 @@ _build_zfs () {
     rm -r -- "${auiwork}"
 }
 
-OPTS=$(getopt -o 'C:,h,P:,r:' -l 'pkgbuild_dir:,help,linuxtesting,release:' -n "${appname}" -- "$@")
+OPTS=$(getopt -o 'C:,D:,h,r:' -l 'pkgbuild-dir:,help,linuxtesting,release:' -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -170,7 +170,7 @@ while true; do
         '--linuxtesting')
             linuxtesting="yes"
             shift ;;
-        '-P'|'--pkgbuild_dir')
+        '-D'|'--pkgbuild-dir')
             pkgbuild_dir="${2}"
             shift 2 ;;
         '-r'|'--release')
