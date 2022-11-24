@@ -845,8 +845,9 @@ _biosbootloader
 echo
 _msg_info "Success!"
 echo
-echo "IMPORTANT NOTICE:"
-echo "- user account name is ${username} with no password"
-echo "- set a user password after first boot"
+echo "IMPORTANT NOTICE REGARDING THE STANDARD INSTALLATION !!!"
+echo "- The root account has no password !!!"
+echo "- The user account name is ${username} and no password was set !!!"
+echo "- You must set a root and a user password by yourself after the first boot !!!"
 
 # vim:ts=4:sw=4:et:

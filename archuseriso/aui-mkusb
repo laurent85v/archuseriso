@@ -820,5 +820,9 @@ else
 fi
 echo
 _msg_info "Success!"
+echo
+echo "IMPORTANT NOTICE REGARDING PERSISTENCE !!!"
+echo "- The root account and the live user account have no password !!!"
+echo "- You must set a root and a user password by yourself after the first boot !!!"
 
 # vim:ts=4:sw=4:et:
