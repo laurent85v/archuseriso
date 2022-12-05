@@ -12,7 +12,6 @@ set -e -u
 WD="$(pwd)"
 appname="${0##*/}"
 pkgbuild_dir="/usr/share/archuseriso/pkgbuild"
-AUISOURCES="https://github.com/laurent85v/archuseriso/archive/master.tar.gz"
 auiwork="${WD}/$(mktemp -u auiwork.XXXXXXXX)"
 ar64="${auiwork}/archroot64"
 help="no"
@@ -26,7 +25,7 @@ zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
 # Tony Hutter public key
 ZFSPUBKEY="6AD860EED4598027"
-KEYSERVER="ha.pool.sks-keyservers.net"
+KEYSERVER="keys.openpgp.org"
 declare -a zfspackages
 declare -a zfssources
 
@@ -120,6 +119,7 @@ _create_archroot64 () {
 }
 
 _build_zfs () {
+    local _sha256sum
     linuxversion=$(pacman --sysroot "${ar64}/root" -Q linux | cut -d' ' -f2)
     if [[ "$(cut -d'.' -f3 <<< "${linuxversion}")" =~ 'arch' ]]; then
         modulesversion="${linuxversion%.arch*}.0-${linuxversion##*.}"
@@ -134,20 +134,23 @@ _build_zfs () {
               "${auiwork}/zfs-utils/PKGBUILD" "${auiwork}/zfs-linux/PKGBUILD"
     cd -- "${auiwork}/zfs-utils/"
     for _zfslink in "${zfssources[@]}"; do
-        if [[ "${_zfslink}" =~ '.tar.gz'$ ]]; then
             curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
-            curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}".asc
-            break
-        fi
     done
-    cp -a -- zfs-*.tar.gz{,.asc} ../zfs-linux
+    if LC_ALL=C sudo --user "${SCRIPTUSER}" gpg --verify "zfs-${zfsversion}.sha256.asc" ; then
+        if sha256sum --check --status -- "zfs-${zfsversion}.sha256.asc"; then
+            _sha256sum="$(sed -- "/zfs-${zfsversion}.tar.gz$/"'!d' "zfs-${zfsversion}.sha256.asc")"
+            _sha256sum="${_sha256sum%%[[:blank:]]*}"
+        else
+            echo "zfs-${zfsversion}.tar.gz sha256sum verification failed, aborting!"
+            exit 1
+        fi
+    else
+        echo "zfs-${zfsversion}.tar.gz gpg signature verification failed, aborting !"
+        exit 1
+    fi
+    sed -i -- "s/%SHA256SUM%/${_sha256sum}/" "${auiwork}/"{zfs-utils,zfs-linux}/PKGBUILD
+    cp -a -- "zfs-${zfsversion}.tar.gz"{,.asc} ../zfs-linux
     chown -R -- "${SCRIPTUSER}": "${auiwork}/"{zfs-utils,zfs-linux}
-    sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
-    sudo --user "${SCRIPTUSER}" updpkgsums
-    cd "${auiwork}/zfs-linux/"
-    sudo --user "${SCRIPTUSER}" makepkg --geninteg >> PKGBUILD
-    sudo --user "${SCRIPTUSER}" updpkgsums
-    cd "${auiwork}/zfs-utils/"
     LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
     cd -- "${auiwork}/zfs-linux/"
