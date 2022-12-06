@@ -61,6 +61,7 @@ quiet=""
 user_pkg_dir=""
 work_dir=""
 x64_uefi_default_bootloader=""
+zfs_support="no"
 declare -A file_permissions=()
 # adapted from GRUB_EARLY_INITRD_LINUX_STOCK in https://git.savannah.gnu.org/cgit/grub.git/tree/util/grub-mkconfig.in
 readonly ucodes=('intel-uc.img' 'intel-ucode.img' 'amd-uc.img' 'amd-ucode.img' 'early_ucode.cpio' 'microcode.cpio')
@@ -141,6 +142,8 @@ usage: ${app_name} [options] <profile_dir>
      -v, --verbose                      Enable verbose output
      -w, --work-dir <work_dir>          Set the working directory
                                         Default: '${work_dir}'
+     --zfs-support                      Build packages zfs-utils, zfs-linux and zfs-linux against current
+                                        linux kernel, then add ZFS support to live ISO image.
 
   profile_dir:        Directory of the archuseriso profile to build. Available directory profiles
                       under /usr/share/archuseriso/profiles
@@ -2314,7 +2317,7 @@ OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:vw:' \
               -l 'gpgkey:,gpgsender:,installdir:,label:,language:,nvidia,optimus' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
-              -l 'verbose,workdir:,work-dir:' \
+              -l 'verbose,workdir:,work-dir:,zfs-support' \
               -l 'help' \
               -n "${app_name}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
@@ -2411,6 +2414,9 @@ while true; do
         '-w'|'--workdir'|'--work-dir')
             override_work_dir="${2}"
             shift 2 ;;
+        '--zfs-support')
+            zfs_support="yes"
+            shift ;;
         '--')
             shift
             break ;;
@@ -2440,6 +2446,10 @@ if [[ -d "${work_dir}" ]]; then
     exit 0
 fi
 _validate_options
+if [[ "${zfs_support}" == "yes" ]]; then
+    user_pkg_dir="${user_pkg_dir:-${work_dir}/out}"
+    aui-buildzfs --pkgdest="${user_pkg_dir}"
+fi
 _build
 _msg_info "Success!"
 

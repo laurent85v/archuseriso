@@ -19,6 +19,7 @@ linuxtesting="no"
 linuxversion=""
 modulesversion=""
 pkgdest=""
+pkgdest_makepkg=""
 release=""
 SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
@@ -53,6 +54,7 @@ _help () {
     echo '-h, --help                Command line help'
     echo "-D, --pkgbuild-dir=<path> Path to pkgbuild directory (default: ${pkgbuild_dir})"
     echo '--linuxtesting            Build packages against the linux kernel in testing repository'
+    echo '--pkgdest=<path>          Packages destination directory. Default: ./out'
     echo '-r, --release             Specify the zfs release version to build.'
     echo "                          Example: ${appname} --release=2.1.2"
     echo
@@ -60,7 +62,9 @@ _help () {
 }
 
 _cleanup() {
-    [[ -d "${auiwork}" ]] && rm -r -- "${auiwork}"
+    if [[ -d "${auiwork}" ]]; then
+       rm -r -- "${auiwork}"
+    fi
 }
 
 _init () {
@@ -75,10 +79,11 @@ _init () {
     else
         # check host PKGDEST setting in /etc/makepkg.conf
         # where packages created have to be placed
-        pkgdest="$(grep -s '^PKGDEST=' /etc/makepkg.conf || true)"
-        pkgdest="${pkgdest#PKGDEST=}"
+        pkgdest_makepkg="$(grep -s '^PKGDEST=' /etc/makepkg.conf || true)"
+        pkgdest_makepkg="${pkgdest_makepkg#PKGDEST=}"
     fi
-    pkgdest="${pkgdest:-"${WD}/out"}"
+    pkgdest_makepkg="${pkgdest_makepkg:-"${WD}/out"}"
+    pkgdest="${pkgdest:-${pkgdest_makepkg}}"
     mkdir -p -- "${ar64}"
     sudo --user "${SCRIPTUSER}" mkdir -p -- "${pkgdest}"
     if [[ -z "${release}" ]]; then
@@ -160,7 +165,7 @@ _build_zfs () {
     rm -r -- "${auiwork}"
 }
 
-OPTS=$(getopt -o 'C:,D:,h,r:' -l 'pkgbuild-dir:,help,linuxtesting,release:' -n "${appname}" -- "$@")
+OPTS=$(getopt -o 'C:,D:,h,r:' -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:' -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
 unset OPTS
@@ -175,6 +180,9 @@ while true; do
             shift ;;
         '-D'|'--pkgbuild-dir')
             pkgbuild_dir="${2}"
+            shift 2 ;;
+        '--pkgdest')
+            pkgdest="${2}"
             shift 2 ;;
         '-r'|'--release')
             release="${2}"
