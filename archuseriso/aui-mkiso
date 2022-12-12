@@ -634,7 +634,9 @@ _fat_image_efiboot_files_common() {
 }
 
 _fat_image_efiboot_files_common_x64() {
-    efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi")
+    [[ -f "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]] && \
+        efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi")
+    [[ -f "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]] && efiboot_files+=("${pacstrap_dir}/boot/memtest86+/memtest.efi")
 }
 
 _fat_image_efiboot_files_grub_common() {
@@ -913,6 +915,23 @@ _ed2k-shellx64.eltorito() {
     fi
 }
 
+_memtest86.esp() {
+    # Add other aditional/extra files to efibootimg ${install_dir}/boot/
+    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
+        mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/memtest86+/memtest.efi" "::/${install_dir}/boot/"
+    fi
+}
+
+_memtest86.eltorito() {
+    # Add other aditional/extra files to ${install_dir}/boot/
+    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
+        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.efi" "${isofs_dir}/${install_dir}/boot/"
+        install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
+        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/common/GPL2/license.txt" \
+            "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
+    fi
+}
+
 # Copy GRUB files to efiboot.img which is used by both IA32 UEFI and x64 UEFI.
 _make_common_bootmode_grub_copy_to_efibootimg() {
     local _files_to_copy=()
@@ -992,7 +1011,7 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
 }
 
 _make_bootmode_uefi-x64.grub.esp() {
-    _msg_info "Setting up IA32 GRUB for UEFI booting..."
+    _msg_info "Setting up x86-64 GRUB for UEFI booting..."
 
     _run_once _efiboot_image_size
 
@@ -1007,8 +1026,6 @@ _make_bootmode_uefi-x64.grub.esp() {
         "${work_dir}/grubx64.efi" ::/EFI/grub/
 
     _run_once _make_common_bootmode_grub_copy_to_efibootimg
-
-    _run_once _ed2k-shellx64.esp
 
     _msg_info "Done! GRUB set up for UEFI booting successfully."
 }
@@ -1033,6 +1050,8 @@ _make_bootmode_uefi-x64.grub.eltorito() {
     _run_once _make_common_bootmode_grub_copy_to_isofs
 
     _run_once _ed2k-shellx64.eltorito
+
+    _run_once _memtest86.eltorito
 
     _msg_info "Done!"
 }
@@ -1060,13 +1079,14 @@ _make_bootmode_uefi-x64.refind.esp() {
     mcopy -i "${efibootimg}" \
              "${profile}/efiboot/refind/refind-dvd.conf" ::/EFI/refind/refind.conf
 
+    # Copy kernel and initramfs to FAT image.
+    _run_once _make_boot_on_fat
+
     _run_once _ed2k-shellx64.esp
     
-    _msg_info "Done!"
+    _run_once _memtest86.esp
 
-    # Copy kernel and initramfs to FAT image.
-    # systemd-boot can only access files from the EFI system partition it was launched from.
-    _run_once _make_boot_on_fat
+    _msg_info "Done!"
 }
 
 # Prepare refind for El Torito booting
@@ -1088,6 +1108,8 @@ _make_bootmode_uefi-x64.refind.eltorito() {
 
     _run_once _ed2k-shellx64.eltorito
     
+    _run_once _memtest86.eltorito
+
     _msg_info "Done!"
 }
 
@@ -1122,13 +1144,15 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
              "${_conf}" | mcopy -i "${efibootimg}" - "::/loader/entries/${_conf##*/}"
     done
 
-    _run_once _ed2k-shellx64.esp
-    
-    _msg_info "Done!"
-
     # Copy kernel and initramfs to FAT image.
     # systemd-boot can only access files from the EFI system partition it was launched from.
     _run_once _make_boot_on_fat
+
+    _run_once _ed2k-shellx64.esp
+    
+    _run_once _memtest86.esp
+
+    _msg_info "Done!"
 }
 
 # Prepare system-boot for El Torito booting
@@ -1162,6 +1186,8 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     done
 
     _run_once _ed2k-shellx64.eltorito
+
+    _run_once _memtest86.eltorito
 
     _msg_info "Done!"
 }
@@ -1238,7 +1264,7 @@ _make_drive() {
         ln -s -- "../../../syslinux" "${isofs_dir}/.drive/liveusb/esp/syslinux"
     fi
 
-    # live kernel & initramfs
+    # live kernel, initramfs, efi shell, memtest86+
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/x86_64/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/licenses/"
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
@@ -1254,6 +1280,9 @@ _make_drive() {
     fi
     if [[ -f "${isofs_dir}/${install_dir}/boot/memtest" ]]; then
         ln -s -- "../../../../../${install_dir}/boot/memtest" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
+    fi
+    if [[ -f "${isofs_dir}/${install_dir}/boot/memtest.efi" ]]; then
+        ln -s -- "../../../../../${install_dir}/boot/memtest.efi" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
     fi
     for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
                    "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
@@ -1277,7 +1306,8 @@ _make_drive() {
     [[ -d "${isofs_dir}/EFI/grub" ]] && ln -s -- ../../../../EFI/grub "${isofs_dir}/.drive/liveusb/esp/EFI/grub"
     [[ -d "${isofs_dir}/EFI/refind" ]] && ln -s -- ../../../../EFI/refind "${isofs_dir}/.drive/liveusb/esp/EFI/refind"
     [[ -d "${isofs_dir}/EFI/systemd" ]] && ln -s -- ../../../../EFI/systemd "${isofs_dir}/.drive/liveusb/esp/EFI/systemd"
-    [[ -d "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/.drive/liveusb/esp/shellx64.efi"
+    [[ -f "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/.drive/liveusb/esp/shellx64.efi"
+    [[ -f "${isofs_dir}/shellia32.efi" ]] && ln -s -- ../../../shellia32.efi "${isofs_dir}/.drive/liveusb/esp/shellia32.efi"
 
     if [[ -f "${isofs_dir}/.drive/mediumdef.sh" ]]; then
         # Set medium def
@@ -1350,6 +1380,17 @@ _validate_requirements_bootmode_bios.syslinux.eltorito() {
     _validate_requirements_bootmode_bios.syslinux.mbr
 }
 
+_validate_requirements_bootmode_uefi-x64.common.esp() {
+    # Check for optional packages
+    # shellcheck disable=SC2076
+    if [[ ! " ${pkg_list[*]} " =~ ' edk2-shell ' ]]; then
+        _msg_info "'edk2-shell' is not in the package list. The ISO will not contain a bootable UEFI shell."
+    fi
+    if [[ ! " ${pkg_list[*]} " =~ ' memtest86+-efi ' ]]; then
+        _msg_info "Validating '${bootmode}': 'memtest86+-efi' is not in the package list. Memory testing will not be available from boot menu."
+    fi
+}
+
 _validate_requirements_bootmode_uefi-x64.systemd-boot.esp() {
     # Check if mkfs.fat is available
     if ! command -v mkfs.fat &> /dev/null; then
@@ -1383,11 +1424,7 @@ _validate_requirements_bootmode_uefi-x64.systemd-boot.esp() {
         done
     fi
 
-    # Check for optional packages
-    # shellcheck disable=SC2076
-    if [[ ! " ${pkg_list[*]} " =~ ' edk2-shell ' ]]; then
-        _msg_info "'edk2-shell' is not in the package list. The ISO will not contain a bootable UEFI shell."
-    fi
+    _run_once _validate_requirements_bootmode_uefi-x64.common.esp
 }
 
 _validate_requirements_bootmode_uefi-x64.systemd-boot.eltorito() {
@@ -1423,11 +1460,7 @@ _validate_requirements_bootmode_uefi-x64.refind.esp() {
         fi
     fi
 
-    # Check for optional packages
-    # shellcheck disable=SC2076
-    if [[ ! " ${pkg_list[*]} " =~ ' edk2-shell ' ]]; then
-        _msg_info "'edk2-shell' is not in the package list. The ISO will not contain a bootable UEFI shell."
-    fi
+    _run_once _validate_requirements_bootmode_uefi-x64.common.esp
 }
 
 _validate_requirements_bootmode_uefi-x64.refind.eltorito() {
@@ -1494,11 +1527,7 @@ _validate_requirements_bootmode_uefi-x64.grub.esp() {
         done
     fi
 
-    # Check for optional packages
-    # shellcheck disable=SC2076
-    if [[ ! " ${pkg_list[*]} " =~ ' edk2-shell ' ]]; then
-        _msg_info "'edk2-shell' is not in the package list. The ISO will not contain a bootable UEFI shell."
-    fi
+    _run_once _validate_requirements_bootmode_uefi-x64.common.esp
 }
 
 _validate_requirements_bootmode_uefi-x64.grub.eltorito() {
@@ -2036,6 +2065,7 @@ _read_profile() {
 # Validate set options
 _validate_options() {
     local validation_error=0 _buildmode
+    local run_once_mode="validate"
 
     _msg_info "Validating options..."
     # Check if pacman configuration file exists
@@ -2219,8 +2249,6 @@ _build_iso_base() {
     pacstrap_dir="${work_dir}/${arch}/airootfs"
     isofs_dir="${work_dir}/iso"
 
-    # Create working directory
-    [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
     # Write build date to file or if the file exists, read it from there
     if [[ -e "${work_dir}/build_date" ]]; then
         SOURCE_DATE_EPOCH="$(<"${work_dir}/build_date")"
@@ -2261,7 +2289,6 @@ _build_buildmode_bootstrap() {
 
     # Set up essential directory paths
     pacstrap_dir="${work_dir}/${arch}/bootstrap/root.${arch}"
-    [[ -d "${work_dir}" ]] || install -d -- "${work_dir}"
     install -d -m 0755 -o 0 -g 0 -- "${pacstrap_dir}"
 
     [[ "${quiet}" == "y" ]] || _show_config
@@ -2444,6 +2471,9 @@ if [[ -d "${work_dir}" ]]; then
     _msg_info "WORKING DIRECTORY '${work_dir}' ALREADY EXISTS! REMOVE DIRECTORY BEFORE BUILDING A NEW ISO." && 
     echo
     exit 0
+else
+    # Create working directory
+    install -d -- "${work_dir}"
 fi
 _validate_options
 if [[ "${zfs_support}" == "yes" ]]; then
