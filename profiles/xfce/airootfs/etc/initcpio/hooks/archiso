@@ -77,7 +77,7 @@ _mnt_fs() {
             local rc=$?
         fi
 
-        if [ $rc != 0 ]; then
+        if [ "$rc" != 0 ]; then
             echo "ERROR: while copy '${img}' to '/run/archiso/copytoram/${img_fullname}'"
             launch_interactive_shell
         fi
@@ -131,7 +131,7 @@ _verify_signature() {
     gpg --homedir /gpg --status-fd 1 --verify "${sigfile}" 2>/dev/null | grep -E '^\[GNUPG:\] GOODSIG'
     _status=$?
     cd -- "${OLDPWD}" || exit 1
-    return ${_status}
+    return "${_status}"
 }
 
 _verify_cms_signature() {
@@ -165,7 +165,7 @@ _verify_cms_signature() {
         -CAfile "$cafile"
     _status=$?
     cd -- "${OLDPWD}" || exit 1
-    return ${_status}
+    return "${_status}"
 }
 
 run_hook() {
@@ -241,6 +241,11 @@ archiso_mount_handler() {
     # shellcheck disable=SC2154
     # defined via initcpio's parse_cmdline()
     if [ "${verify}" = "y" ]; then
+        if ! command -v gpg >/dev/null 2>&1; then
+            echo 'ERROR: verify=y option specified but the gpg binary is not available in initramfs'
+            launch_interactive_shell
+        fi
+
         if [ -f "${fs_img}.sig" ]; then
             sigfile="${fs_img##*/}.sig"
 
