@@ -2065,7 +2065,7 @@ _read_profile() {
 
 # Validate set options
 _validate_options() {
-    local validation_error=0 _buildmode
+    local validation_error=0 _buildmode _certfile
     local run_once_mode="validate"
 
     _msg_info "Validating options..."
@@ -2074,6 +2074,14 @@ _validate_options() {
         (( validation_error=validation_error+1 ))
         _msg_error "File '${pacman_conf}' does not exist." 0
     fi
+
+    # Check if the code signing certificate files exist
+    for _certfile in "${cert_list[@]}"; do
+        if [[ ! -e "${_certfile}" ]]; then
+            (( validation_error=validation_error+1 ))
+            _msg_error "Code signing certificate '${_certfile}' does not exist." 0
+        fi
+    done
 
     # Check if the specified buildmodes are supported
     for _buildmode in "${buildmodes[@]}"; do
