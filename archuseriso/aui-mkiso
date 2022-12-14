@@ -1321,10 +1321,13 @@ _make_drive() {
     fi
     for drivefile in "${isofs_dir}/.drive/liveusb/loader/entries/"*.conf          \
                      "${isofs_dir}/.drive/hybrid/loader/entries/"*.conf           \
+                     "${isofs_dir}/.drive/install/loader/entries/"*.conf           \
                      "${isofs_dir}/.drive/liveusb/grub/grub.cfg"                  \
                      "${isofs_dir}/.drive/hybrid/grub/grub.cfg"                   \
+                     "${isofs_dir}/.drive/install/grub/grub.cfg"                   \
                      "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
-                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"; do
+                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg" \
+                     "${isofs_dir}/.drive/install/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${drivefile}" ]]; then
             sed -i "s|%INSTALL_DIR%|${install_dir}|g;s|%DESKTOP%|${desktop}|g" "${drivefile}"
         fi
