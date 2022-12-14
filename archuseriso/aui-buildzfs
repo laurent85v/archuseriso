@@ -84,8 +84,7 @@ _init () {
     fi
     pkgdest_makepkg="${pkgdest_makepkg:-"${WD}/out"}"
     pkgdest="${pkgdest:-${pkgdest_makepkg}}"
-    mkdir -p -- "${ar64}"
-    sudo --user "${SCRIPTUSER}" mkdir -p -- "${pkgdest}"
+    mkdir -p -- "${ar64}" "${pkgdest}"
     if [[ -z "${release}" ]]; then
         mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
                                   "${_link}"/latest |                                   \
