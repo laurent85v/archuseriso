@@ -103,7 +103,6 @@ usage: ${app_name} [options] <profile_dir>
      --add-pkg, -p     PACKAGE(S)       Package(s) to install, comma seperated list
      --add-pkg-testing PACKAGE(S)       Package(s) to install from testing repositories,
                                         comma seperated list
-     --add-i3-wm                        Add i3wm packages: i3-gaps,feh,dmenu,i3status,wmctrl
      -c, --cert [cert ..]               Provide certificates for codesigning of netboot artifacts as
                                         well as the rootfs artifact.
                                         Multiple files are provided as quoted, comma delimited list.
@@ -2354,8 +2353,8 @@ _build() {
 }
 
 OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:vw:' \
-              -l 'addi3wm,addpkg:,addpkgtesting:,application:,embeddir:' \
-              -l 'add-i3-wm,add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
+              -l 'addpkg:,addpkgtesting:,application:,embeddir:' \
+              -l 'add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
               -l 'gpgkey:,gpgsender:,installdir:,label:,language:,nvidia,optimus' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
@@ -2379,10 +2378,6 @@ while true; do
         '-A'|'--application')
             override_iso_application="${2}"
             shift 2 ;;
-        '--add-i3-wm'|'--addi3wm')
-            pkg_list_additions+=(i3-gaps feh dmenu i3status wmctrl rxvt-unicode)
-            iso_version_options+=(i3)
-            shift ;;
         '-C')
             override_pacman_conf="$(realpath -- "${2}")"
             shift 2 ;;
