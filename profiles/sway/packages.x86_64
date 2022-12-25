@@ -142,6 +142,9 @@ network-manager-applet
 noto-fonts
 nss-mdns
 sway
+swayidle
+swaylock
+swaybg
 ttf-droid
 ttf-hack
 vdpauinfo
