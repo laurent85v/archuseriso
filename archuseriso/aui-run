@@ -149,11 +149,7 @@ _run() {
         -name archiso,process=archiso_0 \
         -display "${display}" \
         -vga virtio \
-        -audiodev pa,id=snd0 \
-        -device ich9-intel-hda \
-        -device hda-output,audiodev=snd0 \
         -device virtio-net-pci,romfile=,netdev=net0 -netdev user,id=net0 \
-        -machine type=q35,smm=on,accel=kvm,usb=on,pcspk-audiodev=snd0 \
         -global ICH9-LPC.disable_s3=1 \
         -enable-kvm \
         "${qemu_options[@]}" \
@@ -222,6 +218,16 @@ while true; do
             exit 1 ;;
     esac
 done
+
+if (( EUID != 0 )); then
+    # Enable sound
+    qemu_options+=('-audiodev' 'pa,id=snd0'
+                   '-device' 'ich9-intel-hda'
+                   '-device' 'hda-output,audiodev=snd0'
+                   '-machine' 'type=q35,smm=on,accel=kvm,usb=on,pcspk-audiodev=snd0')
+else
+    qemu_options+=('-machine' 'type=q35,smm=on,accel=kvm,usb=on')
+fi
 
 _checks
 _run
