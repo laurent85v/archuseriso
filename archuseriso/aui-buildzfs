@@ -56,9 +56,15 @@ _help () {
     echo '--linuxtesting            Build packages against the linux kernel in testing repository'
     echo '--pkgdest=<path>          Packages destination directory. Default: ./out'
     echo '-r, --release             Specify the zfs release version to build.'
+    echo '-v, --verbose             Verbose mode.'
     echo "                          Example: ${appname} --release=2.1.2"
     echo
     exit "${1}"
+}
+
+_msg_info() {
+    local _msg="${1}"
+    printf '[%s] INFO: %s\n' "${appname}" "${_msg}"
 }
 
 _cleanup() {
@@ -107,11 +113,12 @@ _init () {
 }
 
 _create_archroot64 () {
-    LC_ALL=C mkarchroot -C "${pkgbuild_dir}/pacman.conf" -c /var/cache/pacman/pkg -- "${ar64}/root" base linux linux-headers base-devel
+    _msg_info "Creating chroot environment!"
+        LC_ALL=C mkarchroot -C "${pkgbuild_dir}/pacman.conf" -c /var/cache/pacman/pkg -- "${ar64}/root" base linux linux-headers base-devel > /dev/null
     if [[ "${linuxtesting}" == "yes" ]]; then
         unshare --fork --pid pacman --config "${pkgbuild_dir}/pacman-testing.conf" --root "${ar64}/root" -Sy
         if unshare --fork --pid pacman --config "${pkgbuild_dir}/pacman-testing.conf" --root "${ar64}/root" -Si testing/linux; then
-            pacstrap -C "${pkgbuild_dir}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers
+            pacstrap -C "${pkgbuild_dir}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers > /dev/null
         else
             echo
             echo 'No linux package in testing currently, aborting!'
@@ -120,6 +127,7 @@ _create_archroot64 () {
             exit 1
         fi
     fi
+    _msg_info "Done!"
 }
 
 _build_zfs () {
@@ -140,7 +148,7 @@ _build_zfs () {
     for _zfslink in "${zfssources[@]}"; do
             curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
     done
-    if LC_ALL=C sudo --user "${SCRIPTUSER}" gpg --verify "zfs-${zfsversion}.sha256.asc" ; then
+    if LC_ALL=C sudo --user "${SCRIPTUSER}" gpg --verify --quiet "zfs-${zfsversion}.sha256.asc" ; then
         if sha256sum --check --status -- "zfs-${zfsversion}.sha256.asc"; then
             _sha256sum="$(sed -- "/zfs-${zfsversion}.tar.gz$/"'!d' "zfs-${zfsversion}.sha256.asc")"
             _sha256sum="${_sha256sum%%[[:blank:]]*}"
@@ -155,11 +163,18 @@ _build_zfs () {
     sed -i -- "s/%SHA256SUM%/${_sha256sum}/" "${auiwork}/"{zfs-utils,zfs-linux}/PKGBUILD
     cp -a -- "zfs-${zfsversion}.tar.gz"{,.asc} ../zfs-linux
     chown -R -- "${SCRIPTUSER}": "${auiwork}/"{zfs-utils,zfs-linux}
+
+    _msg_info "Building zfs-utils"
     LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
+    _msg_info "Done!"
+
     cd -- "${auiwork}/zfs-linux/"
+    _msg_info "Building zfs-linux & zfs-linux-headers" 
     LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
+    _msg_info "Done!"
+
     cp -- "${zfspackages[@]}" "${pkgdest}"
     rm -r -- "${auiwork}"
 }
@@ -233,6 +248,7 @@ _build_zfs
 
 cd "${WD}"
 
+echo
 echo 'Done!'
 echo
 echo "${zfspackages[*]}" | sed 's|\s|\n|g' | sed 's|.*/||'
