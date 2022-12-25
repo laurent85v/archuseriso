@@ -123,7 +123,7 @@ Example:
 
 #### ZFS packages
 
-To build `zfs-utils`, 'zfs-linux` and `zfs-linux-headers` against current Arch Linux kernel, run:
+To build `zfs-utils`, `zfs-linux` and `zfs-linux-headers` against current Arch Linux kernel, run:
 
     sudo aui-buildzfs
 
