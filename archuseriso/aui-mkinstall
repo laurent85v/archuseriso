@@ -806,11 +806,8 @@ _rootfs() {
 
     # ZFS on root setup
     if [[ "${rootfs_type}" == "zfs" ]]; then
-        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable zfs.target
-        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable zfs-mount.service
-        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl enable zfs-import.target
+        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl mask zfs-import-cache.service
         arch-chroot -- "${WD}/${workdir}/usbrw" zgenhostid
-        arch-chroot -- "${WD}/${workdir}/usbrw" zpool set cachefile="/etc/zfs/zpool.cache" "${zroot}"
         sed -i -- 's/\(^HOOKS.*\)filesystems/\1zfs filesystems/;
                    s/\(^HOOKS.*\)fsck/\1/;
                    s/^MODULES=(/&zfs/' \
