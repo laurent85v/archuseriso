@@ -125,7 +125,6 @@ zsh
 ##
 # Required or recommended
 acpi
-acpid
 adwaita-icon-theme
 adapta-gtk-theme
 alsa-firmware

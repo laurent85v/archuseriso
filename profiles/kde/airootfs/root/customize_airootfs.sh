@@ -30,8 +30,7 @@ elif ! grep -q 'optimus' /version; then
 fi
 
 # Enable service when available
-{ [[ -e /usr/lib/systemd/system/acpid.service                ]] && systemctl enable acpid.service;
-  [[ -e /usr/lib/systemd/system/avahi-dnsconfd.service       ]] && systemctl enable avahi-dnsconfd.service;
+{ [[ -e /usr/lib/systemd/system/avahi-dnsconfd.service       ]] && systemctl enable avahi-dnsconfd.service;
   [[ -e /usr/lib/systemd/system/bluetooth.service            ]] && systemctl enable bluetooth.service;
   [[ -e /usr/lib/systemd/system/NetworkManager.service       ]] && systemctl enable NetworkManager.service;
   [[ -e /usr/lib/systemd/system/nmb.service                  ]] && systemctl enable nmb.service;

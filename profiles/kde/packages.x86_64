@@ -125,7 +125,6 @@ zsh
 ##
 # Required or recommended
 acpi
-acpid
 akonadi-calendar-tools
 alsa-firmware
 ark

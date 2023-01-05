@@ -125,7 +125,6 @@ zsh
 ##
 # Required or recommended
 acpi
-acpid
 alsa-firmware
 arandr
 aspell-en

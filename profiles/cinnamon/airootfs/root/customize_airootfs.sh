@@ -45,8 +45,7 @@ sed -i 's/^#\(background=\)$/\1#232627/
 ln -s /usr/bin/gvncviewer /usr/local/bin/vncviewer
 
 # Enable service when available
-{ [[ -e /usr/lib/systemd/system/acpid.service                ]] && systemctl enable acpid.service;
-  [[ -e /usr/lib/systemd/system/avahi-dnsconfd.service       ]] && systemctl enable avahi-dnsconfd.service;
+{ [[ -e /usr/lib/systemd/system/avahi-dnsconfd.service       ]] && systemctl enable avahi-dnsconfd.service;
   [[ -e /usr/lib/systemd/system/bluetooth.service            ]] && systemctl enable bluetooth.service;
   [[ -e /usr/lib/systemd/system/NetworkManager.service       ]] && systemctl enable NetworkManager.service;
   [[ -e /usr/lib/systemd/system/nmb.service                  ]] && systemctl enable nmb.service;
