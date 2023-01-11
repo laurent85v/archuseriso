@@ -123,7 +123,7 @@ zsh
 
 ### Desktop packages
 ##
-# Required or recommended
+## Required or recommended
 acpi
 akonadi-calendar-tools
 alsa-firmware
@@ -195,15 +195,20 @@ xorg-xdriinfo
 xorg-xinit
 xorg-xinput
 yakuake
-# Optional
-akregator
+
+## Optional
+#akregator
 audiocd-kio
+#colord-kde
 cryfs
+elisa
+#falkon
 filelight
 fprintd
-grantlee-editor
-juk
-k3b
+#grantlee-editor
+#itinerary
+#juk
+#k3b
 kaddressbook
 kalarm
 kamera
@@ -212,46 +217,55 @@ kbackup
 kcharselect
 kcolorchooser
 kcron
-kdebugsettings
+#kdebugsettings
 kdegraphics-mobipocket
+kdegraphics-thumbnailers
 kdenetwork-filesharing
 kdepim-addons
 kdeplasma-addons
 kdf
 kdialog
-kfloppy
+#keditbookmarks
+#kfloppy
 kgamma5
 kget
+#kgpg
 khelpcenter
 khotkeys
+#kimagemapeditor
 kinfocenter
+kio-gdrive
 kleopatra
-kmag
+#kmag
 kmail
-kmousetool
-kmouth
+#kmousetool
+#kmouth
 knotes
 kolourpaint
 kompare
 kontact
-konversation
+#konversation
 korganizer
 krdc
 krfb
-kruler
+#kruler
 ksystemlog
 kteatime
-ktimer
-kwave
+#ktimer
+#kwave
 kwrited
-mesa-demos
+markdownpart
+#mesa-demos
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp
 networkmanager-vpnc
 numlockx
-packagekit-qt5
+#packagekit-qt5
+plasma-firewall
+plasma-systemmonitor 
 skanlite
+svgpart
 sweeper
 system-config-printer
 telepathy-gabble
@@ -269,8 +283,8 @@ telepathy-kde-send-file
 telepathy-kde-text-ui
 telepathy-salut
 xf86-input-elographics
-xf86-input-void
-xf86-input-wacom
+#xf86-input-void
+#xf86-input-wacom
 xorg-twm
 xorg-xgamma
 xorg-xhost
@@ -280,6 +294,7 @@ xorg-xrefresh
 xorg-xvinfo
 xorg-xwayland
 xorg-xwininfo
+zanshin
 
 ### Browser
 ##

@@ -123,7 +123,7 @@ zsh
 
 ### Desktop packages
 ##
-# Required or recommended
+## Required or recommended
 acpi
 alsa-firmware
 aspell-en
@@ -174,7 +174,8 @@ xorg-xinit
 xorg-xinput
 xsettingsd
 xterm
-# Optional
+
+## Optional
 cryfs
 fprintd
 gvfs-google
@@ -182,7 +183,7 @@ gvfs-gphoto2
 gvfs-nfs
 jre-openjdk
 lm_sensors
-mesa-demos
+#mesa-demos
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp
@@ -195,8 +196,8 @@ samba
 system-config-printer
 vlc
 xf86-input-elographics
-xf86-input-void
-xf86-input-wacom
+#xf86-input-void
+#xf86-input-wacom
 xorg-twm
 xorg-xgamma
 xorg-xhost

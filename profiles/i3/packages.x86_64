@@ -123,7 +123,7 @@ zsh
 
 ### Desktop packages
 ##
-# Required or recommended
+## Required or recommended
 acpi
 alsa-firmware
 arandr
@@ -161,9 +161,9 @@ xorg-xinit
 xorg-xinput
 xorg-xsetroot
 xterm
-# Optional
+## Optional
 jre-openjdk
-mesa-demos
+#mesa-demos
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp

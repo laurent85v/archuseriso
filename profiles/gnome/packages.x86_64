@@ -123,7 +123,7 @@ zsh
 
 ### Desktop packages
 ##
-# Required or recommended
+## Required or recommended
 acpi
 alsa-firmware
 aspell-en
@@ -187,21 +187,22 @@ xorg-xdriinfo
 xorg-xinit
 xorg-xinput
 xorg-xsetroot
-# Optional
+
+## Optional
 baobab
 endeavour
 fprintd
 gedit-plugins
 gnome-calculator
-gnome-dictionary
-gnome-logs
-gnome-maps
+#gnome-dictionary
+#gnome-logs
+#gnome-maps
 gnome-music
 gnome-notes
-gnome-packagekit
+#gnome-packagekit
 gnome-photos
 gnome-remote-desktop
-gnome-software-packagekit-plugin
+#gnome-software-packagekit-plugin
 gnome-user-docs
 gnome-weather
 gsmartcontrol
@@ -210,7 +211,7 @@ gvfs-gphoto2
 gvfs-nfs
 hexchat
 jre-openjdk
-mesa-demos
+#mesa-demos
 nautilus-image-converter
 networkmanager-openconnect
 networkmanager-openvpn
@@ -225,8 +226,8 @@ simple-scan
 sushi
 system-config-printer
 xf86-input-elographics
-xf86-input-void
-xf86-input-wacom
+#xf86-input-void
+#xf86-input-wacom
 xorg-twm
 xorg-xgamma
 xorg-xhost

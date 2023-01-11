@@ -123,7 +123,7 @@ zsh
 
 ### Desktop packages
 ##
-# Required or recommended
+## Required or recommended
 acpi
 alsa-firmware
 dmenu
@@ -149,7 +149,8 @@ ttf-hack
 vdpauinfo
 weechat
 xorg-xwayland
-# Optional
+
+## Optional
 aspell-en
 jre-openjdk
 mako

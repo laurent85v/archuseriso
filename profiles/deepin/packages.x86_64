@@ -123,7 +123,7 @@ zsh
 
 # Desktop packages
 ##
-# Required or recommended
+## Required or recommended
 acpi
 alsa-firmware
 aspell-en
@@ -190,7 +190,8 @@ xorg-xdriinfo
 xorg-xinit
 xorg-xinput
 xorg-xsetroot
-# Optional
+
+## Optional
 baobab
 fprintd
 gsmartcontrol
@@ -199,7 +200,7 @@ gvfs-gphoto2
 gvfs-nfs
 hexchat
 jre-openjdk
-mesa-demos
+#mesa-demos
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp
@@ -210,8 +211,8 @@ seahorse
 system-config-printer
 vdpauinfo
 xf86-input-elographics
-xf86-input-void
-xf86-input-wacom
+#xf86-input-void
+#xf86-input-wacom
 xorg-xgamma
 xorg-xhost
 xorg-xkill
