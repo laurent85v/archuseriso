@@ -32,7 +32,7 @@ Highlights
 * add package from testing repository
 * add user own packages
 * add any data to include in iso image
-* Nvidia and Optimus hardware options
+* Nvidia graphics driver option
 * Samba public folder sharing
 
 Pre-configured build profiles

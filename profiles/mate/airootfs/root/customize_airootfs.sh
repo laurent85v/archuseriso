@@ -16,19 +16,9 @@ sed -i '/^hosts:/ {
         s/\(resolve\)/mdns_minimal \[NOTFOUND=return\] \1/
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
-# Nvidia driver setup
-# either nvidia setup
-# either optimus setup (default settings should work)
-# either no setup
-if grep -q 'nvidia' /version; then
-    # Nvidia settings
+# Optimus setup
+if grep -q 'optimus' /version; then
     sed -i 's|^#\(display-setup-script=\)$|\1/etc/lightdm/display_setup.sh|' /etc/lightdm/lightdm.conf
-elif grep -q 'optimus' /version; then
-    # Optimus settings
-    rm /etc/lightdm/display_setup.sh
-else
-    # No settings
-    rm /etc/lightdm/display_setup.sh /etc/modprobe.d/nvidia-drm.conf
 fi
 
 # Lightdm display-manager

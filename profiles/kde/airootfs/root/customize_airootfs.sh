@@ -16,19 +16,6 @@ sed -i '/^hosts:/ {
         s/\(resolve\)/mdns_minimal \[NOTFOUND=return\] \1/
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
-# Nvidia driver setup
-# either nvidia setup
-# either optimus setup (default settings should work)
-# either no setup
-if grep -q 'nvidia' /version; then
-    # Nvidia settings
-    echo 'xrandr --setprovideroutputsource modesetting NVIDIA-0' >> /usr/share/sddm/scripts/Xsetup
-    echo 'xrandr --auto --dpi 96' >> /usr/share/sddm/scripts/Xsetup
-elif ! grep -q 'optimus' /version; then
-    # Remove module settings
-    rm /etc/modprobe.d/nvidia-drm.conf
-fi
-
 # Enable service when available
 { [[ -e /usr/lib/systemd/system/avahi-dnsconfd.service       ]] && systemctl enable avahi-dnsconfd.service;
   [[ -e /usr/lib/systemd/system/bluetooth.service            ]] && systemctl enable bluetooth.service;

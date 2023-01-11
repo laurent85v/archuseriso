@@ -120,6 +120,13 @@ usage: ${app_name} [options] <profile_dir>
                                         Passed to gpg as the value for --default-key
      -G, --gpgsender <mbox>             Set the PGP signer (must include an email address)
                                         Passed to gpg as the value for --sender
+     --graphics=<option>                Graphics driver options:
+               =nvidia                  Install Nvidia proprietary driver.
+               =nvidia-open             Install Nvidia open source driver.
+                                        Nvidia Optimus on laptops (Intel iGPU & Nvidia dGPU):
+               =optimus-nvidia          Install Nvidia proprietary driver, set Nvidia dGPU the
+                                        default rendering provider
+               =optimus-prime           Install Nvidia proprietary driver in PRIME render offload mode 
      -h                                 This message
      -L <label>                         Set the ISO volume label
                                         Default: '${iso_label}'
@@ -127,9 +134,6 @@ usage: ${app_name} [options] <profile_dir>
                                         cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
      -m, --build-modes [build modes]    Build modes to use (valid modes are: 'bootstrap' and 'iso').
                                         Multiple build modes are provided as quoted, comma delimited list.
-     --nvidia                           Install Nvidia driver and set Nvidia GPU as the default GPU.
-     --optimus                          For Optimus hardware, set Intel iGPU as the default GPU, install
-                                        Nvidia driver and configure the Nvidia dGPU for PRIME render offload
      -o <out_dir>                       Set the output directory
                                         Default: '${out_dir}'
      --pacman-testing-conf <file>       pacman configuration file with testing repositories enabled.
@@ -409,6 +413,22 @@ _make_custom_airootfs() {
     if [[ -d "${profile}/airootfs" ]]; then
         _msg_info "Copying custom airootfs files..."
         cp -af --no-preserve=ownership -- "${profile}/airootfs/." "${pacstrap_dir}"
+
+        # Nvidia airootfs tree
+        if [[ "${iso_version_options[@]}" =~ 'nvidia-open' ]]; then
+            [[ -d "${profile}/airootfs-options/graphics/nvidia-open" ]] && \
+                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/nvidia-open/." "${pacstrap_dir}"
+        elif [[ "${iso_version_options[@]}" =~ 'nvidia' ]]; then
+            [[ -d "${profile}/airootfs-options/graphics/nvidia" ]] && \
+                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/nvidia/." "${pacstrap_dir}"
+        elif [[ "${iso_version_options[@]}" =~ 'optimus-nvidia' ]]; then
+            [[ -d "${profile}/airootfs-options/graphics/optimus-nvidia" ]] && \
+                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/optimus-nvidia/." "${pacstrap_dir}"
+        elif [[ "${iso_version_options[@]}" =~ 'optimus-prime' ]]; then
+            [[ -d "${profile}/airootfs-options/graphics/optimus-prime" ]] && \
+                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/optimus-prime/." "${pacstrap_dir}"
+        fi
+
         # airootfs localization
         if [[ -n "${lang}" ]]; then
             cp -af --no-preserve=ownership -- "${profile}/lang/${lang}/airootfs/." "${pacstrap_dir}"
@@ -599,10 +619,6 @@ _make_customize_airootfs() {
 
 # rebuild initramfs (airootfs)
 _make_setup_mkinitcpio() {
-    if [[ "${iso_version}" =~ (nvidia|optimus) ]]; then
-        # add nvidia modules to initramfs
-        sed -i 's/MODULES=(/&nvidia nvidia_drm nvidia_modeset/' "${pacstrap_dir}/etc/mkinitcpio.conf"
-    fi
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
@@ -2024,9 +2040,6 @@ _build_iso_image() {
 }
 
 _iso_version_options() {
-    if grep -q optimus <<< "${iso_version_options[@]}"; then
-        iso_version_options=(${iso_version_options[@]/nvidia})
-    fi
     iso_version_options=($(sed 's/\s/\n/g' <<< "${iso_version_options[@]}" | sort | sed ':a;N;$!ba;s/\n/-/g'))
 }
 
@@ -2355,7 +2368,7 @@ _build() {
 OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:vw:' \
               -l 'addpkg:,addpkgtesting:,application:,embeddir:' \
               -l 'add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
-              -l 'gpgkey:,gpgsender:,installdir:,label:,language:,nvidia,optimus' \
+              -l 'gpgkey:,gpgsender:,graphics:,installdir:,label:,language:' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
               -l 'verbose,workdir:,work-dir:,zfs-support' \
@@ -2396,6 +2409,25 @@ while true; do
         '-G'|'--gpgsender')
             override_gpg_sender="${2}"
             shift 2 ;;
+        '--graphics')
+            case "${2}" in
+                'nvidia')
+                    pkg_list_additions+=(nvidia nvidia-settings)
+                    iso_version_options+=(nvidia);;
+                'nvidia-open')
+                    pkg_list_additions+=(nvidia-open nvidia-settings)
+                    iso_version_options+=(nvidia-open);;
+                'optimus-nvidia')
+                    pkg_list_additions+=(nvidia nvidia-settings bbswitch)
+                    iso_version_options+=(optimus-nvidia);;
+                'optimus-prime')
+                    pkg_list_additions+=(nvidia nvidia-settings nvidia-prime)
+                    iso_version_options+=(optimus-prime);;
+                *)
+                   echo "${2}: invalid argument!"
+                    _usage 1;;
+            esac
+            shift 2;;
         '-L'|'--label')
             override_iso_label="${2}"
             shift 2 ;;
@@ -2416,7 +2448,9 @@ while true; do
                 'ru'|'ru_RU') lang="ru_RU";;
                 'tr'|'tr_TR') lang="tr_TR";;
                 'ua'|'uk_UA') lang="uk_UA";;
-                *) _usage 1;;
+                *)
+                   echo "${2}: invalid argument!"
+                    _usage 1;;
             esac
             shift 2 ;;
         '-m'|'--build-modes')
@@ -2425,14 +2459,6 @@ while true; do
         '-N'|'--name')
             override_iso_name="${2}"
             shift 2 ;;
-        '--nvidia')
-            pkg_list_additions+=(nvidia nvidia-settings bbswitch)
-            iso_version_options+=(nvidia)
-            shift ;;
-        '--optimus')
-            pkg_list_additions+=(nvidia nvidia-settings nvidia-prime)
-            iso_version_options+=(optimus)
-            shift ;;
         '-o'|'--out-dir'|'--outdir')
             override_out_dir="${2}"
             shift 2 ;;
