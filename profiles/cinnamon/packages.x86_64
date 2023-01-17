@@ -204,6 +204,7 @@ gvfs-nfs
 hexchat
 jre-openjdk
 #mesa-demos
+mesa-utils
 nemo-image-converter
 nemo-preview
 nemo-seahorse

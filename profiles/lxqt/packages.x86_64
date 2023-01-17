@@ -184,6 +184,7 @@ gvfs-nfs
 jre-openjdk
 lm_sensors
 #mesa-demos
+mesa-utils
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp

@@ -212,6 +212,7 @@ gvfs-nfs
 hexchat
 jre-openjdk
 #mesa-demos
+mesa-utils
 nautilus-image-converter
 networkmanager-openconnect
 networkmanager-openvpn

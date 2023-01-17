@@ -256,6 +256,7 @@ kteatime
 kwrited
 markdownpart
 #mesa-demos
+mesa-utils
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp

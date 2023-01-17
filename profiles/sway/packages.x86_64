@@ -155,6 +155,7 @@ aspell-en
 jre-openjdk
 mako
 mesa-demos
+mesa-utils
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp

@@ -187,6 +187,7 @@ gvfs-nfs
 hexchat
 jre-openjdk
 #mesa-demos
+mesa-utils
 networkmanager-openconnect
 networkmanager-openvpn
 networkmanager-pptp
