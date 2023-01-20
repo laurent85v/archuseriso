@@ -1,0 +1,270 @@
+### Archiso packages
+##
+##
+alsa-utils
+amd-ucode
+arch-install-scripts
+archinstall
+b43-fwcutter
+base
+bind
+broadcom-wl
+btrfs-progs
+clonezilla
+cryptsetup
+darkhttpd
+ddrescue
+dhclient
+dhcpcd
+diffutils
+dmidecode
+dmraid
+dnsmasq
+dosfstools
+e2fsprogs
+edk2-shell
+efibootmgr
+ethtool
+exfatprogs
+f2fs-tools
+fatresize
+fsarchiver
+gnu-netcat
+gpart
+gpm
+gptfdisk
+grml-zsh-config
+grub
+hdparm
+hyperv
+intel-ucode
+irssi
+iw
+iwd
+jfsutils
+kitty-terminfo
+less
+lftp
+libfido2
+libusb-compat
+linux
+linux-atm
+linux-firmware
+linux-firmware-marvell
+lsscsi
+lvm2
+lynx
+man-db
+man-pages
+mc
+mdadm
+memtest86+
+memtest86+-efi
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+modemmanager
+mtools
+nano
+nbd
+ndisc6
+nfs-utils
+nilfs-utils
+nmap
+ntfs-3g
+nvme-cli
+open-iscsi
+open-vm-tools
+openconnect
+openssh
+openvpn
+partclone
+parted
+partimage
+pcsclite
+ppp
+pptpclient
+pv
+qemu-guest-agent
+refind
+reflector
+reiserfsprogs
+rp-pppoe
+rsync
+rxvt-unicode-terminfo
+screen
+sdparm
+sg3_utils
+smartmontools
+sof-firmware
+squashfs-tools
+sudo
+syslinux
+systemd-resolvconf
+tcpdump
+terminus-font
+testdisk
+tmux
+tpm2-tss
+udftools
+usb_modeswitch
+usbmuxd
+usbutils
+vim
+virtualbox-guest-utils-nox
+vpnc
+wireless-regdb
+wireless_tools
+wpa_supplicant
+wvdial
+xfsprogs
+xl2tpd
+zsh
+
+### Desktop packages
+##
+## Required or recommended
+acpi
+alsa-firmware
+aspell-en
+breeze-gtk
+cutefish-core
+cutefish-dock
+cutefish-filemanager
+cutefish-icons
+cutefish-kwin-plugins
+cutefish-launcher
+cutefish-qt-plugins
+cutefish-screenlocker
+cutefish-settings
+cutefish-statusbar
+cutefish-terminal
+cutefish-wallpapers
+feh
+frei0r-plugins
+gst-libav
+intel-media-driver
+jre-openjdk
+libva-intel-driver
+libva-mesa-driver
+libva-utils
+libva-vdpau-driver
+lsb-release
+mesa-vdpau
+network-manager-applet
+noto-fonts
+nss-mdns
+pavucontrol-qt
+print-manager
+pulseaudio-bluetooth
+pulseaudio-zeroconf
+samba
+sddm
+vdpauinfo
+xdg-user-dirs
+xf86-input-evdev
+xf86-video-amdgpu
+xf86-video-ati
+xf86-video-nouveau
+xf86-video-vesa
+xorg-mkfontscale
+xorg-server
+xorg-xdpyinfo
+xorg-xdriinfo
+xorg-xinit
+xorg-xinput
+
+## Optional
+cryfs
+fprintd
+gparted
+mesa-utils
+networkmanager-openconnect
+networkmanager-openvpn
+networkmanager-pptp
+networkmanager-vpnc
+numlockx
+system-config-printer
+xf86-input-elographics
+xorg-twm
+xorg-xgamma
+xorg-xhost
+xorg-xkill
+xorg-xlsclients
+xorg-xrefresh
+xorg-xvinfo
+xorg-xwayland
+xorg-xwininfo
+
+### Browser
+##
+# Recommended
+#chromium
+firefox
+
+### Printing
+##
+# Optional
+cups-pdf cups-pk-helper
+
+### Nvidia graphics driver
+##
+#
+#nvidia nvidia-settings bbswitch
+
+### Office
+##
+# Optional
+#libreoffice-fresh hunspell-en_US
+#libreoffice-still hunspell-en_US
+
+### Virtualbox guest
+##
+# Optional
+#virtualbox-guest-modules-arch virtualbox-guest-utils
+
+### Vulkan
+##
+# Optional
+amdvlk
+vulkan-intel
+vulkan-mesa-layers
+vulkan-radeon
+vulkan-tools
+
+### Intel graphics driver
+## The Xorg built-in modesetting driver generally performs
+## better than Intel's driver. Use the one which works
+## the best with your hardware (default: not installed)
+#
+#xf86-video-intel
+
+### Additional packages
+##
+# Required
+#
+# Optional
+bash-completion
+binutils
+byobu
+cpio
+cpupower
+fakeroot
+git
+hddtemp
+hwinfo
+neofetch
+net-tools
+os-prober
+p7zip
+pacman-contrib
+powertop
+pwgen
+strace
+tree
+unrar
+wget
+whois
+wireguard-tools
+zip
+zsh-autosuggestions

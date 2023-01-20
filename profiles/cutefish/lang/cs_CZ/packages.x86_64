@@ -1,0 +1,16 @@
+aspell-cs
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-cs
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-cs
+#libreoffice-still-cs

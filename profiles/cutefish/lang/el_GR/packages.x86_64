@@ -1,0 +1,16 @@
+aspell-el
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-el
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-el hunspell-el
+#libreoffice-still-el hunspell-el

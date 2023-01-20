@@ -40,6 +40,7 @@ Pre-configured build profiles
 
 * Console
 * Cinnamon
+* Cutefish
 * Deepin
 * Gnome
 * i3

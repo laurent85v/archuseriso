@@ -1,0 +1,16 @@
+aspell-fr
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-fr
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-fr hunspell-fr
+#libreoffice-still-fr hunspell-fr

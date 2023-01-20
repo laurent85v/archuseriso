@@ -1,0 +1,323 @@
+#!/usr/bin/ash
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# args: source, newroot, mountpoint
+_mnt_dmsnapshot() {
+    local img="${1}"
+    local newroot="${2}"
+    local mnt="${3}"
+    local img_fullname="${img##*/}"
+    local img_name="${img_fullname%%.*}"
+    local dm_snap_name="${dm_snap_prefix}_${img_name}"
+    local ro_dev ro_dev_size rw_dev
+
+    ro_dev="$(losetup --find --show --read-only -- "${img}")"
+    ro_dev_size="$(blockdev --getsz "${ro_dev}")"
+
+    if [ "${cow_persistent}" = "P" ]; then
+        if [ -f "/run/archiso/cowspace/${cow_directory}/${img_name}.cow" ]; then
+            msg ":: Found '/run/archiso/cowspace/${cow_directory}/${img_name}.cow', using as persistent."
+        else
+            msg ":: Creating '/run/archiso/cowspace/${cow_directory}/${img_name}.cow' as persistent."
+            truncate -s "${cow_spacesize}" "/run/archiso/cowspace/${cow_directory}/${img_name}.cow"
+        fi
+    else
+        if [ -f "/run/archiso/cowspace/${cow_directory}/${img_name}.cow" ]; then
+            msg ":: Found '/run/archiso/cowspace/${cow_directory}/${img_name}.cow' but non-persistent requested, removing."
+            rm -f "/run/archiso/cowspace/${cow_directory}/${img_name}.cow"
+        fi
+        msg ":: Creating '/run/archiso/cowspace/${cow_directory}/${img_name}.cow' as non-persistent."
+        truncate -s "${cow_spacesize}" "/run/archiso/cowspace/${cow_directory}/${img_name}.cow"
+    fi
+
+    rw_dev="$(losetup --find --show "/run/archiso/cowspace/${cow_directory}/${img_name}.cow")"
+
+    dmsetup create "${dm_snap_name}" --table \
+        "0 ${ro_dev_size} snapshot ${ro_dev} ${rw_dev} ${cow_persistent} ${cow_chunksize}"
+
+    if [ "${cow_persistent}" != "P" ]; then
+        rm -f "/run/archiso/cowspace/${cow_directory}/${img_name}.cow"
+    fi
+
+    _mnt_dev "/dev/mapper/${dm_snap_name}" "${newroot}${mnt}" "-w" "defaults"
+}
+
+# args: source, newroot, mountpoint
+_mnt_overlayfs() {
+    local src="${1}"
+    local newroot="${2}"
+    local mnt="${3}"
+    mkdir -p "/run/archiso/cowspace/${cow_directory}/upperdir" "/run/archiso/cowspace/${cow_directory}/workdir"
+    mount -t overlay -o \
+        "lowerdir=${src},upperdir=/run/archiso/cowspace/${cow_directory}/upperdir,workdir=/run/archiso/cowspace/${cow_directory}/workdir" \
+        airootfs "${newroot}${mnt}"
+}
+
+# args: /path/to/image_file, mountpoint
+_mnt_fs() {
+    local img="${1}"
+    local mnt="${2}"
+    local img_fullname="${img##*/}"
+    local img_loopdev
+
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    if [ "${copytoram}" = "y" ]; then
+        msg -n ":: Copying rootfs image to RAM..."
+
+        # in case we have pv use it to display copy progress feedback otherwise
+        # fallback to using plain cp
+        if command -v pv >/dev/null 2>&1; then
+            echo ""
+            (pv "${img}" >"/run/archiso/copytoram/${img_fullname}")
+            local rc=$?
+        else
+            (cp -- "${img}" "/run/archiso/copytoram/${img_fullname}")
+            local rc=$?
+        fi
+
+        if [ "$rc" != 0 ]; then
+            echo "ERROR: while copy '${img}' to '/run/archiso/copytoram/${img_fullname}'"
+            launch_interactive_shell
+        fi
+
+        img="/run/archiso/copytoram/${img_fullname}"
+        msg "done."
+    fi
+    img_loopdev="$(losetup --find --show --read-only -- "${img}")"
+    _mnt_dev "${img_loopdev}" "${mnt}" "-r" "defaults"
+}
+
+# args: device, mountpoint, flags, opts
+_mnt_dev() {
+    local dev="${1}"
+    local mnt="${2}"
+    local flg="${3}"
+    local opts="${4}"
+
+    msg ":: Mounting '${dev}' to '${mnt}'"
+
+    while ! poll_device "${dev}" 30; do
+        echo "ERROR: '${dev}' device did not show up after 30 seconds..."
+        echo "   Falling back to interactive prompt"
+        echo "   You can try to fix the problem manually, log out when you are finished"
+        launch_interactive_shell
+    done
+
+    if mount --mkdir -o "${opts}" "${flg}" "${dev}" "${mnt}"; then
+        msg ":: Device '${dev}' mounted successfully."
+    else
+        echo "ERROR; Failed to mount '${dev}'"
+        echo "   Falling back to interactive prompt"
+        echo "   You can try to fix the problem manually, log out when you are finished"
+        launch_interactive_shell
+    fi
+}
+
+_verify_checksum() {
+    local _status
+    cd "/run/archiso/bootmnt/${archisobasedir}/${arch}" || exit 1
+    sha512sum -c airootfs.sha512 >/tmp/checksum.log 2>&1
+    _status=$?
+    cd -- "${OLDPWD}" || exit 1
+    return "${_status}"
+}
+
+_verify_signature() {
+    local _status
+    local sigfile="${1}"
+    cd "/run/archiso/bootmnt/${archisobasedir}/${arch}" || exit 1
+    gpg --homedir /gpg --status-fd 1 --verify "${sigfile}" 2>/dev/null | grep -E '^\[GNUPG:\] GOODSIG'
+    _status=$?
+    cd -- "${OLDPWD}" || exit 1
+    return "${_status}"
+}
+
+_verify_cms_signature() {
+    # Note: There is an "issue" with openssl.
+    # Which requires emailProtection in extended key usage on the code signing certificate.
+    # See: https://github.com/openssl/openssl/issues/17134
+    local _status
+    local cms_sigfile="${1}"
+    local bootfile="${2}"
+    local certfile="/codesign.crt"
+    local cafile="/codesign_CA.crt"
+
+    # Use the signer certificate as the CA certificate to allow validating with self-signed certificates.
+    if [ ! -e "$cafile" ]; then
+        cafile="$certfile"
+    fi
+
+    cd "/run/archiso/bootmnt/${archisobasedir}/${arch}" || exit 1
+    # "-purpose any" can be removed once the issue mentioned above is fixed.
+    openssl cms \
+        -verify \
+        -binary \
+        -noattr \
+        -nointern \
+        -purpose any \
+        -in "${cms_sigfile}" \
+        -content "${bootfile}" \
+        -inform DER \
+        -out /dev/null \
+        -certfile "$certfile" \
+        -CAfile "$cafile"
+    _status=$?
+    cd -- "${OLDPWD}" || exit 1
+    return "${_status}"
+}
+
+run_hook() {
+    [ -z "${arch}" ] && arch="$(uname -m)"
+    [ -z "${copytoram}" ] && copytoram="auto"
+    [ -z "${copytoram_size}" ] && copytoram_size="75%"
+    [ -z "${archisobasedir}" ] && archisobasedir="arch"
+    [ -z "${dm_snap_prefix}" ] && dm_snap_prefix="arch"
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    [ -z "${archisodevice}" ] && archisodevice="/dev/disk/by-label/${archisolabel}"
+    [ -z "${cow_spacesize}" ] && cow_spacesize="256M"
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    if [ -n "${cow_label}" ]; then
+        cow_device="/dev/disk/by-label/${cow_label}"
+        [ -z "${cow_persistent}" ] && cow_persistent="P"
+    elif [ -n "${cow_device}" ]; then
+        [ -z "${cow_persistent}" ] && cow_persistent="P"
+    else
+        cow_persistent="N"
+    fi
+
+    [ -z "${cow_flags}" ] && cow_flags="defaults"
+    [ -z "${cow_directory}" ] && cow_directory="persistent_${archisolabel}/${arch}"
+    [ -z "${cow_chunksize}" ] && cow_chunksize="8"
+
+    # set mount handler for archiso
+    export mount_handler="archiso_mount_handler"
+}
+
+# This function is called normally from init script, but it can be called
+# as chain from other mount handlers.
+# args: /path/to/newroot
+archiso_mount_handler() {
+    local newroot="${1}"
+    local sigfile cms_sigfile fs_img fs_img_size
+
+    if ! mountpoint -q "/run/archiso/bootmnt"; then
+        _mnt_dev "${archisodevice}" "/run/archiso/bootmnt" "-r" "defaults"
+    fi
+
+    # We need this block at the top for early failure
+    # but also to be able to give the fs_img to CMS verification.
+    # (sha512sum files contain the image, CMS files does not)
+    if [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs" ]; then
+        fs_img="/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sfs"
+    elif [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs" ]; then
+        fs_img="/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.erofs"
+    else
+        echo "ERROR: no root file system image found"
+        launch_interactive_shell
+    fi
+
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    if [ "${checksum}" = "y" ]; then
+        if [ -f "/run/archiso/bootmnt/${archisobasedir}/${arch}/airootfs.sha512" ]; then
+            msg ":: Self-test requested, please wait..."
+            if _verify_checksum; then
+                msg "Checksum is OK, continue booting."
+            else
+                echo "ERROR: one or more files are corrupted"
+                echo "see /tmp/checksum.log for details"
+                launch_interactive_shell
+            fi
+        else
+            echo "ERROR: checksum=y option specified but ${archisobasedir}/${arch}/airootfs.sha512 not found"
+            launch_interactive_shell
+        fi
+    fi
+
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    if [ "${verify}" = "y" ]; then
+        if ! command -v gpg >/dev/null 2>&1; then
+            echo 'ERROR: verify=y option specified but the gpg binary is not available in initramfs'
+            launch_interactive_shell
+        fi
+
+        if [ -f "${fs_img}.sig" ]; then
+            sigfile="${fs_img##*/}.sig"
+
+            msg ":: Signature verification requested, please wait..."
+            if _verify_signature "${sigfile}"; then
+                msg "Signature is OK, continue booting."
+            else
+                echo "ERROR: one or more files are corrupted"
+                launch_interactive_shell
+            fi
+        else
+            echo "ERROR: verify=y option specified but GPG signature not found in ${archisobasedir}/${arch}/"
+            launch_interactive_shell
+        fi
+    fi
+
+    # shellcheck disable=SC2154
+    # defined via initcpio's parse_cmdline()
+    if [ "${cms_verify}" = "y" ]; then
+        if [ -f "${fs_img}.cms.sig" ]; then
+            cms_sigfile="${fs_img##*/}.cms.sig"
+
+            msg ":: Signature verification requested, please wait..."
+            if _verify_cms_signature "${cms_sigfile}" "${fs_img}"; then
+                msg "Signature is OK, continue booting."
+            else
+                echo "ERROR: one or more files are corrupted"
+                launch_interactive_shell
+            fi
+        else
+            echo "ERROR: cms_verify=y option specified but CMS signature not found in ${archisobasedir}/${arch}/"
+            launch_interactive_shell
+        fi
+    fi
+
+    # Enable copytoram if the root file system image size is less than 4 GiB and if the estimated available memory is
+    # more than the root file system image size + 2 GiB
+    if [ "${copytoram}" = "auto" ]; then
+        fs_img_size="$(du -bsk "$fs_img" | cut -f 1)"
+
+        if [ "$fs_img_size" -lt 4194304 ] && [ "$(awk '$1 == "MemAvailable:" { print $2 }' /proc/meminfo)" -gt $((fs_img_size + 2097152)) ]; then
+            copytoram="y"
+        fi
+    fi
+    if [ "${copytoram}" = "y" ]; then
+        msg ":: Mounting /run/archiso/copytoram (tmpfs) filesystem, size=${copytoram_size}"
+        mount --mkdir -t tmpfs -o "size=${copytoram_size}",mode=0755 copytoram /run/archiso/copytoram
+    fi
+
+    if [ -n "${cow_device}" ]; then
+        # Mount cow_device read-only at first and remount it read-write right after. This prevents errors when the
+        # device is already mounted read-only somewhere else (e.g. if cow_device and archisodevice are the same).
+        _mnt_dev "${cow_device}" "/run/archiso/cowspace" "-r" "${cow_flags}"
+        mount -o remount,rw "/run/archiso/cowspace"
+    else
+        msg ":: Mounting /run/archiso/cowspace (tmpfs) filesystem, size=${cow_spacesize}..."
+        mount --mkdir -t tmpfs -o "size=${cow_spacesize}",mode=0755 cowspace /run/archiso/cowspace
+    fi
+    mkdir -p "/run/archiso/cowspace/${cow_directory}"
+    chmod 0700 "/run/archiso/cowspace/${cow_directory}"
+
+    _mnt_fs "${fs_img}" "/run/archiso/airootfs"
+    if [ -f "/run/archiso/airootfs/airootfs.img" ]; then
+        _mnt_dmsnapshot "/run/archiso/airootfs/airootfs.img" "${newroot}" "/"
+    else
+        _mnt_overlayfs "/run/archiso/airootfs" "${newroot}" "/"
+    fi
+
+    if [ "${copytoram}" = "y" ]; then
+        umount -d /run/archiso/bootmnt
+        rmdir /run/archiso/bootmnt
+    fi
+}
+
+# vim: set ft=sh:
