@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-lxqt"
-iso_label="AUIL"
+iso_label="AUILX"
 iso_publisher=""
 desktop="LXQt"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

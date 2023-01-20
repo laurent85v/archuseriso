@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-sway"
-iso_label="AUIS"
+iso_label="AUISW"
 iso_publisher=""
 desktop="Sway"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

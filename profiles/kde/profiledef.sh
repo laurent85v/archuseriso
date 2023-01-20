@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-kde"
-iso_label="AUIK"
+iso_label="AUIKD"
 iso_publisher=""
 desktop="Kde"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

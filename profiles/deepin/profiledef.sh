@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-deepin"
-iso_label="AUID"
+iso_label="AUIDE"
 iso_publisher=""
 desktop="Deepin"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

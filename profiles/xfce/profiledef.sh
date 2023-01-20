@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-xfce"
-iso_label="AUIX"
+iso_label="AUIXF"
 iso_publisher=""
 desktop="Xfce"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

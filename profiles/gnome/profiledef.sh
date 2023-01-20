@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-gnome"
-iso_label="AUIG"
+iso_label="AUIGN"
 iso_publisher=""
 desktop="Gnome"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

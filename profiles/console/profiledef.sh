@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-console"
-iso_label="AUIO"
+iso_label="AUICO"
 iso_publisher=""
 desktop="Console"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

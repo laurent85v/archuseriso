@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-i3"
-iso_label="AUI3"
+iso_label="AUII3"
 iso_publisher=""
 desktop="i3"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

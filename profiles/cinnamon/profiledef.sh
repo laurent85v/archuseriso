@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-cinnamon"
-iso_label="AUIC"
+iso_label="AUICI"
 iso_publisher=""
 desktop="Cinnamon"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"

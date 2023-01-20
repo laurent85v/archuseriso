@@ -2,7 +2,7 @@
 # shellcheck disable=SC2034
 
 iso_name="aui-mate"
-iso_label="AUIM"
+iso_label="AUIMA"
 iso_publisher=""
 desktop="Mate"
 iso_application="Archuseriso ${desktop} Live/Rescue medium"
