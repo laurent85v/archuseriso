@@ -56,7 +56,6 @@ _help () {
     echo '--linuxtesting            Build packages against the linux kernel in testing repository'
     echo '--pkgdest=<path>          Packages destination directory. Default: ./out'
     echo '-r, --release             Specify the zfs release version to build.'
-    echo '-v, --verbose             Verbose mode.'
     echo "                          Example: ${appname} --release=2.1.2"
     echo
     exit "${1}"

@@ -724,7 +724,7 @@ _esp() {
     if [[ "${rootfs_type}" == "zfs" ]]; then
         for _mediumfile in "${esp_files_settings[@]}"; do
             if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
-                sed -i -- "s|root=.*rootflags=defaults|zfs="${zroot}/ROOT/default" zfs_import_dir="${partuuid}" zfs_force=1|" \
+                sed -i -- "s|root=.*rootflags=defaults|zfs="${zroot}/ROOT/default" zfs_import_dir="${partuuid}" zfs_force=1 zfs_boot_only=1|" \
                           "${WD}/${workdir}/usbesp/${_mediumfile}"
             fi
         done

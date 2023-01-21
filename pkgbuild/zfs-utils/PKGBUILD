@@ -1,4 +1,5 @@
 # Maintainer: Laurent Jourden <laurent85@enarel.fr>
+# Contributor: Kevin Stolp <kevinstolp@gmail.com>
 # Contributor: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: Iacopo Isimbaldi <isiachi@rhye.it>
 
@@ -10,16 +11,17 @@ arch=('x86_64')
 url="https://zfsonlinux.org/"
 license=('CDDL')
 optdepends=('python: for arcstat/arc_summary/dbufstat')
-backup=(etc/zfs/zed.d/zed.rc)
 source=("https://github.com/zfsonlinux/zfs/releases/download/zfs-${pkgver}/zfs-${pkgver}.tar.gz"{,.asc}
         "zfs.initcpio.hook"
         "zfs.initcpio.install")
 sha256sums=('%SHA256SUM%'
             'SKIP'
-            '697a194b547c95d31fd5cd1713ae7a157f864e608358edd461d4885b311f3977'
-            '28ab9b3374f67cd970bc1a3a149c6238fe21ce989c57e43326e991db37612a4f')
+            '15b5acea44225b4364ec6472a08d3d48666d241fe84c142e1171cd3b78a5584f'
+            '4553f9b0786a0fecc747cc4c6e98bcfb53a2c9ef4545885574289a3bb0378d52')
 validpgpkeys=('4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027'  # Tony Hutter (GPG key for signing ZFS releases) <hutter2@llnl.gov>
               'C33DF142657ED1F7C328A2960AB9E991C6AF658B') # Brian Behlendorf <behlendorf1@llnl.gov>
+backup=('etc/default/zfs'
+        'etc/zfs/zed.d/zed.rc')
 
 prepare() {
     local _src
