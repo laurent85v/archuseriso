@@ -140,6 +140,8 @@ mobile-broadband-provider-info
 network-manager-applet
 noto-fonts
 nss-mdns
+pipewire-alsa
+pipewire-pulse
 sway
 swayidle
 swaylock
@@ -147,6 +149,7 @@ swaybg
 ttf-droid
 ttf-hack
 vdpauinfo
+wireplumber
 weechat
 xorg-xwayland
 
@@ -161,6 +164,7 @@ networkmanager-openvpn
 networkmanager-pptp
 networkmanager-vpnc
 ranger
+slurp
 
 ### Browser
 ##

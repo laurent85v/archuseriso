@@ -165,14 +165,16 @@ nemo-fileroller
 nemo-share
 network-manager-applet
 nss-mdns
+pipewire-alsa
+pipewire-pulse
 papirus-icon-theme
-pavucontrol
 parcellite
-pulseaudio-zeroconf
+pavucontrol
 samba
 ttf-droid
 ttf-hack
 vdpauinfo
+wireplumber
 xdg-user-dirs-gtk
 xed
 xf86-input-evdev
@@ -214,7 +216,6 @@ networkmanager-pptp
 networkmanager-vpnc
 numlockx
 orca
-pulseaudio-bluetooth
 rygel
 seahorse
 simple-scan

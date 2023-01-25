@@ -164,6 +164,8 @@ nss-mdns
 okular
 partitionmanager
 pavucontrol-qt
+pipewire-alsa
+pipewire-pulse
 plasma-browser-integration
 plasma-desktop
 plasma-disks
@@ -174,14 +176,11 @@ plasma-vault
 plasma-workspace-wallpapers
 powerdevil
 print-manager
-pulseaudio-bluetooth
-pulseaudio-zeroconf
 samba
 sddm-kcm
 spectacle
 vdpauinfo
-xdg-desktop-portal
-xdg-desktop-portal-kde
+wireplumber
 xdg-user-dirs
 xf86-input-evdev
 xf86-video-amdgpu

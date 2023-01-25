@@ -171,8 +171,8 @@ mousetweaks
 network-manager-applet
 nss-mdns
 pavucontrol
-pulseaudio-bluetooth
-pulseaudio-zeroconf
+pipewire-alsa
+pipewire-pulse
 samba
 ttf-droid
 ttf-hack
@@ -211,6 +211,7 @@ onboard
 seahorse
 system-config-printer
 vdpauinfo
+wireplumber
 xf86-input-elographics
 #xf86-input-void
 #xf86-input-wacom
