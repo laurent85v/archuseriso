@@ -13,6 +13,8 @@ AUR https://aur.archlinux.org/packages/archuseriso
 
 ISO download http://dl.gnutux.fr/archuseriso
 
+ZFS packages download http://dl.gnutux.fr/archuseriso/zfsonlinux
+
 Highlights
 ----------
 
