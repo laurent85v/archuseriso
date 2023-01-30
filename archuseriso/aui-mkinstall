@@ -381,7 +381,7 @@ _usb_prepare() {
     fi
     
     # check ZFS support
-    if [[ "${rootfs_type}"="zfs" ]]; then
+    if [[ "${rootfs_type}" == "zfs" ]]; then
         if ! grep -q 'zfs-utils ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt" && \
            ! grep -q 'zfs-linux ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt"; then
             echo "Error: ZFS support is missing in this ISO image ${iso_file}!"
