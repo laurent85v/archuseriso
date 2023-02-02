@@ -158,7 +158,7 @@ _encryption_settings() {
                   "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
     fi
     umount -- "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
-    sleep 5
+    sleep 3
     rmdir -- "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
     _msg_info "Done!"
 }
@@ -437,44 +437,48 @@ _partitions() {
     fi
 
     # Wipe drive
-    flock -- "${usb_device}" wipefs --all --force -- "${usb_device}"* > /dev/null
-    sleep 5
+    udevadm lock --device="${usb_device}" -- wipefs --all --force -- "${usb_device}"* > /dev/null
+    sleep 3
     partprobe -- "${usb_device}"
     echo
 
     # New gpt partition table
     _msg_info "Drive partitions"
     _msg_info "New gpt label"
-    if ! echo 'label: gpt' | sfdisk -W always -- "${usb_device}" > /dev/null; then
+    if ! echo 'label: gpt' | udevadm lock --device="${usb_device}" -- \
+            sfdisk -W always -- "${usb_device}" > /dev/null; then
         echo 'Failed to create new gpt partition table!'
         exit 1
     fi
-    sleep 5
+    sleep 3
     partprobe -- "${usb_device}"
 
     # partition #1 iso data
     _msg_info "partition #1, live partition: $(( _size_1st_part / 1024 / 1024 )) MiB"
-    if ! echo "$(( _start_1st_part )),$(( _sectors_1st_part )),${_part_type_linux}," | sfdisk -W always -- "${usb_device}" > /dev/null; then
+    if ! echo "$(( _start_1st_part )),$(( _sectors_1st_part )),${_part_type_linux}," | \
+            udevadm lock --device="${usb_device}" -- sfdisk -W always -- "${usb_device}" > /dev/null; then
         echo 'Failed to create new partition layout!'
         exit 1
     fi
-    sleep 5
+    sleep 3
 
     # partition #2 boot & efi partition
     _msg_info "partition #2, boot partition: $(( _size_2nd_part / 1024 / 1024 )) MiB"
-    if ! echo "$(( _start_2nd_part )),$(( _sectors_2nd_part )),${_part_type_msft}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
+    if ! echo "$(( _start_2nd_part )),$(( _sectors_2nd_part )),${_part_type_msft}," | \
+            udevadm lock --device="${usb_device}" -- sfdisk --append -W always -- "${usb_device}" > /dev/null; then
         echo 'Failed to create new partition layout!'
         exit 1
     fi
-    sleep 5
+    sleep 3
 
     # partition #3 persistent partition
     _msg_info "partition #3, persistent partition: $(( _size_3rd_part / 1024 / 1024 )) MiB"
-    if ! echo "$(( _start_3rd_part )),${_sectors_3rd_part:-},${_part_type_linux}," | sfdisk --append -W always -- "${usb_device}" > /dev/null; then
+    if ! echo "$(( _start_3rd_part )),${_sectors_3rd_part:-},${_part_type_linux}," | \
+            udevadm lock --device="${usb_device}" -- sfdisk --append -W always -- "${usb_device}" > /dev/null; then
         echo 'Failed to create new partition layout!'
         exit 1
     fi
-    sleep 5
+    sleep 3
 
     partprobe -- "${usb_device}"
     _msg_info "Done!"
@@ -482,7 +486,8 @@ _partitions() {
 
 _format_btrfs() {
     _msg_info "partition #3: type Btrfs, label ${cow_label}"
-    if ! flock -- "${cow_device}" mkfs.btrfs -L "${cow_label}" -- "${cow_device}" > /dev/null; then
+    if ! udevadm lock --device="${cow_device}" -- \
+            mkfs.btrfs -L "${cow_label}" -- "${cow_device}" > /dev/null; then
         echo 'Partition format failed!'
         exit 1
     fi
@@ -490,7 +495,8 @@ _format_btrfs() {
 
 _format_f2fs() {
     _msg_info "partition #3: type F2FS, label ${cow_label}"
-    if ! flock -- "${cow_device}" mkfs.f2fs -l "${cow_label}" -O encrypt,extra_attr,compression -- "${cow_device}" > /dev/null; then
+    if ! udevadm lock --device="${cow_device}" -- \
+            mkfs.f2fs -l "${cow_label}" -O encrypt,extra_attr,compression -- "${cow_device}" > /dev/null; then
         echo 'Partition format failed!'
         exit 1
     fi
@@ -498,7 +504,8 @@ _format_f2fs() {
 
 _format_ext4() {
     _msg_info "partition #3: type Ext4, label ${cow_label}"
-    if ! flock -- "${cow_device}" mkfs.ext4 -L "${cow_label}" -O encrypt -q -- "${cow_device}" > /dev/null; then
+    if ! udevadm lock --device="${cow_device}" -- \
+            mkfs.ext4 -L "${cow_label}" -O encrypt -q -- "${cow_device}" > /dev/null; then
         echo 'Partition format failed!'
         exit 1
     fi
@@ -514,12 +521,14 @@ _format() {
     echo
     _msg_info "Format partitions"
     _msg_info "partition #1: type Ext4, label ${img_label}"
-    if ! flock -- "${usb_device}1" mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usb_device}1" > /dev/null; then
+    if ! udevadm lock --device="${usb_device}1" -- \
+            mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usb_device}1" > /dev/null; then
         echo 'Partition format failed!'
         exit 1
     fi
     _msg_info "partition #2: type FAT, label ${esp_label}"
-    if ! flock -- "${usb_device}2" mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}2" &> /dev/null; then
+    if ! udevadm lock --device="${usb_device}2" -- \
+            mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}2" &> /dev/null; then
         echo 'Partition format failed!'
         exit 1
     fi
@@ -551,7 +560,7 @@ _mount() {
     if [[ "${rootfs}" == "btrfs" ]]; then
         _btrfs_subvolumes
         umount "${WD}/${workdir}/usbrw"
-        sleep 5
+        sleep 3
         # Mount rootfs subvolume
         mount -o "${cow_flags}" -- "${cow_device}" "${WD}/${workdir}/usbrw"
     fi
@@ -689,7 +698,7 @@ _persistence_btrfs_home() {
     mount -o subvol="${btrfs_subvol_home}" -- "${cow_device}" "${WD}/${workdir}/home"
     cp -aT -- "${WD}/${workdir}/squashfs/home/" "${WD}/${workdir}/home/"
     umount "${WD}/${workdir}/"{squashfs,home}
-    sleep 5
+    sleep 3
 }
 
 _persistence() {
@@ -730,7 +739,7 @@ _biosbootloader() {
         echo 'Bootloader installation failed!'
         exit 1
     fi
-    if ! sfdisk --part-attrs "${usb_device}" 2 LegacyBIOSBootable &> /dev/null; then
+    if ! sfdisk --lock --part-attrs "${usb_device}" 2 LegacyBIOSBootable &> /dev/null; then
         echo 'Bootloader installation failed!'
         exit 1
     fi
