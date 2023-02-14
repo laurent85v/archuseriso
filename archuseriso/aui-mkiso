@@ -482,10 +482,11 @@ _make_packages() {
     # Unset TMPDIR to work around https://bugs.archlinux.org/task/70580
     if [[ "${quiet}" = "y" ]]; then
         env -u TMPDIR \
-        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}" &> /dev/null
+          pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}" &> /dev/null || \
+          _msg_error 'Package installation failed! Use --verbose option for details.' 1
     else
         env -u TMPDIR \
-        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}"
+          pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -- "${pacstrap_dir}" "${buildmode_pkg_list[@]}"
     fi
 
     if [[ -v cert_list[0] ]]; then
@@ -513,10 +514,14 @@ _make_packages_testing() {
         export ARCHISO_GNUPG_FD
     fi
 
+    # Unset TMPDIR to work around https://bugs.archlinux.org/task/70580
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}" &> /dev/null
+        env -u TMPDIR \
+          pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}" &> /dev/null || \
+          _msg_error 'Package installation failed! Use --verbose option for details.' 1
     else
-        pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}"
+        env -u TMPDIR \
+          pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}"
     fi
 
     if [[ -n "${gpg_key}" ]]; then
@@ -548,8 +553,11 @@ _make_packages_upgrade() {
 
     # bind mount chroot-dir on itself to make it a mountpoint
     mount -o bind -- "${pacstrap_dir}" "${pacstrap_dir}"
+    # Unset TMPDIR to work around https://bugs.archlinux.org/task/70580
     if [[ "${quiet}" = "y" ]]; then
-        pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}" &> /dev/null
+        env -u TMPDIR \
+          pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}" &> /dev/null || \
+          _msg_error 'Package installation failed! Use --verbose option for details.' 1
     else
         pacstrap -C "${work_dir}/${buildmode}.pacman.conf" -c -G -M -U -- "${pacstrap_dir}" "${_pkg_upgrade[@]}"
     fi
@@ -595,7 +603,8 @@ _make_customize_airootfs() {
         chmod -f -- +x "${pacstrap_dir}/root/customize_airootfs_lang.sh"
         # Unset TMPDIR to work around https://bugs.archlinux.org/task/70580
         if [[ "${quiet}" == "y" ]]; then
-            eval -- env -u TMPDIR arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh"  &> /dev/null
+            eval -- env -u TMPDIR arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh"  &> /dev/null || \
+              _msg_error 'customize_airootfs_lang.sh failed! Use --verbose option for details.' 1
         else
             eval -- env -u TMPDIR arch-chroot "${pacstrap_dir}" "/root/customize_airootfs_lang.sh"
         fi
@@ -607,10 +616,11 @@ _make_customize_airootfs() {
         chmod -f -- +x "${pacstrap_dir}/root/customize_airootfs.sh"
         if [[ "${quiet}" == "y" ]]; then
             eval -- env -i "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
-                    arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh" &> /dev/null
+              arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh" &> /dev/null || \
+              _msg_error 'customize_airootfs.sh failed! Use --verbose option for details.' 1
         else
             eval -- env -i "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
-                    arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh"
+              arch-chroot "${pacstrap_dir}" "/root/customize_airootfs.sh"
         fi
         rm -- "${pacstrap_dir}/root/customize_airootfs.sh"
         _msg_info "Done!"
@@ -625,7 +635,8 @@ _make_setup_mkinitcpio() {
     fi
 
     if [[ "${quiet}" = "y" ]]; then
-        arch-chroot "${pacstrap_dir}" mkinitcpio -P &> /dev/null
+        arch-chroot "${pacstrap_dir}" mkinitcpio -P &> /dev/null || \
+          _msg_error 'Building initramfs failed! Use --verbose option for details.' 1
     else
         arch-chroot "${pacstrap_dir}" mkinitcpio -P
     fi
