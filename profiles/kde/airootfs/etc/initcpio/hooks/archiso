@@ -95,16 +95,22 @@ _mnt_dev() {
     local mnt="${2}"
     local flg="${3}"
     local opts="${4}"
+    local resolved_dev
 
     msg ":: Mounting '${dev}' to '${mnt}'"
 
-    while ! poll_device "${dev}" 30; do
-        echo "ERROR: '${dev}' device did not show up after 30 seconds..."
+    while ! resolved_dev="$(rootdelay="${rootdelay:-30}" resolve_device "${dev}")"; do
+        echo "ERROR: '${dev}' device did not show up after ${rootdelay:-30} seconds..."
         echo "   Falling back to interactive prompt"
         echo "   You can try to fix the problem manually, log out when you are finished"
         launch_interactive_shell
     done
 
+    # If the tag is supported by mount, pass it as is. Otherwise, use the resolved device path.
+    case "${dev}" in
+        'UUID='* | 'LABEL='* | 'PARTUUID='* | 'PARTLABEL='*) : ;;
+        *) dev="${resolved_dev}" ;;
+    esac
     if mount --mkdir -o "${opts}" "${flg}" "${dev}" "${mnt}"; then
         msg ":: Device '${dev}' mounted successfully."
     else
@@ -202,7 +208,7 @@ run_hook() {
 # args: /path/to/newroot
 archiso_mount_handler() {
     local newroot="${1}"
-    local sigfile cms_sigfile fs_img fs_img_size
+    local sigfile cms_sigfile fs_img fs_img_size iso_blockdev
 
     if ! mountpoint -q "/run/archiso/bootmnt"; then
         _mnt_dev "${archisodevice}" "/run/archiso/bootmnt" "-r" "defaults"
@@ -281,13 +287,17 @@ archiso_mount_handler() {
         fi
     fi
 
-    # Enable copytoram if the root file system image size is less than 4 GiB and if the estimated available memory is
-    # more than the root file system image size + 2 GiB
+    # Enable copytoram if the following conditions apply:
+    # * the root file system image is not on an optical disc drive,
+    # * the root file system image size is less than 4 GiB,
+    # * the estimated available memory is more than the root file system image size + 2 GiB.
     if [ "${copytoram}" = "auto" ]; then
-        fs_img_size="$(du -bsk "$fs_img" | cut -f 1)"
-
-        if [ "$fs_img_size" -lt 4194304 ] && [ "$(awk '$1 == "MemAvailable:" { print $2 }' /proc/meminfo)" -gt $((fs_img_size + 2097152)) ]; then
-            copytoram="y"
+        iso_blockdev="$(realpath "$(resolve_device "$archisodevice")")"
+        if [ "$iso_blockdev" = "${iso_blockdev##/dev/sr}" ]; then
+            fs_img_size="$(du -bsk "$fs_img" | cut -f 1)"
+            if [ "$fs_img_size" -lt 4194304 ] && [ "$(awk '$1 == "MemAvailable:" { print $2 }' /proc/meminfo)" -gt $((fs_img_size + 2097152)) ]; then
+                copytoram="y"
+            fi
         fi
     fi
     if [ "${copytoram}" = "y" ]; then
