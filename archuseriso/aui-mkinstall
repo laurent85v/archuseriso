@@ -36,7 +36,7 @@ usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v7"
+valid_medium_version="v8"
 zroot=""
 
 _usage() {

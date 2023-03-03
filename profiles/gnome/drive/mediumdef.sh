@@ -15,7 +15,7 @@ iso_label="%ARCHISO_LABEL%"
 iso_name="%ISO_NAME%"
 iso_version="%ISO_VERSION%"
 lang="%LANG%"
-medium_version='v7'
+medium_version='v8'
 root_label=ROOT${aui_suffix,,}
 cow_files_settings=(
         "persistent_${img_label}/x86_64/upperdir/etc/fstab")

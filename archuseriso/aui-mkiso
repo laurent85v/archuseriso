@@ -848,10 +848,9 @@ _make_bootmode_bios.syslinux.mbr() {
     # Add other aditional/extra files to ${install_dir}/boot/
     if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.bin" ]]; then
         # rename for PXE: https://wiki.archlinux.org/title/Syslinux#Using_memtest
-        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/${install_dir}/boot/memtest"
-        install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/" 
-        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/common/GPL2/license.txt" \
-            "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
+        install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
+        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/boot/memtest86+/memtest"
+        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/common/GPL2/license.txt" "${isofs_dir}/boot/memtest86+/"
     fi
     _msg_info "Done!"
 }
@@ -874,7 +873,8 @@ _make_boot_on_fat() {
     local -a _all_ucode_images=()
     _msg_info "Preparing kernel and initramfs for the FAT file system..."
     mmd -i "${efibootimg}" \
-        "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}"
+        "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}" \
+        "::/boot" "::/boot/memtest86+"
     mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/vmlinuz-"* \
         "${pacstrap_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
     for _ucode_image in "${ucodes[@]}"; do
@@ -955,17 +955,16 @@ _ed2k-shellx64.eltorito() {
 _memtest86.esp() {
     # Add other aditional/extra files to efibootimg ${install_dir}/boot/
     if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
-        mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/memtest86+/memtest.efi" "::/${install_dir}/boot/"
+        mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/memtest86+/memtest.efi" "::/boot/memtest86+/"
     fi
 }
 
 _memtest86.eltorito() {
     # Add other aditional/extra files to ${install_dir}/boot/
     if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
-        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.efi" "${isofs_dir}/${install_dir}/boot/"
-        install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
-        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/common/GPL2/license.txt" \
-            "${isofs_dir}/${install_dir}/boot/licenses/memtest86+/"
+        install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
+        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.efi" "${isofs_dir}/boot/memtest86+/memtest.efi"
+        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/common/GPL2/license.txt" "${isofs_dir}/boot/memtest86+/"
     fi
 }
 
@@ -1302,8 +1301,12 @@ _make_drive() {
     fi
 
     # live kernel, initramfs, efi shell, memtest86+
+    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/"
+    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/x86_64/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/licenses/"
+    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/"
+    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
             if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
                 ln -s -- "../../../../../${install_dir}/boot/${_ucode_image}" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
@@ -1315,11 +1318,11 @@ _make_drive() {
                      "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/licenses/${_license##*/}"
         done
     fi
-    if [[ -f "${isofs_dir}/${install_dir}/boot/memtest" ]]; then
-        ln -s -- "../../../../../${install_dir}/boot/memtest" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
+    if [[ -f "${isofs_dir}/boot/memtest86+/memtest" ]]; then
+        ln -s -- "../../../../../boot/memtest86+/memtest" "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
     fi
-    if [[ -f "${isofs_dir}/${install_dir}/boot/memtest.efi" ]]; then
-        ln -s -- "../../../../../${install_dir}/boot/memtest.efi" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
+    if [[ -f "${isofs_dir}/boot/memtest86+/memtest.efi" ]]; then
+        ln -s -- "../../../../../boot/memtest86+/memtest.efi" "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
     fi
     for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
                    "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
