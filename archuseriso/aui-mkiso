@@ -690,27 +690,55 @@ _fat_image_efiboot_files_grub_common() {
 
     # Prepare grub.cfg that will be embedded inside the GRUB binaries
     IFS='' read -r -d '' grubembedcfg <<'EOF' || true
-regexp --set=1:isodevice '(^\([^)]+\))\/?[Ee][Ff][Ii]\/?' "$cmdpath"
+regexp --set=1:archiso_bootdevice '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/?' "$cmdpath"
 if ! [ -d "$cmdpath" ]; then
      # On some firmware, GRUB has a wrong cmdpath when booted from an optical disc. During El Torito boot, GRUB is
      # launched from a case-insensitive FAT-formatted EFI system partition, but it seemingly cannot access that partition
      # and sets cmdpath to the whole cd# device which has case-sensitive ISO 9660 + Rock Ridge + Joliet file systems.
      # See https://gitlab.archlinux.org/archlinux/archiso/-/issues/183 and https://savannah.gnu.org/bugs/?62886
-     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
-         cmdpath="${isodevice}/EFI/BOOT"
+     if regexp '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
+         set cmdpath="(${archiso_bootdevice})/EFI/BOOT"
+         set ARCHISO_HINT="${archiso_bootdevice}"
      fi
-     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
-         cmdpath="${isodevice}/EFI/grub"
+     if regexp '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
+         set cmdpath="(${archiso_bootdevice})/EFI/grub"
+         set ARCHISO_HINT="${archiso_bootdevice}"
      fi
 fi
-configfile "${isodevice}/EFI/grub/grub.cfg"
+
+# Prepare a hint for the search command using the device in cmdpath
+if [ -z "${ARCHISO_HINT}" ]; then
+    regexp --set=1:ARCHISO_HINT '^\(([^)]+)\)' "${cmdpath}"
+fi
+
+# Search for the ISO volume
+if search --no-floppy --set=archiso_device --file '/.disk/%UUID_SEARCH_FILENAME%.uuid' --hint "${ARCHISO_HINT}"; then
+    set ARCHISO_HINT="${archiso_device}"
+    if probe --set ARCHISO_UUID --fs-uuid "${ARCHISO_HINT}"; then
+        export ARCHISO_UUID
+    fi
+else
+    echo "Could not find a volume with a '/.disk/%UUID_SEARCH_FILENAME%.uuid' file on it!"
+fi
+
+# Load grub.cfg
+if [ "${ARCHISO_HINT}" == 'memdisk' -o -z "${ARCHISO_HINT}" ]; then
+    echo 'Could not find the ISO volume!'
+elif [ -e "(${ARCHISO_HINT})/EFI/BOOT/grub.cfg" ]; then
+    export ARCHISO_HINT
+    set root="${ARCHISO_HINT}"
+    configfile "(${ARCHISO_HINT})/EFI/BOOT/grub.cfg"
+elif [ -e "(${ARCHISO_HINT})/EFI/grub/grub.cfg" ]; then
+    export ARCHISO_HINT
+    set root="${ARCHISO_HINT}"
+    configfile "(${ARCHISO_HINT})/EFI/grub/grub.cfg"
+else
+    echo "File '(${ARCHISO_HINT})/EFI/BOOT/grub.cfg' not found!"
+    echo "File '(${ARCHISO_HINT})/EFI/grub/grub.cfg' not found!"
+fi
 EOF
-
+    grubembedcfg="${grubembedcfg//'%UUID_SEARCH_FILENAME%'/"${uuid_search_filename}"}"
     printf '%s\n' "$grubembedcfg" > "${work_dir}/grub-embed.cfg"
-
-    # Add all GRUB files to the list of files used to calculate the required FAT image size.
-    efiboot_files+=("${work_dir}/grub/"
-                    "${profile}/efiboot/grub/"!(*.cfg))
 }
 
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
@@ -968,18 +996,7 @@ _memtest86.eltorito() {
     fi
 }
 
-# Copy GRUB files to efiboot.img which is used by both IA32 UEFI and x64 UEFI.
-_make_common_bootmode_grub_copy_to_efibootimg() {
-    local _files_to_copy=()
-
-    _files_to_copy+=("${work_dir}/grub/"*)
-    if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
-        _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
-    fi
-    mcopy -i "${efibootimg}" "${_files_to_copy[@]}" ::/EFI/grub/
-}
-
-# Copy GRUB files to efiboot.img which is used by both IA32 UEFI and x64 UEFI.
+# Copy GRUB files to ISO 9660 which is used by both IA32 UEFI and x64 UEFI
 _make_common_bootmode_grub_copy_to_isofs() {
     local _files_to_copy=()
 
@@ -987,6 +1004,7 @@ _make_common_bootmode_grub_copy_to_isofs() {
     if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
         _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
     fi
+    install -d -m 0755 -- "${isofs_dir}/EFI/grub/"
     install -m 0644 -- "${_files_to_copy[@]}" "${isofs_dir}/EFI/grub/"
 }
 
@@ -1004,9 +1022,6 @@ _make_bootmode_uefi-ia32.grub.esp() {
     # Copy GRUB EFI binary to the default/fallback boot path
     mcopy -i "${efibootimg}" \
              "${work_dir}/grubia32.efi" ::/EFI/grub
-
-    # Copy GRUB configuration files
-    _run_once _make_common_bootmode_grub_copy_to_efibootimg
 
     # shellia32.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
@@ -1033,7 +1048,7 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
     install -m 0644 -- "${work_dir}/grubia32.efi" \
         "${isofs_dir}/EFI/grub/grubia32.efi"
 
-    # Copy GRUB configuration files
+    # Copy GRUB files
     _run_once _make_common_bootmode_grub_copy_to_isofs
 
     # edk2-shell based UEFI shell
@@ -1061,7 +1076,8 @@ _make_bootmode_uefi-x64.grub.esp() {
     mcopy -i "${efibootimg}" \
         "${work_dir}/grubx64.efi" ::/EFI/grub/
 
-    _run_once _make_common_bootmode_grub_copy_to_efibootimg
+    # Copy GRUB files
+    _run_once _make_common_bootmode_grub_copy_to_isofs
 
     _msg_info "Done! GRUB set up for UEFI booting successfully."
 }
@@ -1082,7 +1098,7 @@ _make_bootmode_uefi-x64.grub.eltorito() {
     install -m 0644 -- "${work_dir}/grubx64.efi" \
         "${isofs_dir}/EFI/grub/"
 
-    # Copy GRUB configuration files
+    # Copy GRUB files
     _run_once _make_common_bootmode_grub_copy_to_isofs
 
     _run_once _ed2k-shellx64.eltorito

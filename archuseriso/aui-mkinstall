@@ -615,18 +615,18 @@ _make_grub_efi_binary() {
     local _grubmodules=()
 
     IFS='' read -r -d '' grubembedcfg <<'EOF' || true
-regexp --set=1:isodevice '(^\([^)]+\))\/?[Ee][Ff][Ii]\/?' "$cmdpath"
+regexp --set=1:archiso_bootdevice '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/?' "$cmdpath"
 if ! [ -d "$cmdpath" ]; then
      # On some firmware, GRUB has a wrong cmdpath when booted from an optical disc.
      # https://gitlab.archlinux.org/archlinux/archiso/-/issues/183
-     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
-         cmdpath="${isodevice}/EFI/BOOT"
+     if regexp '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
+         cmdpath="${archiso_bootdevice}/EFI/BOOT"
      fi
-     if regexp '(^\([^)]+\))\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
-         cmdpath="${isodevice}/EFI/grub"
+     if regexp '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
+         cmdpath="${archiso_bootdevice}/EFI/grub"
      fi
 fi
-configfile "${isodevice}/EFI/grub/grub.cfg"
+configfile "(${archiso_bootdevice})/EFI/grub/grub.cfg"
 EOF
 
 printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
