@@ -80,7 +80,7 @@ _msg_info() {
 
 _cleanup() {
     local _workdirs
-    _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/home' 'usbrw/boot' 'usbesp' 'usbrw')
+    _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/home' 'usbrw/esp' 'usbesp' 'usbrw')
     for _workdir in ${_workdirs[*]}; do
         if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
             umount -- "${WD}/${workdir}/${_workdir}"
@@ -137,19 +137,19 @@ _encryption_settings() {
     _msg_info "Done!"
     if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/boot/EFI/grub/grub.cfg"
+                  "${WD}/${workdir}/usbrw/esp/boot/grub/grub.cfg"
     fi
     if [[ "${bootmodes[*]}" =~ 'uefi-x64.refind.esp' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/boot/refind_linux.conf"
+                  "${WD}/${workdir}/usbrw/esp/refind_linux.conf"
     fi
     if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/boot/loader/entries/"*.conf
+                  "${WD}/${workdir}/usbrw/esp/loader/entries/"*.conf
     fi
     if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
         sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
+                  "${WD}/${workdir}/usbrw/esp/syslinux/archiso_sys-linux.cfg"
     fi
     _msg_info "Done!"
 }
@@ -550,7 +550,7 @@ _copy() {
     cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usbrw"
     # Copy hybrid setup
     cp -aT -- "${WD}/${workdir}/iso/.drive/hybrid/auirootfs" "${WD}/${workdir}/usbrw"
-    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/boot"
+    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/esp"
     _msg_info "Done!"
 }
 
@@ -572,7 +572,7 @@ if ! [ -d "$cmdpath" ]; then
          cmdpath="${archiso_bootdevice}/EFI/grub"
      fi
 fi
-configfile "(${archiso_bootdevice})/EFI/grub/grub.cfg"
+configfile "(${archiso_bootdevice})/boot/grub/grub.cfg"
 EOF
 
     printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
@@ -596,7 +596,7 @@ EOF
 
 _esp_bootloader_cfg_uefi-ia32.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/EFI/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/boot/"
 
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
 
@@ -606,7 +606,7 @@ _esp_bootloader_cfg_uefi-ia32.grub.esp() {
 
 _esp_bootloader_cfg_uefi-x64.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/EFI/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/boot/"
 
     _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
 }

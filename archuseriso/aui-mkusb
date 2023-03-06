@@ -82,7 +82,7 @@ _msg_info() {
 
 _cleanup() {
     local _workdirs
-    _workdirs=('overlay/boot' 'overlay' 'squashfs' 'home' 'iso' 'usbro' 'usbesp' 'usbrw')
+    _workdirs=('overlay/esp' 'overlay' 'squashfs' 'home' 'iso' 'usbro' 'usbesp' 'usbrw')
     for _workdir in ${_workdirs[*]}; do
         if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
             umount -- "${WD}/${workdir}/${_workdir}"
@@ -137,7 +137,7 @@ _encryption_settings() {
     mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
     mkdir -p -- "${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir"
     mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
-    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/overlay/boot"
+    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/overlay/esp"
     sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
     _msg_info "initramfs update"
     arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
@@ -145,19 +145,19 @@ _encryption_settings() {
     if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
         sed -i -- "s|: persistence|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/overlay/boot/EFI/grub/grub.cfg"
+                  "${WD}/${workdir}/overlay/esp/boot/grub/grub.cfg"
     fi
     if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
         sed -i -- "s|persistence$|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/overlay/boot/loader/entries/"*.conf
+                  "${WD}/${workdir}/overlay/esp/loader/entries/"*.conf
     fi
     if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
         sed -i -- "s|persistence$|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
+                  "${WD}/${workdir}/overlay/esp/syslinux/archiso_sys-linux.cfg"
     fi
-    umount -- "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+    umount -- "${WD}/${workdir}/overlay/esp" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
     sleep 3
     rmdir -- "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
     _msg_info "Done!"
@@ -593,7 +593,7 @@ if ! [ -d "$cmdpath" ]; then
          cmdpath="${archiso_bootdevice}/EFI/grub"
      fi
 fi
-configfile "(${archiso_bootdevice})/EFI/grub/grub.cfg"
+configfile "(${archiso_bootdevice})/boot/grub/grub.cfg"
 EOF
 
     printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
@@ -617,7 +617,7 @@ EOF
 
 _esp_bootloader_cfg_uefi-ia32.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/EFI/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/boot/"
 
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
 
@@ -627,7 +627,7 @@ _esp_bootloader_cfg_uefi-ia32.grub.esp() {
 
 _esp_bootloader_cfg_uefi-x64.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/EFI/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/boot/"
 
     _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
 }

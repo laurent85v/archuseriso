@@ -724,17 +724,12 @@ fi
 # Load grub.cfg
 if [ "${ARCHISO_HINT}" == 'memdisk' -o -z "${ARCHISO_HINT}" ]; then
     echo 'Could not find the ISO volume!'
-elif [ -e "(${ARCHISO_HINT})/EFI/BOOT/grub.cfg" ]; then
+elif [ -e "(${ARCHISO_HINT})/boot/grub/grub.cfg" ]; then
     export ARCHISO_HINT
     set root="${ARCHISO_HINT}"
-    configfile "(${ARCHISO_HINT})/EFI/BOOT/grub.cfg"
-elif [ -e "(${ARCHISO_HINT})/EFI/grub/grub.cfg" ]; then
-    export ARCHISO_HINT
-    set root="${ARCHISO_HINT}"
-    configfile "(${ARCHISO_HINT})/EFI/grub/grub.cfg"
+    configfile "(${ARCHISO_HINT})/boot/grub/grub.cfg"
 else
-    echo "File '(${ARCHISO_HINT})/EFI/BOOT/grub.cfg' not found!"
-    echo "File '(${ARCHISO_HINT})/EFI/grub/grub.cfg' not found!"
+    echo "File '(${ARCHISO_HINT})/boot/grub/grub.cfg' not found!"
 fi
 EOF
     grubembedcfg="${grubembedcfg//'%UUID_SEARCH_FILENAME%'/"${uuid_search_filename}"}"
@@ -1004,8 +999,8 @@ _make_common_bootmode_grub_copy_to_isofs() {
     if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
         _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
     fi
-    install -d -m 0755 -- "${isofs_dir}/EFI/grub/"
-    install -m 0644 -- "${_files_to_copy[@]}" "${isofs_dir}/EFI/grub/"
+    install -d -m 0755 -- "${isofs_dir}/boot/grub/"
+    install -m 0644 -- "${_files_to_copy[@]}" "${isofs_dir}/boot/grub/"
 }
 
 _make_bootmode_uefi-ia32.grub.esp() {
@@ -1300,29 +1295,29 @@ _make_drive() {
         image_name="${iso_name}-${iso_version}-x64.iso"
     fi
 
+    # Copy drive profile
     cp -aT --no-preserve=ownership -- "${profile}/drive/" "${isofs_dir}/.drive/"
     printf 'bootmodes=( %s )\n' "${bootmodes[*]}" >> "${isofs_dir}/.drive/mediumdef.sh"
     printf 'x64_uefi_default_bootloader="%s"\n' "${x64_uefi_default_bootloader}" >> "${isofs_dir}/.drive/mediumdef.sh"
 
     mv -- "${isofs_dir}/.drive/liveusb/persistent" "${isofs_dir}/.drive/liveusb/persistent_${iso_label}"
 
-    ### esp
+    ### esp framework
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/"
-    ln -s -- "../liveusb/esp" "${isofs_dir}/.drive/hybrid/esp"
-    ln -s -- "../liveusb/esp" "${isofs_dir}/.drive/install/esp"
-
-    # syslinux
-    if [[ -d "${isofs_dir}/syslinux" ]]; then
-        ln -s -- "../../../syslinux" "${isofs_dir}/.drive/liveusb/esp/syslinux"
-    fi
-
-    # live kernel, initramfs, efi shell, memtest86+
+    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/x86_64/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/licenses/"
-    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/"
-    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
+    ln -s -- "../liveusb/esp" "${isofs_dir}/.drive/hybrid/esp"
+    ln -s -- "../liveusb/esp" "${isofs_dir}/.drive/install/esp"
+
+    # syslinux config
+    if [[ -d "${isofs_dir}/syslinux" ]]; then
+        ln -s -- "../../../syslinux" "${isofs_dir}/.drive/liveusb/esp/syslinux"
+    fi
+
+    # live kernel, live initramfs, efi shell, memtest86+
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
             if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
                 ln -s -- "../../../../../${install_dir}/boot/${_ucode_image}" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
@@ -1335,9 +1330,11 @@ _make_drive() {
         done
     fi
     if [[ -f "${isofs_dir}/boot/memtest86+/memtest" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
         ln -s -- "../../../../../boot/memtest86+/memtest" "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
     fi
     if [[ -f "${isofs_dir}/boot/memtest86+/memtest.efi" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
         ln -s -- "../../../../../boot/memtest86+/memtest.efi" "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
     fi
     for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
@@ -1357,6 +1354,9 @@ _make_drive() {
                    "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
         ln -s -- "../../../${install_dir}/boot/x86_64/${_kernel##*/}" "${work_dir}/iso/.drive/liveusb/esp/"
     done
+
+    # symbolic links needed by the scripts used for making usb drives
+    [[ -d "${isofs_dir}/boot/grub" ]] && ln -s -- ../../../../boot/grub "${isofs_dir}/.drive/liveusb/esp/boot/grub"
     [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../../loader "${isofs_dir}/.drive/liveusb/esp/loader"
     [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../../EFI/BOOT "${isofs_dir}/.drive/liveusb/esp/EFI/BOOT"
     [[ -d "${isofs_dir}/EFI/grub" ]] && ln -s -- ../../../../EFI/grub "${isofs_dir}/.drive/liveusb/esp/EFI/grub"
@@ -1365,6 +1365,7 @@ _make_drive() {
     [[ -f "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/.drive/liveusb/esp/shellx64.efi"
     [[ -f "${isofs_dir}/shellia32.efi" ]] && ln -s -- ../../../shellia32.efi "${isofs_dir}/.drive/liveusb/esp/shellia32.efi"
 
+    # mediumdef.sh data used for making usb drives
     if [[ -f "${isofs_dir}/.drive/mediumdef.sh" ]]; then
         # Set medium def
         sed -i "s|%DESKTOP%|${desktop}|g;
@@ -1375,19 +1376,23 @@ _make_drive() {
                 s|%LANG%|${lang}|g" \
                 "${isofs_dir}/.drive/mediumdef.sh"
     fi
+
+    # bootloaders configs used for making removable usb drives
     for drivefile in "${isofs_dir}/.drive/liveusb/loader/entries/"*.conf          \
                      "${isofs_dir}/.drive/hybrid/loader/entries/"*.conf           \
-                     "${isofs_dir}/.drive/install/loader/entries/"*.conf           \
+                     "${isofs_dir}/.drive/install/loader/entries/"*.conf          \
                      "${isofs_dir}/.drive/liveusb/grub/grub.cfg"                  \
                      "${isofs_dir}/.drive/hybrid/grub/grub.cfg"                   \
-                     "${isofs_dir}/.drive/install/grub/grub.cfg"                   \
+                     "${isofs_dir}/.drive/install/grub/grub.cfg"                  \
                      "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
-                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg" \
+                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"  \
                      "${isofs_dir}/.drive/install/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${drivefile}" ]]; then
             sed -i "s|%INSTALL_DIR%|${install_dir}|g;s|%DESKTOP%|${desktop}|g" "${drivefile}"
         fi
     done
+
+    # user data added to iso image
     if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
         cp -aT --no-preserve=ownership "${embed_dir}" "${isofs_dir}/data"
     fi
