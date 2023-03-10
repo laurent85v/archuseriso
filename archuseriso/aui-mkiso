@@ -666,7 +666,7 @@ _fat_image_efiboot_files_common_x64() {
     [[ -f "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]] && efiboot_files+=("${pacstrap_dir}/boot/memtest86+/memtest.efi")
 }
 
-_fat_image_efiboot_files_grub_common() {
+_make_common_bootmode_grub_cfg() {
     local _cfg
     local _cfg uuid_search_filename
 
@@ -751,7 +751,7 @@ EOF
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
     local _grubmodules=()
 
-    _run_once _fat_image_efiboot_files_grub_common
+    _run_once _make_common_bootmode_grub_cfg
 
     # Create EFI binary
     # Module list from https://bugs.archlinux.org/task/71382#comment202911
@@ -778,7 +778,7 @@ _fat_image_efiboot_files_uefi-ia32.grub.esp() {
 _fat_image_efiboot_files_uefi-x64.grub.esp() {
     local _grubmodules=()
 
-    _run_once _fat_image_efiboot_files_grub_common
+    _run_once _make_common_bootmode_grub_cfg
 
     # Create EFI binary
     # Module list from https://bugs.archlinux.org/task/71382#comment202911
