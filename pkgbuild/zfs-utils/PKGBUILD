@@ -49,6 +49,7 @@ build() {
                 --with-mounthelperdir=/usr/bin \
                 --with-udevdir=/usr/lib/udev \
                 --libexecdir=/usr/lib/zfs \
+                --localstatedir=/var \
                 --with-python="$PWD/python3-fake" \
                 --enable-pyzfs=no \
                 --enable-systemd \
