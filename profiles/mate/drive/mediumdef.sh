@@ -26,8 +26,8 @@ esp_files_settings=(
         'loader/entries/archiso_2_console-x86_64-linux.conf'
         'loader/entries/archiso_3_ram-x86_64-linux.conf'
         'loader/entries/archiso_5_memtest86-x86_64-linux.conf'
-        'syslinux/archiso_pxe-linux.cfg'
-        'syslinux/archiso_sys-linux.cfg'
+        'boot/syslinux/archiso_pxe-linux.cfg'
+        'boot/syslinux/archiso_sys-linux.cfg'
         'boot/grub/grub.cfg')
 root_files_settings=(
         'etc/fstab'

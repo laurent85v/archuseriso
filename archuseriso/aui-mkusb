@@ -155,7 +155,7 @@ _encryption_settings() {
     if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
         sed -i -- "s|persistence$|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/overlay/esp/syslinux/archiso_sys-linux.cfg"
+                  "${WD}/${workdir}/overlay/esp/boot/syslinux/archiso_sys-linux.cfg"
     fi
     umount -- "${WD}/${workdir}/overlay/esp" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
     sleep 3
@@ -658,7 +658,7 @@ _esp() {
     _msg_info "ESP setup"
     _msg_info "Copy to ${WD}/${workdir}/usbesp"
     cp -LrT -- "${WD}/${workdir}/iso/.drive/liveusb/esp" "${WD}/${workdir}/usbesp/"
-    cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/syslinux" "${WD}/${workdir}/usbesp/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/syslinux" "${WD}/${workdir}/usbesp/boot/"
 
     # EFI boot loader setup
     for bootmode in "${bootmodes[@]}"; do
@@ -731,7 +731,7 @@ _persistence() {
 _biosbootloader() {
     echo
     _msg_info "Install boot loader"
-    if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
+    if ! syslinux --directory boot/syslinux --install -- "${usb_device}2" &> /dev/null; then
         echo 'Bootloader installation failed!'
         exit 1
     fi
