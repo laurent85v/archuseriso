@@ -132,7 +132,7 @@ usage: ${app_name} [options] <profile_dir>
                                         Default: '${iso_label}'
      -l, --language <lang>              Set default language, select one from:
                                         cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
-     -m, --build-modes [build modes]    Build modes to use (valid modes are: 'bootstrap' and 'iso').
+     -m, --build-modes [build modes]    Build modes to use (valid modes are: 'bootstrap', 'img' and 'iso').
                                         Multiple build modes are provided as quoted, comma delimited list.
      -o <out_dir>                       Set the output directory
                                         Default: '${out_dir}'
@@ -318,7 +318,7 @@ _mk_pgp_signature() {
 }
 
 _mkchecksum_iso() {
-    _msg_info "Creating iso image checksum file..."
+    _msg_info "Creating checksum file..."
     cd -- "${out_dir}"
     sha512sum "${image_name}" > "${image_name}.sha512"
     cd -- "${OLDPWD}"
@@ -714,7 +714,6 @@ fi
 
 # Search for the ISO volume
 if search --no-floppy --set=archiso_device --file '%ARCHISO_SEARCH_FILENAME%' --hint "${ARCHISO_HINT}"; then
-
     set ARCHISO_HINT="${archiso_device}"
     if probe --set ARCHISO_UUID --fs-uuid "${ARCHISO_HINT}"; then
         export ARCHISO_UUID
@@ -1295,7 +1294,7 @@ _make_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
 
 # Run uefi default boot loader configuration
 _make_x64_uefi_default_bootloader() {
-    _make_x64_uefi_default_bootloader_"${x64_uefi_default_bootloader}"
+    _run_once _make_x64_uefi_default_bootloader_"${x64_uefi_default_bootloader}"
 
     if [[ " ${bootmodes[*]} " =~ ' uefi-ia32.grub.esp ' ]]; then
         _run_once _make_x64_uefi_default_bootloader_uefi-ia32.grub.esp
@@ -1306,7 +1305,7 @@ _make_x64_uefi_default_bootloader() {
 # ISO data used by aui-mkusb, aui-mkhybrid and aui-mkinstall tools
 _make_drive() {
     if [[ -z "${image_name}" ]]; then
-        image_name="${iso_name}-${iso_version}-x64.iso"
+        image_name="${iso_name}-${iso_version}-x64"
     fi
 
     # Copy drive profile
@@ -1836,6 +1835,10 @@ _validate_requirements_buildmode_iso() {
     fi
 }
 
+_validate_requirements_buildmode_img() {
+    _validate_requirements_buildmode_iso
+}
+
 _validate_requirements_buildmode_netboot() {
     _validate_common_requirements_buildmode_iso_netboot
     _validate_common_requirements_buildmode_all
@@ -2050,6 +2053,8 @@ _build_iso_image() {
     local xorriso_options=() xorrisofs_options=()
     local bootmode
 
+    image_name="${image_name%.img}.iso"
+
     [[ -d "${out_dir}" ]] || install -d -- "${out_dir}"
 
     if [[ "${quiet}" == "y" ]]; then
@@ -2089,6 +2094,97 @@ _build_iso_image() {
             -output "${out_dir}/${image_name}" \
             "${isofs_dir}/"
     fi
+    _mkchecksum_iso
+    if [[ -n "${gpg_key}" ]]; then
+        _mksignature_iso
+    fi
+    _msg_info "Done!"
+    echo
+    _msg_info "$(du -h -- "${out_dir}/${image_name}")"
+}
+
+
+_umount_img() {
+    local _loopdevice
+    _loopdevice="$(losetup -ln -O name -j "${out_dir}/${image_name}")"
+    if mountpoint -q -- "${work_dir}/img"; then
+        umount "${work_dir}/img"
+    fi
+    if [[ -n "${_loopdevice}" ]]; then
+        losetup -d "${_loopdevice}"
+    fi
+}
+
+# Build IMG
+_build_img_image() {
+    trap _umount_img EXIT
+    local bootmode
+    local _imgsize _loopdevice
+
+    image_name="${image_name%.iso}.img"
+
+    [[ -d "${out_dir}" ]] || install -d -- "${out_dir}"
+
+    rm -f -- "${out_dir}/${image_name}"
+    _msg_info "Creating GPT disk image..."
+
+    # IMG size : iso size + 128M
+    _imgsize=$(( $(du -bs "${isofs_dir}" | awk '{print $1}') + 128 * 1048576 ))
+
+    # Create IMG file
+    truncate -s "${_imgsize}" "${out_dir}/${image_name}"
+
+    # Format IMG file
+    _loopdevice=$(losetup -f --show "${out_dir}/${image_name}" 2> /dev/null || \
+                  { echo 'Failed to create loop device'; exit 1; } )
+    if ! echo 'label: gpt' | udevadm lock --device="${_loopdevice}" -- \
+            sfdisk -W always -- "${_loopdevice}" &> /dev/null; then
+        echo 'Failed to create new gpt partition table!'
+        exit 1
+    fi
+    sleep 3
+    partprobe -- "${_loopdevice}"
+
+    if ! echo "2048,,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7," | \
+            udevadm lock --device="${_loopdevice}" -- sfdisk -W always -- "${_loopdevice}" &> /dev/null; then
+        echo 'Failed to create partition!'
+        exit 1
+    fi
+    sleep 3
+    partprobe -- "${_loopdevice}"
+
+    if ! udevadm lock --device="${_loopdevice}p1" -- \
+            mkfs.fat -F32 -n "${iso_label}" -- "${_loopdevice}p1" &> /dev/null; then
+        echo 'Partition format failed!'
+        exit 1
+    fi
+
+    # Mount IMG
+    install -d -m 0755 "${work_dir}/img"
+    mount -- "${_loopdevice}p1" "${work_dir}/img"
+
+    # Copy to IMG
+    cp -r "${work_dir}/iso/"!(.drive) "${work_dir}/img"
+
+    # Unmount IMG
+    umount "${work_dir}/img"
+
+    # Bios boot loader
+    if ! syslinux --directory boot/syslinux --install -- "${_loopdevice}p1" &> /dev/null; then
+        echo 'Bootloader installation failed!'
+        exit 1
+    fi
+    if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${_loopdevice}" 2> /dev/null; then
+        echo 'Bootloader installation failed!'
+        exit 1
+    fi
+    if ! sfdisk --lock --part-attrs "${_loopdevice}" 1 LegacyBIOSBootable &> /dev/null; then
+        echo 'Bootloader installation failed!'
+        exit 1
+    fi
+    # Remove loop device
+    losetup -d "${_loopdevice}"
+
     _mkchecksum_iso
     if [[ -n "${gpg_key}" ]]; then
         _mksignature_iso
@@ -2273,7 +2369,7 @@ _make_version() {
     local osrelease
 
     _msg_info "Creating version files..."
-    if [[ "${buildmode}" == @("iso"|"netboot") ]]; then
+    if [[ "${buildmode}" == @("img"|"iso"|"netboot") ]]; then
         if [[ -z "${iso_version}" ]]; then
             iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
                            cut -d' ' -f2 |                                                        \
@@ -2363,7 +2459,7 @@ _build_iso_base() {
         _run_once _make_boot_on_iso9660
     else
         _make_bootmodes
-        _make_x64_uefi_default_bootloader
+        _run_once _make_x64_uefi_default_bootloader
     fi
     _run_once _cleanup_pacstrap_dir
     _run_once _make_drive
@@ -2412,10 +2508,16 @@ _build_buildmode_netboot() {
 
 # Build the ISO buildmode
 _build_buildmode_iso() {
-    local image_name=""
     local run_once_mode="${buildmode}"
     _build_iso_base
     _run_once _build_iso_image
+}
+
+# Build the IMG buildmode
+_build_buildmode_img() {
+    local run_once_mode="${buildmode}"
+    _build_iso_base
+    _run_once _build_img_image
 }
 
 # build all buildmodes
