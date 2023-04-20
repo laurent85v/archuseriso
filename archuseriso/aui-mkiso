@@ -2107,19 +2107,53 @@ _build_iso_image() {
 _umount_img() {
     local _loopdevice
     _loopdevice="$(losetup -ln -O name -j "${out_dir}/${image_name}")"
-    if mountpoint -q -- "${work_dir}/img"; then
-        umount "${work_dir}/img"
+    if mountpoint -q -- "${work_dir}/imgp1"; then
+        umount "${work_dir}/imgp1"
+    fi
+    if mountpoint -q -- "${work_dir}/imgp2"; then
+        umount "${work_dir}/imgp2"
+    fi
+    if mountpoint -q -- "${work_dir}/imgp3"; then
+        umount "${work_dir}/imgp3"
     fi
     if [[ -n "${_loopdevice}" ]]; then
         losetup -d "${_loopdevice}"
     fi
 }
 
+_img_bootmode_bios.syslinux.mbr() {
+    cp -rT -- "${work_dir}/iso/.drive/liveusb/syslinux/" "${work_dir}/imgp2/boot/syslinux/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/syslinux" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/liveusb/|boot/|") )
+}
+
+_img_bootmode_uefi-ia32.grub.esp() {
+    _run_once _img_bootmode_uefi-x64.grub.esp
+}
+
+_img_bootmode_uefi-x64.grub.esp() {
+    cp -rT -- "${work_dir}/iso/.drive/liveusb/grub/" "${work_dir}/imgp2/boot/grub/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/grub" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/liveusb/|boot/|") )
+}
+
+_img_bootmode_uefi-x64.refind.esp() {
+    cp -rT -- "${work_dir}/iso/.drive/liveusb/refind/" "${work_dir}/imgp2/EFI/refind/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/refind" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/liveusb/|EFI/|") )
+}
+
+_img_bootmode_uefi-x64.systemd-boot.esp() {
+    cp -rT -- "${work_dir}/iso/.drive/liveusb/loader/" "${work_dir}/imgp2/loader/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/loader" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/liveusb/||") )
+}
+
 # Build IMG
 _build_img_image() {
     trap _umount_img EXIT
-    local bootmode
-    local _imgsize _loopdevice
+    local _rosize _espsize _cowsize _loopdevice
+    local -a _esp_files_settings _cow_files_settings
 
     image_name="${image_name%.iso}.img"
 
@@ -2128,13 +2162,24 @@ _build_img_image() {
     rm -f -- "${out_dir}/${image_name}"
     _msg_info "Creating GPT disk image..."
 
-    # IMG size : iso size + 128M
-    _imgsize=$(( $(du -bs "${isofs_dir}" | awk '{print $1}') + 128 * 1048576 ))
+    # Read-only fs size in MiB
+    _rosize=$(( $(du -bs "${isofs_dir}/${install_dir}/${arch}" | awk '{print $1}') / 1048576 + 96 ))
 
+    # Calculate ESP size
+    _espsize=$(( $(du -bs "${isofs_dir}" | awk '{print $1}') ))
+    _espsize=$(( _espsize - $(du -bs "${isofs_dir}/${install_dir}" | awk '{print $1}') ))
+    _espsize=$(( _espsize + ($(du -bs "${isofs_dir}/${install_dir}/boot" | awk '{print $1}') * 2) ))
+    # ESP size in MiB
+    _espsize=$(( _espsize * 14 / 10 / 1048576 ))
+
+    # COW size = 128 MiB
+    _cowsize=128
+
+    # IMG size = RO + ESP + COW size
     # Create IMG file
-    truncate -s "${_imgsize}" "${out_dir}/${image_name}"
+    truncate -s $(( _rosize + _espsize + _cowsize + 2 ))M "${out_dir}/${image_name}"
 
-    # Format IMG file
+    # GPT partitions
     _loopdevice=$(losetup -f --show "${out_dir}/${image_name}" 2> /dev/null || \
                   { echo 'Failed to create loop device'; exit 1; } )
     if ! echo 'label: gpt' | udevadm lock --device="${_loopdevice}" -- \
@@ -2145,42 +2190,105 @@ _build_img_image() {
     sleep 3
     partprobe -- "${_loopdevice}"
 
-    if ! echo "2048,,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7," | \
-            udevadm lock --device="${_loopdevice}" -- sfdisk -W always -- "${_loopdevice}" &> /dev/null; then
-        echo 'Failed to create partition!'
+    if ! echo -e ",${_rosize}MiB,L,\n,${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7,\n,+,L,\n" | \
+            udevadm lock --device="${_loopdevice}" -- sfdisk --append  -W always -- "${_loopdevice}" &> /dev/null; then
+        echo 'Failed to create partitions!'
         exit 1
     fi
     sleep 3
     partprobe -- "${_loopdevice}"
 
     if ! udevadm lock --device="${_loopdevice}p1" -- \
-            mkfs.fat -F32 -n "${iso_label}" -- "${_loopdevice}p1" &> /dev/null; then
-        echo 'Partition format failed!'
+            mkfs.ext4 -L "RO${iso_label}" -q -m 0 -- "${_loopdevice}p1" &> /dev/null; then
+        echo 'Formating partition #1 failed!'
+        exit 1
+    fi
+    if ! udevadm lock --device="${_loopdevice}p2" -- \
+            mkfs.fat -F32 -n "ESP${iso_label}" -- "${_loopdevice}p2" &> /dev/null; then
+        echo 'Formating partition #2 failed!'
+        exit 1
+    fi
+    if ! udevadm lock --device="${_loopdevice}p3" -- \
+            mkfs.ext4 -L "COW${iso_label}" -O encrypt -q -- "${_loopdevice}p3" &> /dev/null; then
+        echo 'Formating partition #3 failed!'
         exit 1
     fi
 
-    # Mount IMG
-    install -d -m 0755 "${work_dir}/img"
-    mount -- "${_loopdevice}p1" "${work_dir}/img"
+    # Mount partitions
+    install -d -m 0755 -- "${work_dir}/imgp1"
+    install -d -m 0755 --  "${work_dir}/imgp2"
+    install -d -m 0755 --  "${work_dir}/imgp2"
+    install -d -m 0755 --  "${work_dir}/imgp3"
+    mount -- "${_loopdevice}p1" "${work_dir}/imgp1"
+    install -d -m 0755 -- "${work_dir}/imgp1/${install_dir}"
+    mount -- "${_loopdevice}p2" "${work_dir}/imgp2"
+    install -d -m 0755 -- "${work_dir}/imgp2/${install_dir}"
+    mount -- "${_loopdevice}p3" "${work_dir}/imgp3"
 
     # Copy to IMG
-    cp -r "${work_dir}/iso/"!(.drive) "${work_dir}/img"
+    cp -rT -- "${work_dir}/iso/${install_dir}/${arch}/" "${work_dir}/imgp1/${install_dir}/${arch}/"
+    cp -r -- "${work_dir}/iso/"!("${install_dir}"|.drive) "${work_dir}/imgp2"
+    cp -r -- "${work_dir}/iso/${install_dir}/"!("${arch}") "${work_dir}/imgp2/${install_dir}"
+    cp -aT -- "${work_dir}/iso/.drive/liveusb/persistent_${iso_label}/" "${work_dir}/imgp3/persistent_RO${iso_label}/"
+    _cow_files_settings+=( $(find "${work_dir}/iso/.drive/img/persistent" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/img/persistent/|persistent_RO${iso_label}/|") )
+    cp -aT -- "${work_dir}/iso/.drive/img/persistent/" "${work_dir}/imgp3/persistent_RO${iso_label}/"
+
+    # persistent kernel & initramfs
+    for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
+        if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
+            cp -- "${isofs_dir}/${install_dir}/boot/${_ucode_image}" "${work_dir}/imgp2/"
+        fi
+    done
+    for _kernel_initramfs in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
+                             "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
+        cp -- "${_kernel_initramfs}" "${work_dir}/imgp2/"
+    done
+    for bootmode in "${bootmodes[@]}"; do
+        typeset -f "_img_bootmode_${bootmode}" &> /dev/null && _run_once "_img_bootmode_${bootmode}"
+    done
+    if [[ "${x64_uefi_default_bootloader}" == 'uefi-x64.refind.esp' ]]; then
+        for _esp_file in "${_esp_files_settings[@]}"; do
+            [[ "${_esp_file}" =~ 'refind' ]] && \
+            mv "${work_dir}/imgp2/${_esp_file}" "${work_dir}/imgp2/EFI/BOOT/"
+            _esp_files_settings+=( "EFI/BOOT/refind.conf" )
+        done
+    fi
+
+    for _espfile in "${_esp_files_settings[@]}"; do
+            if [[ -f "${work_dir}/imgp2/${_espfile}" ]]; then
+                sed -i -- "s|%ARCHISO_LABEL%|RO${iso_label}|g;
+                           s|%COW_LABEL%|COW${iso_label}|g;
+                           s|\scow_flags=%COW_FLAGS%||g;
+                           s|%ESP_LABEL%|ESP${iso_label}|g;
+                           s|=${iso_label}|=RO${iso_label}|g;
+                           s|%IMG_LABEL%|RO${iso_label}|g" \
+                           "${work_dir}/imgp2/${_espfile}"
+            fi
+    done
+    for _cowfile in "${_cow_files_settings[@]}"; do
+            sed -i -- "s|%ESP_LABEL%|ESP${iso_label}|g" "${work_dir}/imgp3/${_cowfile}"
+    done
 
     # Unmount IMG
-    umount "${work_dir}/img"
+    umount -- "${work_dir}/imgp1"
+    umount -- "${work_dir}/imgp2"
+    umount -- "${work_dir}/imgp3"
 
     # Bios boot loader
-    if ! syslinux --directory boot/syslinux --install -- "${_loopdevice}p1" &> /dev/null; then
-        echo 'Bootloader installation failed!'
-        exit 1
-    fi
-    if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${_loopdevice}" 2> /dev/null; then
-        echo 'Bootloader installation failed!'
-        exit 1
-    fi
-    if ! sfdisk --lock --part-attrs "${_loopdevice}" 1 LegacyBIOSBootable &> /dev/null; then
-        echo 'Bootloader installation failed!'
-        exit 1
+    if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
+        if ! syslinux --directory boot/syslinux --install -- "${_loopdevice}p2" &> /dev/null; then
+            echo 'Syslinux bootloader installation failed!'
+            exit 1
+        fi
+        if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${_loopdevice}" 2> /dev/null; then
+            echo 'Syslinux bootloader installation failed!'
+            exit 1
+        fi
+        if ! sfdisk --lock --part-attrs "${_loopdevice}" 2 LegacyBIOSBootable &> /dev/null; then
+            echo 'Syslinux bootloader installation failed!'
+            exit 1
+        fi
     fi
     # Remove loop device
     losetup -d "${_loopdevice}"
