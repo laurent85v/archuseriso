@@ -100,16 +100,17 @@ Help [Writing Disc Image](https://wiki.archlinux.org/title/USB_flash_installatio
 
 GPT disk image
 --------------
+Bootable disk image for USB flash drives and USB disks with support for persistence. Image to write directly to usb drive. New partitions can be created on the free space for data storage.
 
-Image format for usb drives only. The main advantage of this image format is that new partitions can be created on the free space of the usb disk for data storage.
+Copy the gpt disk image to the usb device, e.g. as root with a usb device on /dev/sdc:
 
-Copy the gpt disk image to the usb device, e.g. with usb device /dev/sdc:
-
-      # pv aui-xfce-linux_6_2_8-fr_FR-0327-x64.img > /dev/sdc
+    # pv aui-xfce-linux_6_2_8-fr_FR-0327-x64.img > /dev/sdc
 
 The disk image and the usb disk capacity are not the same size. To fix the gpt table size on the usb disk you can use the following command, fdisk or gparted can also do that. Note the 3 dashes of the undocumented `---pretend-input-tty` option of the `parted` command:
 
-      echo Fix | sudo parted /dev/sdc ---pretend-input-tty print
+    echo Fix | sudo parted /dev/sdc ---pretend-input-tty print
+
+The partition for persistence is only 128 MiB. After writing the disk image and correcting the size of the gpt table, it is necessary to resize the partition for persistence to the desired size. Gparted allows you to do this easily.
 
 Help [Writing Disk Image](https://wiki.archlinux.org/title/USB_flash_installation_medium#Using_basic_command_line_utilities)
 
