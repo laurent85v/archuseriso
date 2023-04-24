@@ -1317,7 +1317,6 @@ _make_drive() {
 
     ### esp framework
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/"
-    install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
     install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/x86_64/"
@@ -1327,10 +1326,10 @@ _make_drive() {
 
     # syslinux
     if [[ -d "${isofs_dir}/boot/syslinux" ]]; then
-        ln -s -- "../../../../boot/syslinux" "${isofs_dir}/.drive/liveusb/esp/boot/syslinux"
+        ln -s -- "../../../boot/syslinux" "${isofs_dir}/.drive/liveusb/esp/syslinux"
     fi
 
-    # live kernel, live initramfs, efi shell, memtest86+
+    # live kernel, live initramfs, efi shell
     for _ucode_image in {intel-uc.img,intel-ucode.img,amd-uc.img,amd-ucode.img,early_ucode.cpio,microcode.cpio}; do
             if [[ -e "${isofs_dir}/${install_dir}/boot/${_ucode_image}" ]]; then
                 ln -s -- "../../../../../${install_dir}/boot/${_ucode_image}" "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/"
@@ -1341,14 +1340,6 @@ _make_drive() {
             ln -s -- "../../../../../../${install_dir}/boot/licenses/${_license##*/}/" \
                      "${isofs_dir}/.drive/liveusb/esp/${install_dir}/boot/licenses/${_license##*/}"
         done
-    fi
-    if [[ -f "${isofs_dir}/boot/memtest86+/memtest" ]]; then
-        install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
-        ln -s -- "../../../../../boot/memtest86+/memtest" "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
-    fi
-    if [[ -f "${isofs_dir}/boot/memtest86+/memtest.efi" ]]; then
-        install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
-        ln -s -- "../../../../../boot/memtest86+/memtest.efi" "${isofs_dir}/.drive/liveusb/esp/boot/memtest86+/"
     fi
     for _kernel in "${isofs_dir}/${install_dir}/boot/x86_64/vmlinuz-"* \
                    "${isofs_dir}/${install_dir}/boot/x86_64/initramfs-"*".img"; do
@@ -1368,8 +1359,8 @@ _make_drive() {
         ln -s -- "../../../${install_dir}/boot/x86_64/${_kernel##*/}" "${work_dir}/iso/.drive/liveusb/esp/"
     done
 
-    # symbolic links needed by the scripts used for making usb drives
-    [[ -d "${isofs_dir}/boot/grub" ]] && ln -s -- ../../../../boot/grub "${isofs_dir}/.drive/liveusb/esp/boot/grub"
+    # other symbolic links
+    [[ -d "${isofs_dir}/boot/grub" ]] && ln -s -- ../../../boot/grub "${isofs_dir}/.drive/liveusb/esp/grub"
     [[ -d "${isofs_dir}/loader" ]] && ln -s -- ../../../loader "${isofs_dir}/.drive/liveusb/esp/loader"
     [[ -d "${isofs_dir}/EFI/BOOT" ]] && ln -s -- ../../../../EFI/BOOT "${isofs_dir}/.drive/liveusb/esp/EFI/BOOT"
     [[ -d "${isofs_dir}/EFI/grub" ]] && ln -s -- ../../../../EFI/grub "${isofs_dir}/.drive/liveusb/esp/EFI/grub"
@@ -1377,6 +1368,14 @@ _make_drive() {
     [[ -d "${isofs_dir}/EFI/systemd" ]] && ln -s -- ../../../../EFI/systemd "${isofs_dir}/.drive/liveusb/esp/EFI/systemd"
     [[ -f "${isofs_dir}/shellx64.efi" ]] && ln -s -- ../../../shellx64.efi "${isofs_dir}/.drive/liveusb/esp/shellx64.efi"
     [[ -f "${isofs_dir}/shellia32.efi" ]] && ln -s -- ../../../shellia32.efi "${isofs_dir}/.drive/liveusb/esp/shellia32.efi"
+    if [[ -f "${isofs_dir}/boot/memtest86+/memtest" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/memtest86+/"
+        ln -s -- "../../../../boot/memtest86+/memtest" "${isofs_dir}/.drive/liveusb/esp/memtest86+/"
+    fi
+    if [[ -f "${isofs_dir}/boot/memtest86+/memtest.efi" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/.drive/liveusb/esp/memtest86+/"
+        ln -s -- "../../../../boot/memtest86+/memtest.efi" "${isofs_dir}/.drive/liveusb/esp/memtest86+/"
+    fi
 
     # mediumdef.sh data used for making usb drives
     if [[ -f "${isofs_dir}/.drive/mediumdef.sh" ]]; then
