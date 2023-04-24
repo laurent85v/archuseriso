@@ -15,7 +15,7 @@ iso_label="%ARCHISO_LABEL%"
 iso_name="%ISO_NAME%"
 iso_version="%ISO_VERSION%"
 lang="%LANG%"
-medium_version='v8'
+medium_version='v9'
 root_label=ROOT${aui_suffix,,}
 cow_files_settings=(
         "persistent_${img_label}/x86_64/upperdir/etc/fstab")
@@ -26,9 +26,9 @@ esp_files_settings=(
         'loader/entries/archiso_2_console-x86_64-linux.conf'
         'loader/entries/archiso_3_ram-x86_64-linux.conf'
         'loader/entries/archiso_5_memtest86-x86_64-linux.conf'
-        'boot/syslinux/archiso_pxe-linux.cfg'
-        'boot/syslinux/archiso_sys-linux.cfg'
-        'boot/grub/grub.cfg')
+        'syslinux/archiso_pxe-linux.cfg'
+        'syslinux/archiso_sys-linux.cfg'
+        'grub/grub.cfg')
 root_files_settings=(
         'etc/fstab'
 )

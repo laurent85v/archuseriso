@@ -25,7 +25,7 @@ FREESPACE=15360
 img_label=""
 iso_label=""
 iso_file=""
-isosize=0
+iso_size=0
 medium_version=""
 root_files_settings=()
 root_flags="defaults"
@@ -36,7 +36,7 @@ usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v8"
+valid_medium_version="v9"
 
 _usage() {
     echo
@@ -80,7 +80,7 @@ _msg_info() {
 
 _cleanup() {
     local _workdirs
-    _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/home' 'usbrw/esp' 'usbesp' 'usbrw')
+    _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/home' 'usbrw/boot' 'usbesp' 'usbrw')
     for _workdir in ${_workdirs[*]}; do
         if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
             umount -- "${WD}/${workdir}/${_workdir}"
@@ -137,19 +137,19 @@ _encryption_settings() {
     _msg_info "Done!"
     if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/esp/boot/grub/grub.cfg"
+                  "${WD}/${workdir}/usbrw/boot/grub/grub.cfg"
     fi
     if [[ "${bootmodes[*]}" =~ 'uefi-x64.refind.esp' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/esp/refind_linux.conf"
+                  "${WD}/${workdir}/usbrw/boot/refind_linux.conf"
     fi
     if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/esp/loader/entries/"*.conf
+                  "${WD}/${workdir}/usbrw/boot/loader/entries/"*.conf
     fi
     if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
         sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
-                  "${WD}/${workdir}/usbrw/esp/boot/syslinux/archiso_sys-linux.cfg"
+                  "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
     fi
     _msg_info "Done!"
 }
@@ -277,27 +277,25 @@ _check() {
 _init() {
     local _esp_size _root_size
     drivesize=$(blockdev --getsize64 "${usb_device}")
-    # Logical sector size
-    LOGICSEC=$(blockdev --getss "${usb_device}")
-    # Drive partition #1, first sector at 1 MiB
-    STARTSEC=$(( 1024 * 1024 / LOGICSEC ))
-    isosize=$(stat -c %s -- "${iso_file}")
+    iso_size=$(stat -c %s -- "${iso_file}")
     # Check usb drive capacity
-    if [[ ! ${drivesize} -gt $(( isosize + FREESPACE * 1024 * 1024 )) ]]; then
+    if [[ ! ${drivesize} -gt $(( iso_size + FREESPACE * 1024 * 1024 )) ]]; then
         echo 'Storage capacity error!'
         exit 1
     fi
     # check partitions size don't exceed drive's capacity
-    _esp_size=$(( esp_size * 1024 * 1024 ))
+    _esp_size=$(( esp_size * 1048576 )) # Bytes
     if [[ -n "${root_size}" ]]; then
-        _root_size=$(( root_size * 1024 * 1024 ))
+        _root_size=$(( root_size * 1048576 )) # Bytes
     else
         _root_size=0
     fi
-    if [[ ! ${drivesize} -gt $(( isosize + _esp_size + _root_size )) ]]; then
+    if [[ ! ${drivesize} -gt $(( iso_size + _esp_size + _root_size )) ]]; then
         echo "Size settings error: exceeds drive storage capacity!"
         exit 1
     fi
+    # ISO size in MiB
+    iso_size=$(( iso_size / 1048576 ))
 }
 
 _confirm_write() {
@@ -377,29 +375,11 @@ _usb_prepare() {
 
 _partitions() {
     local _part_type_linux _part_type_msft
-    local _start_ro_part _start_esp_part _start_rw_part
-    local _sectors_ro_part _sectors_esp_part _sectors_rw_part
-    local _size_ro_part _size_esp_part _size_rw_part
 
     # GPT Partition type : Linux Filesystem
     _part_type_linux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
     # GPT Partition type : Microsoft basic data
     _part_type_msft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
-
-    # Start sector, partition size in both sectors and MiB 
-    _start_ro_part=$(( STARTSEC ))
-    _size_ro_part=$(( isosize + 128 * 1024 * 1024 ))
-    _sectors_ro_part=$(( _size_ro_part / LOGICSEC ))
-    _start_esp_part=$(( _start_ro_part + _sectors_ro_part ))
-    _size_esp_part=$(( esp_size * 1024 * 1024 ))
-    _sectors_esp_part=$(( _size_esp_part / LOGICSEC ))
-    _start_rw_part=$(( _start_esp_part + _sectors_esp_part ))
-    if [[ -n "${root_size}" ]]; then
-        _size_rw_part=$(( root_size * 1024 * 1024 ))
-        _sectors_rw_part=$(( _size_rw_part / LOGICSEC ))
-    else
-        _size_rw_part=$(( drivesize - _size_esp_part - _size_ro_part - (STARTSEC * LOGICSEC) ))
-    fi
 
     # Wipe drive
     udevadm lock --device="${usb_device}" -- wipefs --all --force -- "${usb_device}"* > /dev/null
@@ -418,29 +398,15 @@ _partitions() {
     sleep 3
     partprobe -- "${usb_device}"
 
-    # partition #1 iso data
-    _msg_info "partition #1, live partition: $(( _size_ro_part / 1024 / 1024 )) MiB"
-    if ! echo "$(( _start_ro_part )),$(( _sectors_ro_part )),${_part_type_linux}," | \
-            udevadm lock --device="${usb_device}" -- sfdisk -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create new partition layout!'
-        exit 1
-    fi
-    sleep 3
-
-    # partition #2 boot & efi partition
-    _msg_info "partition #2, boot partition: $(( _size_esp_part / 1024 / 1024 )) MiB"
-    if ! echo "$(( _start_esp_part )),$(( _sectors_esp_part )),${_part_type_msft}," | \
-            udevadm lock --device="${usb_device}" -- sfdisk --append -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create new partition layout!'
-        exit 1
-    fi
-    sleep 3
-
-    # partition #3 root partition
-    _msg_info "partition #3, root partition: $(( _size_rw_part / 1024 / 1024 )) MiB"
-    if ! echo "$(( _start_rw_part )),${_sectors_rw_part:-},${_part_type_linux}," | \
-            udevadm lock --device="${usb_device}" -- sfdisk --append -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create new partition layout!'
+    # Partitions
+    _msg_info "Partition #1 in MiB: ${iso_size}"
+    _msg_info "Partition #2 in MiB: ${esp_size}"
+    _msg_info "Partition #3 in MiB: ${root_size:-All Free Space}"
+    if ! echo -e ",${iso_size}M,${_part_type_linux},\n\
+                  ,${esp_size}M,${_part_type_msft},\n\
+                  ,${root_size:+${root_size}M},\n" | \
+            udevadm lock --device="${usb_device}" -- sfdisk -W always --append -- "${usb_device}" > /dev/null; then
+        echo 'Failed to create partitions!'
         exit 1
     fi
     sleep 3
@@ -526,6 +492,7 @@ _mount() {
     _msg_info "Mount usb partitions"
     _msg_info "device: ${usb_device}1, mountpoint: ${WD}/${workdir}/usbro"
     mount -- "${usb_device}1" "${WD}/${workdir}/usbro"
+    install -m 0755 -d -- "${WD}/${workdir}/usbro/${install_dir}"
     _msg_info "device: ${usb_device}2, mountpoint: ${WD}/${workdir}/usbesp"
     mount -- "${usb_device}2" "${WD}/${workdir}/usbesp"
     _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
@@ -544,13 +511,13 @@ _mount() {
 _copy() {
     echo
     _msg_info "Copy live to ${WD}/${workdir}/usbro"
-    cp -rT -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usbro"
+    cp -r -- "${WD}/${workdir}/iso/${install_dir}/${arch}" "${WD}/${workdir}/usbro/${install_dir}"
     _msg_info "Done!"
     _msg_info "Install to ${WD}/${workdir}/usbrw, may take some time"
     cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usbrw"
     # Copy hybrid setup
     cp -aT -- "${WD}/${workdir}/iso/.drive/hybrid/auirootfs" "${WD}/${workdir}/usbrw"
-    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/esp"
+    mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/boot"
     _msg_info "Done!"
 }
 
@@ -572,7 +539,7 @@ if ! [ -d "$cmdpath" ]; then
          cmdpath="${archiso_bootdevice}/EFI/grub"
      fi
 fi
-configfile "(${archiso_bootdevice})/boot/grub/grub.cfg"
+configfile "(${archiso_bootdevice})/grub/grub.cfg"
 EOF
 
     printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
@@ -596,7 +563,7 @@ EOF
 
 _esp_bootloader_cfg_uefi-ia32.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/boot/"
+    cp -rT -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/grub"
 
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
 
@@ -606,7 +573,7 @@ _esp_bootloader_cfg_uefi-ia32.grub.esp() {
 
 _esp_bootloader_cfg_uefi-x64.grub.esp() {
     # Copy new GRUB cfg
-    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/boot/"
+    cp -rT -- "${WD}/${workdir}/iso/.drive/hybrid/grub" "${WD}/${workdir}/usbesp/grub"
 
     _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
 }
@@ -629,7 +596,7 @@ _esp_bootloader_cfg_uefi-x64.systemd-boot.esp() {
 
 _esp_bootloader_cfg_bios.syslinux.mbr() {
     # Copy new syslinux config
-    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/syslinux/" "${WD}/${workdir}/usbesp/boot/"
+    cp -rT -- "${WD}/${workdir}/iso/.drive/hybrid/syslinux" "${WD}/${workdir}/usbesp/syslinux"
 }
 
 _esp_default_bootloader_uefi-x64.grub.esp() {
@@ -649,9 +616,9 @@ _esp() {
     echo
     _msg_info "ESP setup"
     _msg_info "Copy to ${WD}/${workdir}/usbesp"
-    cp -LrT -- "${WD}/${workdir}/iso/.drive/hybrid/esp" "${WD}/${workdir}/usbesp/"
+    cp -LrT -- "${WD}/${workdir}/iso/.drive/hybrid/esp" "${WD}/${workdir}/usbesp"
     cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/loader" "${WD}/${workdir}/usbesp/"
-    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/syslinux" "${WD}/${workdir}/usbesp/boot/"
+    cp -r -- "${WD}/${workdir}/iso/.drive/hybrid/syslinux" "${WD}/${workdir}/usbesp/"
 
     # EFI boot loader setup
     for bootmode in "${bootmodes[@]}"; do
@@ -759,7 +726,7 @@ _settings() {
 
 _biosbootloader() {
     _msg_info "Install boot loader"
-    if ! syslinux --directory boot/syslinux --install -- "${usb_device}2" &> /dev/null; then
+    if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
         echo 'Boot loader installation failed!'
         exit 1
     fi
