@@ -2161,8 +2161,8 @@ _build_img_image() {
     rm -f -- "${out_dir}/${image_name}"
     _msg_info "Creating GPT disk image..."
 
-    # Read-only fs size in MiB
-    _rosize=$(( $(du -bs "${isofs_dir}/${install_dir}/${arch}" | awk '{print $1}') / 1048576 + 96 ))
+    # Read-only fs size in MiB (sfs image size +  6%)
+    _rosize=$(( $(du -bs "${isofs_dir}/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 106 / 100 ))
 
     # Calculate ESP size
     _espsize=$(( $(du -bs "${isofs_dir}" | awk '{print $1}') ))
@@ -2198,7 +2198,7 @@ _build_img_image() {
     partprobe -- "${_loopdevice}"
 
     if ! udevadm lock --device="${_loopdevice}p1" -- \
-            mkfs.ext4 -L "RO${iso_label}" -q -m 0 -- "${_loopdevice}p1" &> /dev/null; then
+            mkfs.ext4 -L "RO${iso_label}" -q -- "${_loopdevice}p1" &> /dev/null; then
         echo 'Formating partition #1 failed!'
         exit 1
     fi
