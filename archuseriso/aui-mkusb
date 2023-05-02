@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (C) 2021 Laurent Jourden <laurent85@enarel.fr>
+# Copyright (C) 2023 Laurent Jourden <laurent85@enarel.fr>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -396,8 +396,9 @@ _usb_prepare() {
         _usage 1
     fi
 
-    if [[ -f "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" ]]; then
-        copytoram_size=$(( $(stat -c %s "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs") + 1024 * 64 ))
+    if [[ -f "${WD}/${workdir}/iso/${install_dir}/${arch}/airootfs.sfs" ]]; then
+        iso_size=$(( $(du -bs "${WD}/${workdir}/iso/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 106 / 100 ))
+        copytoram_size=$(( $(stat -c %s "${WD}/${workdir}/iso/${install_dir}/${arch}/airootfs.sfs") + 1024 * 64 ))
     fi
 
     if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
