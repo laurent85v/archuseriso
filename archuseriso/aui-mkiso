@@ -1013,7 +1013,7 @@ _make_common_bootmode_grub_copy_to_isofs() {
         _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
     fi
     install -d -m 0755 -- "${isofs_dir}/boot/grub/"
-    install -m 0644 -- "${_files_to_copy[@]}" "${isofs_dir}/boot/grub/"
+    cp -r --remove-destination -- "${_files_to_copy[@]}" "${isofs_dir}/boot/grub/"
 }
 
 _make_bootmode_uefi-ia32.grub.esp() {
