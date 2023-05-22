@@ -360,7 +360,7 @@ _usb_prepare() {
     fi
 
     if [[ -f "${WD}/${workdir}/iso/${install_dir}/${arch}/airootfs.sfs" ]]; then
-        iso_size=$(( $(du -bs "${WD}/${workdir}/iso/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 106 / 100 ))
+        iso_size=$(( $(du -bs "${WD}/${workdir}/iso/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 1065 / 1000 ))
         copytoram_size=$(( $(stat -c %s "${WD}/${workdir}/iso/${install_dir}/${arch}/airootfs.sfs") + 1024 * 64 ))
     fi
 

@@ -2161,8 +2161,8 @@ _build_img_image() {
     rm -f -- "${out_dir}/${image_name}"
     _msg_info "Creating GPT disk image..."
 
-    # Read-only fs size in MiB (sfs image size +  6%)
-    _rosize=$(( $(du -bs "${isofs_dir}/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 106 / 100 ))
+    # Read-only fs size in MiB (sfs image size +  6.5%)
+    _rosize=$(( $(du -bs "${isofs_dir}/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 1065 / 1000 ))
 
     # Calculate ESP size
     _espsize=$(( $(du -bs "${isofs_dir}" | awk '{print $1}') ))
