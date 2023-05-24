@@ -42,6 +42,7 @@ image_name=""
 install_dir=""
 iso_application=""
 iso_label=""
+iso_uuid=""
 iso_name="${app_name}"
 iso_publisher=""
 iso_version=""
@@ -667,22 +668,22 @@ _fat_image_efiboot_files_common_x64() {
 }
 
 _make_common_bootmode_grub_cfg() {
-    local _cfg archiso_uuid search_filename
+    local _cfg search_filename
 
     install -d -- "${work_dir}/grub"
 
-    # Precalculate the ISO's modification date in UTC, i.e. its "UUID"
-    TZ=UTC printf -v archiso_uuid '%(%F-%H-%M-%S-00)T' "$SOURCE_DATE_EPOCH"
     # Create a /boot/grub/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
     # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
     # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
-    : > "${work_dir}/grub/${archiso_uuid}.uuid"
-    search_filename="/boot/grub/${archiso_uuid}.uuid"
+    : > "${work_dir}/grub/${iso_uuid}.uuid"
+    search_filename="/boot/grub/${iso_uuid}.uuid"
+
 
     # Fill GRUB configuration files
     for _cfg in "${profile}/efiboot/grub/"*'.cfg'; do
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
+             s|%ARCHISO_UUID%|${iso_uuid}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
              s|%ARCH%|${arch}|g;
              s|%ARCHISO_SEARCH_FILENAME%|${search_filename}|g" \
@@ -858,6 +859,7 @@ _make_bootmode_bios.syslinux.mbr() {
     for _cfg in "${profile}/syslinux/"*.cfg; do
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
+             s|%ARCHISO_UUID%|${iso_uuid}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
              s|%ARCH%|${arch}|g"               \
             "${_cfg}" > "${isofs_dir}/boot/syslinux/${_cfg##*/}"
@@ -2463,6 +2465,8 @@ _set_overrides() {
     if [[ -v override_iso_name ]]; then
         image_name="${override_iso_name}"
     fi
+    # Precalculate the ISO's modification date in UTC, i.e. its "UUID"
+    TZ=UTC printf -v iso_uuid '%(%F-%H-%M-%S-00)T' "$SOURCE_DATE_EPOCH"
 }
 
 _export_gpg_publickey() {
