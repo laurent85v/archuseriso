@@ -112,7 +112,7 @@ usage: ${app_name} [options] <profile_dir>
                                         authority.
      -C <file>                          pacman configuration file.
                                         Default: '${pacman_conf}'
-     -D, --install-dir  <install_dir>   Set an install_dir. All files will by located here.
+     -D, --install-dir  <install_dir>   Set an install_dir. All files will be located here.
                                         Default: '${install_dir}'
                                         NOTE: Max 8 characters, use only [a-z0-9]
      --embed-dir <path>                 Embed directory contents in the iso image,
