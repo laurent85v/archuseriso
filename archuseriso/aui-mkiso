@@ -64,6 +64,7 @@ work_dir=""
 x64_uefi_default_bootloader=""
 zfs_support="no"
 declare -A file_permissions=()
+declare -i rm_work_dir=0
 # adapted from GRUB_EARLY_INITRD_LINUX_STOCK in https://git.savannah.gnu.org/cgit/grub.git/tree/util/grub-mkconfig.in
 readonly ucodes=('intel-uc.img' 'intel-ucode.img' 'amd-uc.img' 'amd-ucode.img' 'early_ucode.cpio' 'microcode.cpio')
 
@@ -143,6 +144,7 @@ usage: ${app_name} [options] <profile_dir>
                                         pkg.tar.xz or pkg.tar.zst package files.
      -P <publisher>                     Set the ISO publisher
                                         Default: '${iso_publisher}'
+     -r, --remove-work-dir              Delete the working directory at the end.
      -v, --verbose                      Enable verbose output
      -w, --work-dir <work_dir>          Set the working directory
                                         Default: '${work_dir}'
@@ -2464,6 +2466,9 @@ _set_overrides() {
     elif [[ -z "${quiet}" ]]; then
         quiet="y"
     fi
+    if [[ -v override_rm_work_dir ]]; then
+        rm_work_dir="${override_rm_work_dir}"
+    fi
     if [[ -v override_iso_name ]]; then
         image_name="${override_iso_name}"
     fi
@@ -2537,6 +2542,16 @@ _make_pkglist() {
             ;;
     esac
     _msg_info "Done!"
+}
+
+# Create working directory
+_make_work_dir() {
+    if [[ ! -d "${work_dir}" ]]; then
+        install -d -- "${work_dir}"
+    elif (( rm_work_dir )); then
+        rm_work_dir=0
+        _msg_warning "Working directory removal requested, but '${work_dir}' already exists. It will not be removed!" 0
+    fi
 }
 
 # build the base for an ISO and/or a netboot target
@@ -2638,15 +2653,21 @@ _build() {
     for buildmode in "${buildmodes[@]}"; do
         _run_once "_build_buildmode_${buildmode}"
     done
+    if (( rm_work_dir )); then
+        _msg_info 'Removing the working directory...'
+        rm -rf -- "${work_dir:?}/"
+        _msg_info 'Done!'
+    fi
 }
 
-OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:vw:' \
+OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:rvw:' \
               -l 'addpkg:,addpkgtesting:,application:,embeddir:' \
               -l 'add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
               -l 'gpgkey:,gpgsender:,graphics:,installdir:,label:,language:' \
               -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
               -l 'verbose,workdir:,work-dir:,zfs-support' \
+              -l 'remove-work-dir' \
               -l 'help' \
               -n "${app_name}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
@@ -2746,6 +2767,9 @@ while true; do
         '-P'|'--publisher')
             override_iso_publisher="${2}"
             shift 2 ;;
+        '-r'|'--remove-work-dir')
+            declare -i override_rm_work_dir=1
+            shift ;;
         '-v'|'--verbose')
             override_quiet="n"
             shift ;;
@@ -2791,7 +2815,7 @@ if [[ -d "${work_dir}" ]]; then
     exit 0
 else
     # Create working directory
-    install -d -- "${work_dir}"
+    _make_work_dir
 fi
 _validate_options
 if [[ "${zfs_support}" == "yes" ]]; then
