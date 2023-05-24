@@ -1201,6 +1201,7 @@ _make_bootmode_uefi-x64.systemd-boot.esp() {
     for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
+             s|%ARCHISO_UUID%|${iso_uuid}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
              s|%ARCH%|${arch}|g" \
              "${_conf}" | mcopy -i "${efibootimg}" - "::/loader/entries/${_conf##*/}"
@@ -1242,6 +1243,7 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
         sed "s|%DESKTOP%|${desktop}|g;
              s|%ARCHISO_LABEL%|${iso_label}|g;
+             s|%ARCHISO_UUID%|${iso_uuid}|g;
              s|%INSTALL_DIR%|${install_dir}|g;
              s|%ARCH%|${arch}|g" \
              "${_conf}" > "${isofs_dir}/loader/entries/${_conf##*/}"
