@@ -28,6 +28,7 @@ ethtool
 exfatprogs
 f2fs-tools
 fatresize
+foot-terminfo
 fsarchiver
 gnu-netcat
 gpart
@@ -113,6 +114,7 @@ usbutils
 vim
 virtualbox-guest-utils-nox
 vpnc
+wezterm-terminfo
 wireless-regdb
 wireless_tools
 wpa_supplicant
@@ -214,6 +216,7 @@ networkmanager-openvpn
 networkmanager-openconnect
 networkmanager-pptp
 networkmanager-vpnc
+wezterm-terminfo
 numlockx
 orca
 rygel
