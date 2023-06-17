@@ -1403,7 +1403,9 @@ _make_drive() {
                      "${isofs_dir}/.drive/hybrid/grub/grub.cfg"                   \
                      "${isofs_dir}/.drive/install/grub/grub.cfg"                  \
                      "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
+                     "${isofs_dir}/.drive/liveusb/syslinux/archiso_pxe-linux.cfg" \
                      "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"  \
+                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_pxe-linux.cfg"  \
                      "${isofs_dir}/.drive/install/syslinux/archiso_sys-linux.cfg"; do
         if [[ -f "${drivefile}" ]]; then
             sed -i "s|%INSTALL_DIR%|${install_dir}|g;s|%DESKTOP%|${desktop}|g" "${drivefile}"
@@ -2127,9 +2129,9 @@ _umount_img() {
 }
 
 _img_bootmode_bios.syslinux.mbr() {
-    cp -rT -- "${work_dir}/iso/.drive/liveusb/syslinux/" "${work_dir}/imgp2/boot/syslinux/"
-    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/syslinux" -type f | \
-                             sed -- "s|^${work_dir}/iso/.drive/liveusb/|boot/|") )
+    cp -rT -- "${work_dir}/iso/.drive/img/syslinux/" "${work_dir}/imgp2/boot/syslinux/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/img/syslinux" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/img/|boot/|") )
 }
 
 _img_bootmode_uefi-ia32.grub.esp() {
@@ -2137,9 +2139,9 @@ _img_bootmode_uefi-ia32.grub.esp() {
 }
 
 _img_bootmode_uefi-x64.grub.esp() {
-    cp -rT -- "${work_dir}/iso/.drive/liveusb/grub/" "${work_dir}/imgp2/boot/grub/"
-    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/grub" -type f | \
-                             sed -- "s|^${work_dir}/iso/.drive/liveusb/|boot/|") )
+    cp -rT -- "${work_dir}/iso/.drive/img/grub/" "${work_dir}/imgp2/boot/grub/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/img/grub" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/img/|boot/|") )
 }
 
 _img_bootmode_uefi-x64.refind.esp() {
@@ -2149,9 +2151,9 @@ _img_bootmode_uefi-x64.refind.esp() {
 }
 
 _img_bootmode_uefi-x64.systemd-boot.esp() {
-    cp -rT -- "${work_dir}/iso/.drive/liveusb/loader/" "${work_dir}/imgp2/loader/"
-    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/loader" -type f | \
-                             sed -- "s|^${work_dir}/iso/.drive/liveusb/||") )
+    cp -rT -- "${work_dir}/iso/.drive/img/loader/" "${work_dir}/imgp2/loader/"
+    _esp_files_settings+=( $(find "${work_dir}/iso/.drive/img/loader" -type f | \
+                             sed -- "s|^${work_dir}/iso/.drive/img/||") )
 }
 
 # Build IMG
@@ -2262,7 +2264,9 @@ _build_img_image() {
 
     for _espfile in "${_esp_files_settings[@]}"; do
             if [[ -f "${work_dir}/imgp2/${_espfile}" ]]; then
-                sed -i -- "s|%ARCHISO_LABEL%|RO${iso_label}|g;
+                sed -i -- "s|%DESKTOP%|${desktop}|g;
+                           s|%INSTALL_DIR%|${install_dir}|g;
+                           s|%ARCHISO_LABEL%|RO${iso_label}|g;
                            s|%COW_LABEL%|COW${iso_label}|g;
                            s|\scow_flags=%COW_FLAGS%||g;
                            s|%ESP_LABEL%|ESP${iso_label}|g;

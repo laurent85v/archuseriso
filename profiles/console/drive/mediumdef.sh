@@ -23,6 +23,7 @@ esp_files_settings=(
         'loader/entries/archiso-aui-0-x86_64-linux.conf'
         'loader/entries/archiso-aui-1-x86_64-linux.conf'
         'loader/entries/archiso-x86_64-linux.conf'
+        'loader/entries/archiso-x86_64-speech-linux.conf'
         'loader/entries/archiso_2_console-x86_64-linux.conf'
         'loader/entries/archiso_3_ram-x86_64-linux.conf'
         'loader/entries/archiso_5_memtest86-x86_64-linux.conf'
