@@ -36,7 +36,7 @@ usb_device=""
 x64_uefi_default_bootloader=""
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v9"
+valid_medium_version="v10"
 
 _usage() {
     echo
