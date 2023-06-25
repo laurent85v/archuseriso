@@ -83,7 +83,7 @@ Examples:
 
 Using Kde Plasma profile, German language
 
-      sudo aui-mkiso --language=from kde
+      sudo aui-mkiso --language=de kde
 
 Using the Gnome profile, additional packages from the Arch Linux repositories are added, user packages located in directory `mypackages` are also added.
 
