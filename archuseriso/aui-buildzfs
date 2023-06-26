@@ -26,7 +26,6 @@ zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
 # Tony Hutter public key
 ZFSPUBKEY="6AD860EED4598027"
-KEYSERVER="keys.openpgp.org"
 declare -a zfspackages
 declare -a zfssources
 
@@ -227,15 +226,15 @@ fi
 
 if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/null; then
     echo
-    read -r -n1 -p 'Retreive missing ZFS on Linux public key (N/y)? '
+    read -r -n1 -p 'Retreive missing OpenZFS public key (N/y)? '
     echo
     if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
         echo 'Operation canceled by user!'
         exit 0
     fi
-    if ! sudo --user "${SCRIPTUSER}" gpg --keyserver "${KEYSERVER}" --recv "${ZFSPUBKEY}"; then
+    if ! sudo --user "${SCRIPTUSER}" gpg --recv "${ZFSPUBKEY}"; then
         echo
-        echo "Retreiving ZFS public key ${ZFSPUBKEY} failed, aborting!"
+        echo "Retreiving OpenZFS public key ${ZFSPUBKEY} failed, aborting!"
         echo
     fi
 fi
