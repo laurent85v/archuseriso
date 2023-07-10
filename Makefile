@@ -6,7 +6,7 @@ BIN_DIR=$(DESTDIR)$(PREFIX)/bin
 DOC_DIR=$(DESTDIR)$(PREFIX)/share/doc/archuseriso
 PROFILE_DIR=$(DESTDIR)$(PREFIX)/share/archuseriso
 
-DOC_FILES=AUTHORS.rst LICENSE readme.md
+DOC_FILES=AUTHORS.rst Dockerfile LICENSE readme.md
 
 all:
 
