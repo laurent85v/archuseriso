@@ -7,9 +7,9 @@ Archuseriso is based on Archiso, the program used by the Arch Linux developers t
 
 Archuseriso integrates most of the developments of Archiso and adds additional features. A list of new build profiles is offered, they make it easy to build an bootable iso image or a bootable disk image with a desktop environment. Archuseriso allows creating a live usb drive with persistence and allows installing Arch Linux on a removable USB disk using the iso image or disk image created.
 
-System and data can be encrypted on the removable medium. Several types of file systems are offered, ext4 the default, Btrfs and F2FS. Archuseriso also provide tools for adding native ZFS support to the iso image and the disk image, including installing onto a ZFS filesystem.
+System and data can be encrypted on the removable medium. Several types of file systems are offered, ext4 the default, Btrfs and F2FS. Archuseriso also provides tools for adding native ZFS support to the iso image and the disk image, including installing onto a ZFS filesystem.
 
-Archuseriso images with a desktop environment can beneficially be used as an alternative of the Archiso image for istalling on disk and for maintenance purposes.
+Archuseriso images with a desktop environment can beneficially be used as an alternative of the Archiso image for installing on disk and for maintenance purposes.
 
 * AUR repository https://aur.archlinux.org/packages/archuseriso
 * ISO image download for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
@@ -161,25 +161,24 @@ A normal installation can be carried out, this mode is the equivalent of an inst
 
 Synopsis:
 
-    aui-mkhybrid [options] <iso image> <usb device>
+    aui-mkinstall [options] <iso image> <usb device>
 
 Example:
 
-    sudo aui-mkhybrid aui-xfce-linux_5_10_9-0121-x64.iso /dev/sdc
+    sudo aui-mkinstall aui-xfce-linux_5_10_9-0121-x64.iso /dev/sdc
 
 
 The disk partitioning is as follow:
 
     GPT layout
     Partition   FS Type           Type
-    #1          Ext4              Squashfs image
-    #2          EFI FAT           Boot
-    #3          Ext4|Brtfs|F2FS   System
+    #1          EFI FAT           Boot
+    #2          Ext4|Brtfs|F2FS   System
 
 
 Installation on a ZFS Root File System
 --------------------------------------
-Requires an iso image with zfs support included. The script Performs a normal installation with zfs as the root filesystem. A usb ssd drive is highly recommended:
+Requires an iso image with zfs support included. The script performs a normal installation with zfs as the root filesystem. A usb ssd drive is highly recommended:
 
       sudo aui-mkinstall --rootfs=zfs --username=foobar ./out/aui-xfce-linux_6_0_9-1123-x64.iso /dev/sdc
 
