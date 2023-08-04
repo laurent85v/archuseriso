@@ -5,7 +5,7 @@ Archuseriso is a set of script programs for building iso images and bootable dis
 
 Archuseriso is based on Archiso, the program used by the Arch Linux developers to build the monthly iso image.
 
-Archuseriso integrates most of the developments of Archiso and adds additional features. A list of new build profiles is offered, they make it easy to build an bootable iso image or a bootable disk image with a desktop environment. Archuseriso allows creating a live usb drive with persistence and allows installing Arch Linux on a removable USB disk using the iso image or disk image created.
+Archuseriso integrates most of the developments of Archiso and adds additional features. A list of new build profiles is offered, they make it easy to build a bootable iso image or a bootable disk image with a desktop environment. Archuseriso allows creating a live usb drive with persistence and allows installing Arch Linux on a removable USB disk using the iso image or disk image created.
 
 System and data can be encrypted on the removable medium. Several types of file systems are offered, ext4 the default, Btrfs and F2FS. Archuseriso also provides tools for adding native ZFS support to the iso image and the disk image, including installing onto a ZFS filesystem.
 
@@ -97,7 +97,7 @@ Help [Writing Disc Image](https://wiki.archlinux.org/title/USB_flash_installatio
 
 GPT disk image
 --------------
-The GPT disk image is a a bootable disk image for USB flash drives and USB disks with persistence enabled. Write image directly to the usb drive. Free space on device can be used for creating new partitions for data storage or other usages.
+The GPT disk image is a bootable disk image for USB flash drives and USB disks with persistence enabled. Write image directly to the usb drive. Free space on device can be used for creating new partitions for data storage or other usages.
 
 Copy the gpt disk image to the usb device, e.g. as root with a usb device on /dev/sdc:
 
