@@ -9,7 +9,7 @@ Archuseriso integrates most of the developments of Archiso and adds additional f
 
 System and data can be encrypted on the removable medium. Several types of file systems are offered, ext4 the default, Btrfs and F2FS. Archuseriso also provides tools for adding native ZFS support to the iso image and the disk image, including installing onto a ZFS filesystem.
 
-Archuseriso images with a desktop environment can beneficially be used as an alternative of the Archiso image for installing on disk and for maintenance purposes.
+Archuseriso images with a desktop environment can beneficially be used as an alternative to the Archiso image for installing on disk and for maintenance purposes.
 
 * AUR repository https://aur.archlinux.org/packages/archuseriso
 * ISO image download for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
@@ -222,7 +222,7 @@ Note that Docker is out of the scope of this documentation. You are supposed to 
 
 Limitations
 
-Building zfs packages currently doesn't work. 
+Building zfs packages from the docker container currently doesn't work. 
 
 Archuseriso Program List
 ------------------------
@@ -230,7 +230,7 @@ Archuseriso Program List
 * `aui-mkiso`: Build a bootable system image using a build profile
 * `aui-mkusb`: create a bootable system on a USB drive with persistence
 * `aui-mkinstall`: create a bootable system on a USB drive, corresponds to a normal hard disk installation
-* `aui-mkhybrid`: create a bootable system on USB drive, combines live mode and normal installation on on the same usb device
+* `aui-mkhybrid`: create a bootable system on USB drive, combines live mode and normal installation on the same usb device
 * `aui-buildzfs`: build ZFS packages
 * `aui-run`: test an image or a bootable system installed on a usb drive
 
