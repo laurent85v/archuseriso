@@ -148,7 +148,6 @@ lsb-release
 mesa-vdpau
 mobile-broadband-provider-info
 network-manager-applet
-nss-mdns
 pipewire-alsa
 pipewire-pulse
 rxvt-unicode

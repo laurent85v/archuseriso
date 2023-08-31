@@ -165,7 +165,6 @@ libva-vdpau-driver
 lsb-release
 mesa-vdpau
 network-manager-applet
-nss-mdns
 okular
 partitionmanager
 pavucontrol-qt

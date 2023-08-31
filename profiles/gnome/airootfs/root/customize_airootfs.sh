@@ -41,8 +41,7 @@ mv /usr/share/wayland-sessions/gnome.desktop{,.duplicate}
 ln -s /usr/bin/gvncviewer /usr/local/bin/vncviewer
 
 # Enable service when available
-{ [[ -e /usr/lib/systemd/system/avahi-dnsconfd.service       ]] && systemctl enable avahi-dnsconfd.service;
-  [[ -e /usr/lib/systemd/system/bluetooth.service            ]] && systemctl enable bluetooth.service;
+{ [[ -e /usr/lib/systemd/system/bluetooth.service            ]] && systemctl enable bluetooth.service;
   [[ -e /usr/lib/systemd/system/NetworkManager.service       ]] && systemctl enable NetworkManager.service;
   [[ -e /usr/lib/systemd/system/nmb.service                  ]] && systemctl enable nmb.service;
   [[ -e /usr/lib/systemd/system/cups.service                 ]] && systemctl enable cups.service;
