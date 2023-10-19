@@ -14,7 +14,7 @@ optdepends=('python: for arcstat/arc_summary/dbufstat')
 source=("https://github.com/zfsonlinux/zfs/releases/download/zfs-${pkgver}/zfs-${pkgver}.tar.gz"{,.asc}
         "zfs.initcpio.hook"
         "zfs.initcpio.install")
-sha256sums=('%SHA256SUM%'
+sha256sums=('SKIP'
             'SKIP'
             '15b5acea44225b4364ec6472a08d3d48666d241fe84c142e1171cd3b78a5584f'
             '4553f9b0786a0fecc747cc4c6e98bcfb53a2c9ef4545885574289a3bb0378d52')

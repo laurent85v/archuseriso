@@ -24,8 +24,8 @@ release=""
 SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
-# Tony Hutter public key
-ZFSPUBKEY="6AD860EED4598027"
+ZFSPUBKEYS=(C77B9667 D4598027 C6AF658B)
+declare -a zfsmissingkeys
 declare -a zfspackages
 declare -a zfssources
 
@@ -129,7 +129,6 @@ _create_archroot64 () {
 }
 
 _build_zfs () {
-    local _sha256sum
     linuxversion=$(pacman --sysroot "${ar64}/root" -Q linux | cut -d' ' -f2)
     if [[ "$(cut -d'.' -f3 <<< "${linuxversion}")" =~ 'arch' ]]; then
         modulesversion="${linuxversion%.arch*}.0-${linuxversion##*.}"
@@ -146,19 +145,6 @@ _build_zfs () {
     for _zfslink in "${zfssources[@]}"; do
             curl --silent --retry 3 --retry-connrefused --fail -L -O "${_zfslink}"
     done
-    if LC_ALL=C sudo --user "${SCRIPTUSER}" gpg --verify --quiet "zfs-${zfsversion}.sha256.asc" ; then
-        if sha256sum --check --status -- "zfs-${zfsversion}.sha256.asc"; then
-            _sha256sum="$(sed -- "/zfs-${zfsversion}.tar.gz$/"'!d' "zfs-${zfsversion}.sha256.asc")"
-            _sha256sum="${_sha256sum%%[[:blank:]]*}"
-        else
-            echo "zfs-${zfsversion}.tar.gz sha256sum verification failed, aborting!"
-            exit 1
-        fi
-    else
-        echo "zfs-${zfsversion}.tar.gz gpg signature verification failed, aborting !"
-        exit 1
-    fi
-    sed -i -- "s/%SHA256SUM%/${_sha256sum}/" "${auiwork}/"{zfs-utils,zfs-linux}/PKGBUILD
     cp -a -- "zfs-${zfsversion}.tar.gz"{,.asc} ../zfs-linux
     chown -R -- "${SCRIPTUSER}": "${auiwork}/"{zfs-utils,zfs-linux}
 
@@ -224,19 +210,28 @@ if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
     exit 0
 fi
 
-if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${ZFSPUBKEY}" &> /dev/null; then
+
+for _zfspubkey in ${ZFSPUBKEYS[*]}; do
+    if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${_zfspubkey}" &> /dev/null; then
+        zfsmissingkeys+=("${_zfspubkey}")
+    fi
+done
+
+if [[ -n "${zfsmissingkeys}" ]]; then
     echo
-    read -r -n1 -p 'Retreive missing OpenZFS public key (N/y)? '
+    read -r -n1 -p 'Retreive missing OpenZFS public keys (N/y)? '
     echo
     if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
         echo 'Operation canceled by user!'
         exit 0
     fi
-    if ! sudo --user "${SCRIPTUSER}" gpg --recv "${ZFSPUBKEY}"; then
-        echo
-        echo "Retreiving OpenZFS public key ${ZFSPUBKEY} failed, aborting!"
-        echo
-    fi
+    for _zfsmissingkey in ${zfsmissingkeys[*]}; do
+        if ! sudo --user "${SCRIPTUSER}" gpg --recv "${_zfsmissingkey}"; then
+            echo
+            echo "Retreiving OpenZFS public key ${_zfsmissingkey} failed, aborting!"
+            echo
+        fi
+    done
 fi
 
 trap _cleanup EXIT

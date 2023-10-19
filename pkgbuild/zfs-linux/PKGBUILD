@@ -17,7 +17,7 @@ depends=("kmod" "zfs-utils=${_zfsver}" "linux=${_kernelver}")
 makedepends=("linux-headers=${_kernelver}")
 source=("https://github.com/zfsonlinux/zfs/releases/download/zfs-${_zfsver}/zfs-${_zfsver}.tar.gz"{,.asc}
         "zfs.install")
-sha256sums=('%SHA256SUM%'
+sha256sums=('SKIP'
             'SKIP'
             'a08381be21af2910c21e5f24c5799383c7ce58b45c84fc02071a8528088e9bdf')
 validpgpkeys=('4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027'  # Tony Hutter (GPG key for signing ZFS releases) <hutter2@llnl.gov>
