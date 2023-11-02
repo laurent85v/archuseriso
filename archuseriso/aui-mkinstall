@@ -36,7 +36,7 @@ usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v10"
+valid_medium_version="v11"
 zroot=""
 
 _usage() {
@@ -628,9 +628,6 @@ _esp_bootloader_cfg_uefi-ia32.grub.esp() {
     cp -rT -- "${WD}/${workdir}/iso/.drive/install/grub" "${WD}/${workdir}/usbesp/grub"
 
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
-
-    # Move EFI binary to ESP /EFI/BOOT
-    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubia32.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTIA32.EFI"
 }
 
 _esp_bootloader_cfg_uefi-x64.grub.esp() {
@@ -661,6 +658,11 @@ _esp_bootloader_cfg_uefi-x64.systemd-boot.esp() {
 _esp_bootloader_cfg_bios.syslinux.mbr() {
     # Copy new syslinux config
     cp -rT -- "${WD}/${workdir}/iso/.drive/install/syslinux" "${WD}/${workdir}/usbesp/syslinux"
+}
+
+_esp_default_bootloader_uefi-ia32.grub.esp() {
+    # Move EFI binary to ESP /EFI/BOOT
+    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubia32.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTIA32.EFI"
 }
 
 _esp_default_bootloader_uefi-x64.grub.esp() {
@@ -713,6 +715,9 @@ _esp() {
     fi
 
     # Set default EFI boot loader
+    if typeset -f "_esp_default_bootloader_${ia32_uefi_default_bootloader}" &> /dev/null; then
+        _esp_default_bootloader_${x64_uefi_default_bootloader}
+    fi
     if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
         _esp_default_bootloader_${x64_uefi_default_bootloader}
     fi
