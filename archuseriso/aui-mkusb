@@ -30,6 +30,7 @@ iso_label=""
 iso_file=""
 iso_ize=0
 medium_version=""
+partition_table="gpt"
 raw_write="no"
 rootfs="ext4"
 usb_device=""
@@ -63,6 +64,8 @@ _help() {
     echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo (default), none, zlib, zstd'
     echo '--encrypt                   Disk encryption, encrypt the persistent partition'
     echo '--ext4-no-journal           Disable ext4 journal'
+    echo '--gpt                       GPT partition table layout (default)'
+    echo '--mbr                       MBR partition table layout'
     echo '--raw-write                 Raw write to USB drive (dd like mode), no persistence'
     echo '--rootfs=fstype             Persistent filesystem type: btrfs, ext4 (default), f2fs'
     echo '--size-esp=integer[g|G]     EFI System Partition size in GiB (ESP)'
@@ -412,12 +415,24 @@ _usb_prepare() {
 }
 
 _partitions() {
-    local _part_type_linux _part_type_msft
+    local _part_type_linux _part_type_msft _partition_table_layout
 
-    # GPT Partition type : Linux Filesystem
-    _part_type_linux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
-    # GPT Partition type : Microsoft basic data
-    _part_type_msft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
+    # GPT default
+    if ! [[ "${partition_table}" == 'mbr' ]]; then
+        # GPT partition table
+        _partition_table_layout="gpt"
+        # GPT Partition type : Linux Filesystem
+        _part_type_linux="0FC63DAF-8483-4772-8E79-3D69D8477DE4"
+        # GPT Partition type : Microsoft basic data
+        _part_type_msft="EBD0A0A2-B9E5-4433-87C0-68B6B72699C7"
+    else
+        # MBR partition table
+        _partition_table_layout="dos"
+        # MBR Partition type : Linux Filesystem
+        _part_type_linux="83"
+        # MBR Partition type : Microsoft basic data
+        _part_type_msft="07"
+    fi
 
     # Wipe drive
     udevadm lock --device="${usb_device}" -- wipefs --all --force -- "${usb_device}"* > /dev/null
@@ -427,8 +442,8 @@ _partitions() {
 
     # New gpt partition table
     _msg_info "Drive partitions"
-    _msg_info "New gpt label"
-    if ! echo 'label: gpt' | udevadm lock --device="${usb_device}" -- \
+    _msg_info "New ${partition_table} partition table"
+    if ! echo "label: ${_partition_table_layout}" | udevadm lock --device="${usb_device}" -- \
             sfdisk -W always -- "${usb_device}" > /dev/null; then
         echo 'Failed to create new gpt partition table!'
         exit 1
@@ -703,13 +718,7 @@ _persistence() {
     fi
 }
 
-_biosbootloader() {
-    echo
-    _msg_info "Install boot loader"
-    if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
-        echo 'Bootloader installation failed!'
-        exit 1
-    fi
+_biosbootloader_gpt(){
     if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usb_device}" 2> /dev/null; then
         echo 'Bootloader installation failed!'
         exit 1
@@ -718,12 +727,37 @@ _biosbootloader() {
         echo 'Bootloader installation failed!'
         exit 1
     fi
+}
+
+_biosbootloader_mbr(){
+    if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/mbr.bin of="${usb_device}" 2> /dev/null; then
+        echo 'Bootloader installation failed!'
+        exit 1
+    fi
+    if ! sfdisk --lock --activate "${usb_device}" 2 &> /dev/null; then
+        echo 'Bootloader installation failed!'
+        exit 1
+    fi
+}
+
+_biosbootloader() {
+    echo
+    _msg_info "Install boot loader"
+    if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
+        echo 'Bootloader installation failed!'
+        exit 1
+    fi
+    if ! [[ "${partition_table}" == 'mbr' ]]; then
+        _biosbootloader_gpt
+    else
+        _biosbootloader_mbr
+    fi
     _msg_info "Done!"
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'btrfs-compress:,encrypt,ext4-no-journal,help' \
-                     --long 'raw-write,rootfs:,size-esp:,size-cow:'        \
+OPTS=$(getopt -o 'h' --long 'btrfs-compress:,encrypt,ext4-no-journal,gpt,help' \
+                     --long 'mbr,raw-write,rootfs:,size-esp:,size-cow:'        \
                      -n "${appname}" -- "$@")
 [[ $? -eq 0 ]] || _usage 1
 eval set -- "${OPTS}"
@@ -749,6 +783,12 @@ while true; do
         '--ext4-no-journal')
             ext4_journal="no"
             shift ;;
+        '--gpt')
+            partition_table="gpt"
+            shift;;
+        '--mbr')
+            partition_table="mbr"
+            shift;;
         '--raw-write')
             raw_write="yes"
             shift ;;
