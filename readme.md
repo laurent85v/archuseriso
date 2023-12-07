@@ -1,37 +1,37 @@
 Description
 ===========
 
-Archuseriso is a set of script programs for building iso images and bootable disk images of Arch Linux, and for installing Arch Linux on an external USB disk or thumb drive.
+Archuseriso is a toolkit for building iso images and bootable disk images of Arch Linux, and for installing Arch Linux on a USB disk or thumb drive.
 
-Archuseriso is based on Archiso, the program used by the Arch Linux developers to build the monthly iso image.
+Archuseriso is based on Archiso, the program used for building the Arch Linux monthly iso image.
 
-Archuseriso integrates most of the developments of Archiso and adds additional features. A list of new build profiles is offered, they make it easy to build a bootable iso image or a bootable disk image with a desktop environment. Archuseriso allows creating a live usb drive with persistence and allows installing Arch Linux on a removable USB disk using the iso image or disk image created.
+Archuseriso integrates most Archiso developments and adds additional features. A list of new build profiles is offered, they make it easy to build a bootable iso image or a bootable disk image with a desktop environment. Archuseriso allows the creation of a live usb drive with persistence and allows the installation of Arch Linux on a removable USB disk.
 
-System and data can be encrypted on the removable medium. Several types of file systems are offered, ext4 the default, Btrfs and F2FS. Archuseriso also provides tools for adding native ZFS support to the iso image and the disk image, including installing onto a ZFS filesystem.
-
-Archuseriso images with a desktop environment can beneficially be used as an alternative to the Archiso image for installing on disk and for maintenance purposes.
+Encryption is an option when ceating the removable medium. Several types of file systems are offered, ext4, Btrfs and F2FS. Adding native ZFS support to the iso image and the disk image is an option, including installation onto a ZFS filesystem.
 
 * AUR repository https://aur.archlinux.org/packages/archuseriso
 * ISO image download for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
 * GPT disk image download for USB disks only http://dl.gnutux.fr/archuseriso/img
 * ZFS packages download http://dl.gnutux.fr/archuseriso/zfsonlinux
 
-Highlights
-----------
+Features
+--------
 
 * preconfigured build profiles
-* language choice
+* language configuration
 * zstandard compression algorithm
-* persistence
-* normal install on usb disk
+* persistence mode
+* installation mode
 * Ext4 / Btrfs / F2FS / ZFS file systems
 * LUKS encryption
+* GPT partition table
+* DOS MBR partition table
 * syslinux bios bootloader
 * systemd-boot, Grub or rEFInd bootloader for UEFI hardware
-* Build ZFS packages
+* tool for building ZFS packages
 * Installation on ZFS root filesystem
-* add AUR packages
-* inclusion of personal data to image
+* add user own packages
+* add user data to image
 * Nvidia graphics driver option
 * Samba public folder sharing
 * Docker image for running Archuseriso in a container
@@ -62,7 +62,7 @@ Alternative method using the git repository:
       git clone https://github.com/laurent85v/archuseriso.git
       sudo make -C archuseriso install
 
-The online built images on the http://dl.gnutux.fr/archuseriso download page include archuseriso. This allows building your disk image from the Live system without having to install archuseriso on your own computer.
+The online built images on the download page http://dl.gnutux.fr/archuseriso include archuseriso. This allows building your disk image from the live medium without having to install archuseriso.
 
 Note that archuseriso was designed for Arch Linux and has not been tested on Arch Linux derivatives.
 
@@ -73,7 +73,7 @@ Synopsis:
 
       aui-mkiso [options] <profile path>
 
-Build Xfce iso image with the default options, directory profiles `/usr/share/archuseriso/profiles` is assumed when profile path is not provided, following commands are equivalent:
+Build Xfce iso image with default options, directory profiles `/usr/share/archuseriso/profiles` is assumed when not provided. The following commands are equivalent:
 
       sudo aui-mkiso xfce
       sudo aui-mkiso /usr/share/archuseriso/profiles/xfce/
@@ -97,19 +97,19 @@ Help [Writing Disc Image](https://wiki.archlinux.org/title/USB_flash_installatio
 
 GPT disk image
 --------------
-The GPT disk image is a bootable disk image for USB flash drives and USB disks with persistence enabled. Write image directly to the usb drive. Free space on device can be used for creating new partitions for data storage or other usages.
+The GPT disk image is a bootable disk image with persistence builtin. Write image directly to the usb drive. Free space on the device can be used for creating additional partitions for other usages.
 
 Copy the gpt disk image to the usb device, e.g. as root with a usb device on /dev/sdc:
 
     # pv aui-xfce-linux_6_2_8-fr_FR-0327-x64.img > /dev/sdc
 
-Since the disk image and the usb disk capacity are not the same size it is necessary to fix the gpt table size on the usb disk. You can use the following command, knowing that fdisk or gparted can also fix it.
+Since the disk image and the usb disk capacity are not the same size it is necessary to fix the gpt table size on the usb disk. You can use the following command. fdisk or gparted can also fix it.
 
 Note the 3 dashes of the undocumented parted command option `---pretend-input-tty`:
 
     echo Fix | sudo parted /dev/sdc ---pretend-input-tty print
 
-The partition size for persistence is only 128 MiB. You need to resize the partition for persistence to the desired size. Gparted allows you to do this easily.
+The partition size configured for persistence is only 128 MiB. You need to resize the partition according to your needs. Gparted can do that easily.
 
 Help [Writing Disk Image](https://wiki.archlinux.org/title/USB_flash_installation_medium#Using_basic_command_line_utilities)
 
@@ -141,7 +141,7 @@ For the Btrfs filesystem, two separate subvolumes are created for persistence: `
 
 To add ZFS support to the iso image two methods are available: either the `--zfs-support` option which will build the zfs packages before installing them, or the `--pkg-dir <path>` which indicates the path of a directory containing additional packages to install (including those of ZFS).
 
-For the second method the `aui-buildzfs` script can build the zfs packages for you.
+For the second method the `aui-buildzfs` program can build the zfs packages from sources against the current linux kernel.
 
 Example:
 
@@ -149,15 +149,13 @@ Example:
 
 #### ZFS packages
 
-To build `zfs-utils`, `zfs-linux` and `zfs-linux-headers` for the current Arch Linux kernel, use the `aui-buildzfs` script:
+To build `zfs-utils`, `zfs-linux` and `zfs-linux-headers`, use the `aui-buildzfs` tool:
 
       sudo aui-buildzfs
 
-The script uses the zfs PKGBUILDs from archuseriso to build the zfs packages, they are compatible on any Arch Linux system.
-
 Normal installation on usb device
 ----------------------------------
-A normal installation can be carried out, this mode is the equivalent of an installation on an internal hard disk. Parameters specific to the live system are reset to Arch Linux default values with the exception of systemd journal which remains configured in volatile mode to limit disk I/O (especially for thumb drives)
+A normal installation can be carried out, this mode is the equivalent of an installation to an internal hard disk. Live system specific settings are reset to Arch Linux defaults, except for the system log which remains configured in volatile mode to limit disk I/O.
 
 Synopsis:
 
@@ -218,7 +216,7 @@ The archuseriso docker image is now created and can be used for running archuser
     sudo docker run --privileged --rm -it archuseriso
     [root@4dd3aab1018b /]# pacman -Q archuseriso
 
-Note that Docker is out of the scope of this documentation. You are supposed to know how to run and handle docker containers.
+Note that Docker is out of the scope of this readme. You are supposed to know how to handle docker containers.
 
 Limitations
 
@@ -227,12 +225,12 @@ Building zfs packages from the docker container currently doesn't work.
 Archuseriso Program List
 ------------------------
 
-* `aui-mkiso`: Build a bootable system image using a build profile
-* `aui-mkusb`: create a bootable system on a USB drive with persistence
-* `aui-mkinstall`: create a bootable system on a USB drive, corresponds to a normal hard disk installation
-* `aui-mkhybrid`: create a bootable system on USB drive, combines live mode and normal installation on the same usb device
+* `aui-mkiso`: Build a bootable image using a build profile
+* `aui-mkusb`: create a bootable USB drive with persistence
+* `aui-mkinstall`: create a bootable USB drive, corresponds to a normal hard disk installation
+* `aui-mkhybrid`: create a bootable USB drive, combines live mode and normal installation on the same usb device
 * `aui-buildzfs`: build ZFS packages
-* `aui-run`: test an image or a bootable system installed on a usb drive
+* `aui-run`: test an image or a bootable usb drive
 
 Documentation
 --------------
