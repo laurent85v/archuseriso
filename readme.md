@@ -7,7 +7,7 @@ Archuseriso is based on Archiso, the program used for building the Arch Linux mo
 
 Archuseriso integrates most Archiso developments and adds additional features. A list of new build profiles is offered, they make it easy to build a bootable iso image or a bootable disk image with a desktop environment. Archuseriso allows the creation of a live usb drive with persistence and allows the installation of Arch Linux on a removable USB disk.
 
-Encryption is an option when ceating the removable medium. Several types of file systems are offered, ext4, Btrfs and F2FS. Adding native ZFS support to the iso image and the disk image is an option, including installation onto a ZFS filesystem.
+Encryption is an option when ceating the removable medium. Several types of file systems are offered, ext4, Bcachefs, Btrfs and F2FS. Adding native ZFS support to the iso image and the disk image is an option, including installation onto a ZFS filesystem.
 
 * AUR repository https://aur.archlinux.org/packages/archuseriso
 * ISO image download for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
@@ -22,7 +22,7 @@ Features
 * zstandard compression algorithm
 * persistence mode
 * installation mode
-* Ext4 / Btrfs / F2FS / ZFS file systems
+* Ext4 / Bcachefs / Btrfs / F2FS / ZFS file systems
 * LUKS encryption
 * GPT partition table
 * DOS MBR partition table
@@ -128,10 +128,10 @@ Example:
 The disk partitioning is as follow:
 
     GPT layout
-    Partition   FS type           Type
-    #1          Ext4              Squashfs image
-    #2          EFI FAT           Boot
-    #3          Ext4|Btrfs|F2FS   Persistence
+    Partition   FS type                    Type
+    #1          Ext4                       Squashfs image
+    #2          EFI FAT                    Boot
+    #3          Ext4|Bcachefs|Btrfs|F2FS   Persistence
 
 #### Btrfs filesystem
 

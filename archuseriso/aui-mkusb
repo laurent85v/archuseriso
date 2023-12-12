@@ -11,6 +11,7 @@ set -e -u
 
 appname="${0##*/}"
 bootmodes=()
+bcachefs_options=('--compression=lz4')
 btrfs_compress=""
 btrfs_subvol_home=""
 btrfs_subvol_root=""
@@ -29,6 +30,7 @@ install_dir=""
 iso_label=""
 iso_file=""
 iso_ize=0
+encryption_type="luks"
 medium_version=""
 partition_table="gpt"
 raw_write="no"
@@ -61,13 +63,14 @@ _help() {
     echo
     echo 'Options:'
     echo '-h, --help                  Command line help'
+    echo '--bcachefs-compress=algo    Bcachefs compression algorithm: gzip, lz4 (default), none, zstd'
     echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo (default), none, zlib, zstd'
     echo '--encrypt                   Disk encryption, encrypt the persistent partition'
     echo '--ext4-no-journal           Disable ext4 journal'
     echo '--gpt                       GPT partition table layout (default)'
     echo '--mbr                       MBR partition table layout'
     echo '--raw-write                 Raw write to USB drive (dd like mode), no persistence'
-    echo '--rootfs=fstype             Persistent filesystem type: btrfs, ext4 (default), f2fs'
+    echo '--rootfs=fstype             Persistent filesystem type: bcachefs, btrfs, ext4 (default), f2fs'
     echo '--size-esp=integer[g|G]     EFI System Partition size in GiB (ESP)'
     echo '--size-cow=integer[g|G]     Copy on write partition size in GiB (persistence)'
     echo
@@ -116,7 +119,7 @@ _unmount() {
     _msg_info "Done!"
 }
 
-_luks() {
+_luks_format() {
     echo
     _msg_info "Disk encryption setup, type in a passphrase of your choice"
     if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}3" > /dev/null; then
@@ -135,14 +138,24 @@ _luks() {
     cow_device="/dev/mapper/${crypt_mapper:-auicrypt}"
 }
 
-_encryption_settings() {
+_encryption_setup_mount_overlay() {
     echo
-    _msg_info "Disk encryption: boot setup"
+    _msg_info "Disk encryption setup"
     mkdir -p -- "${WD}/${workdir}/"{overlay,squashfs}
     mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
     mkdir -p -- "${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir"
     mount -t overlay airootper -o lowerdir="${WD}/${workdir}/squashfs",upperdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/upperdir",workdir="${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir" -- "${WD}/${workdir}/overlay"
     mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/overlay/boot"
+}
+
+_encryption_setup_unmount_overlay() {
+    umount -- "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+    sleep 3
+    rmdir -- "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+}
+
+_luks_encryption_setup() {
+    _encryption_setup_mount_overlay
     sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
     _msg_info "initramfs update"
     arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
@@ -162,9 +175,16 @@ _encryption_settings() {
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
     fi
-    umount -- "${WD}/${workdir}/overlay/boot" "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
-    sleep 3
-    rmdir -- "${WD}/${workdir}/overlay" "/${WD}/${workdir}/squashfs"
+    _encryption_setup_unmount_overlay
+    _msg_info "Done!"
+}
+
+_bcachefs_encryption_setup() {
+    _encryption_setup_mount_overlay
+    sed -i -- "s|archiso |bcachefs &|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
+    _msg_info "initramfs update"
+    arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
+    _encryption_setup_unmount_overlay
     _msg_info "Done!"
 }
 
@@ -267,7 +287,7 @@ _check() {
         echo
         echo 'raw_write option set. Ignoring other options!'
         cow_size=""
-        encryption=""
+        encryption="no"
         esp_size=""
     fi
     # Set efi boot partition size in MiB
@@ -287,6 +307,12 @@ _check() {
             _usage 1
         fi
         cow_size=$(( cow_size * 1024 ))
+    fi
+    if [[ "${rootfs}" == "bcachefs" ]]; then
+        if ! pacman -Q bcachefs-tools &> /dev/null; then
+            echo 'bcachefs-tools package not installed, aborting!'
+            exit 0
+        fi
     fi
     if [[ "${rootfs}" == "btrfs" ]]; then
         if ! pacman -Q btrfs-progs &> /dev/null; then
@@ -469,6 +495,20 @@ _partitions() {
     _msg_info "Done!"
 }
 
+_format_bcachefs() {
+    local 
+    _msg_info "partition #3: type Bcachefs, label ${cow_label}"
+    if ! udevadm lock --device="${cow_device}" -- \
+            mkfs.bcachefs -L "${cow_label}" ${bcachefs_options[*]} "${cow_device}" > /dev/null; then
+        echo 'Failed to format partition!'
+        exit 1
+    fi
+    if bcachefs unlock -c "${cow_device}" > /dev/null; then
+        _msg_info "Type in your passphrase to unlock partition"
+        bcachefs unlock -k session "${cow_device}"
+    fi
+}
+
 _format_btrfs() {
     _msg_info "partition #3: type Btrfs, label ${cow_label}"
     if ! udevadm lock --device="${cow_device}" -- \
@@ -519,7 +559,13 @@ _format() {
     fi
     cow_device="${usb_device}3"
     if [[ "${encryption}" == "yes" ]]; then
-        _luks
+        case "${rootfs}" in
+            'btrfs'|'f2fs'|'ext4')
+                _luks_format ;;
+            'bcachefs')
+                encryption_type="bcachefs"
+                bcachefs_options+=('--encrypted');;
+        esac
     fi
     # Format persistent partition, filesystem type
     _format_"${rootfs}"
@@ -715,7 +761,7 @@ _persistence() {
     _msg_info "Done!"
 
     if [[ "${encryption}" == "yes" ]]; then
-        _encryption_settings
+        _"${encryption_type}"_encryption_setup
     fi
 }
 
@@ -769,12 +815,20 @@ while true; do
     case "$1" in
         '-h'|'--help')
             _help 0 ;;
+        '--bcachefs-compress')
+            if [[ "${2}" == 'gzip' || \
+                  "${2}" == 'lz4'  || \
+                  "${2}" == 'none' || \
+                  "${2}" == 'zstd' ]]; then
+                 bcachefs_options+=("--compression=${2}")
+            fi
+            shift 2 ;;
         '--btrfs-compress')
             if [[ "${2}" == 'lzo'  || \
                   "${2}" == 'no'   || \
                   "${2}" == 'none' || \
                   "${2}" == 'zlib' || \
-                  "${2}" == 'zstd'      ]]; then
+                  "${2}" == 'zstd' ]]; then
                 btrfs_compress="${2}"
             fi
             shift 2 ;;
@@ -800,7 +854,7 @@ while true; do
                     btrfs_subvol_home="/home"
                     btrfs_subvol_root="/rootfs"
                     cow_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-lzo}" ;;
-                'f2fs'|'ext4')
+                'bcachefs'|'f2fs'|'ext4')
                     rootfs="${2}" ;;
                 *)
                     echo "${2} is not a valid filesystem type option"

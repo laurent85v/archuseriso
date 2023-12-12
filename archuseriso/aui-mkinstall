@@ -10,11 +10,13 @@
 set -e -u
 
 appname="${0##*/}"
+bcachefs_options=('--compression=lz4')
 btrfs_compress=""
 btrfs_subvol_home=""
 btrfs_subvol_root=""
 desktop=""
 encryption="no"
+encryption_type="luks"
 esp_files_settings=()
 esp_label=""
 esp_size=""
@@ -29,7 +31,7 @@ MINCAPACITY="16"
 partuuid=""
 root_files_settings=()
 root_flags="defaults"
-rootfs_type="ext4"
+rootfs="ext4"
 root_label=""
 root_size=""
 usb_device=""
@@ -60,11 +62,12 @@ _help() {
     echo
     echo 'Options:'
     echo '-h, --help                  Command line help'
+    echo '--bcachefs-compress=algo    Bcachefs compression algorithm: gzip, lz4 (default), none, zstd'
     echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo, none, zlib, zstd (Default)'
     echo '--encrypt                   Disk encryption, encrypt the root partition'
     echo '                            Option not applying to zfs filesystem'
     echo '--ext4-no-journal           Disable ext4 journal'
-    echo '--rootfs=fstype             Root filesystem type: btrfs, ext4 (default), f2fs, zfs'
+    echo '--rootfs=fstype             Root filesystem type: bcachefs, btrfs, ext4 (default), f2fs, zfs'
     echo '                            type zfs requires an iso image with zfs support' 
     echo '--size-esp=integer[g|G]     EFI System Partition size in GiB (ESP)'
     echo '--size-rootfs=integer[g|G]  Root file system partition size in GiB'
@@ -86,7 +89,7 @@ _msg_info() {
 _cleanup() {
     local _workdirs
     _workdirs=('squashfs' 'iso' 'usbro' 'usbrw/boot' 'usbrw/home' 'usbrw/root' 'usbesp' 'usbrw')
-    if [[ "${rootfs_type}" == "zfs" ]]; then
+    if [[ "${rootfs}" == "zfs" ]]; then
         if zpool status "${zroot}" &> /dev/null; then
             [[ "$(zfs get mounted "${zroot}/data/home" -H -o value)" == "yes" ]] && \
                   zfs unmount "${zroot}/data/home"
@@ -129,7 +132,7 @@ _unmount() {
     _msg_info "Done!"
 }
 
-_luks() {
+_luks_format() {
     echo
     _msg_info "Disk encryption setup, type in a passphrase of your choice"
     if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}2" > /dev/null; then
@@ -148,10 +151,10 @@ _luks() {
     echo
 }
 
-_encryption() {
+_luks_encryption_setup() {
     echo
-    _msg_info "Encryption boot setup"
-    sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
+    _msg_info "Disk encryption setup"
+    sed -i -- "s|^HOOKS=(.*block|& encrypt|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
     _msg_info "initramfs update"
     arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
     _msg_info "Done!"
@@ -173,6 +176,16 @@ _encryption() {
     fi
     _msg_info "Done!"
 }
+
+_bcachefs_encryption_setup() {
+    echo
+    _msg_info "Disk encryption setup"
+    sed -i -- "s|\(^HOOKS=(.*filesystems \)fsck|\1bcachefs|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
+    _msg_info "initramfs update"
+    arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
+    _msg_info "Done!"
+}
+
 
 _check() {
     if [[ $# -ne 2 ]]; then
@@ -281,13 +294,19 @@ _check() {
         fi
         root_size=$(( root_size * 1024 ))
     fi
-    if [[ "${rootfs_type}" == "btrfs" ]]; then
+    if [[ "${rootfs}" == "bcachefs" ]]; then
+        if ! pacman -Q bcachefs-tools &> /dev/null; then
+            echo 'bcachefs-tools package not installed, aborting!'
+            exit 0
+        fi
+    fi
+    if [[ "${rootfs}" == "btrfs" ]]; then
         if ! pacman -Q btrfs-progs &> /dev/null; then
             echo 'btrfs-progs package not installed, aborting!'
             exit 0
         fi
     fi
-    if [[ "${rootfs_type}" == "f2fs" ]]; then
+    if [[ "${rootfs}" == "f2fs" ]]; then
         if ! pacman -Q f2fs-tools &> /dev/null; then
             echo 'f2fs-tools package not installed, aborting!'
             exit 0
@@ -379,7 +398,7 @@ _usb_prepare() {
     fi
     
     # check ZFS support
-    if [[ "${rootfs_type}" == "zfs" ]]; then
+    if [[ "${rootfs}" == "zfs" ]]; then
         if ! grep -q 'zfs-utils ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt" && \
            ! grep -q 'zfs-linux ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt"; then
             echo "Error: ZFS support is missing in this ISO image ${iso_file}!"
@@ -410,7 +429,7 @@ _partitions() {
     # Root partition type
     # Linux type for ext4, f2fs, btrfs
     # Solaris root type for zfs
-    if [[ "${rootfs_type}" == "zfs" ]]; then
+    if [[ "${rootfs}" == "zfs" ]]; then
         _part_type_linux_or_solaris="${_part_type_solaris_root}"
     else
         _part_type_linux_or_solaris="${_part_type_linux}"
@@ -446,6 +465,19 @@ _partitions() {
 
     partprobe -- "${usb_device}"
     _msg_info "Done!"
+}
+
+_format_bcachefs() {
+    _msg_info "partition #2: type Bcachefs, label ${root_label}"
+    if ! udevadm lock --device="${root_device}" -- \
+            mkfs.bcachefs -L "${root_label}" ${bcachefs_options[*]} "${root_device}" > /dev/null; then
+        echo 'Failed to format partition!'
+        exit 1
+    fi
+    if bcachefs unlock -c "${root_device}"; then
+        _msg_info "Type in your passphrase to unlock partition"
+        bcachefs unlock -k session "${root_device}"
+    fi
 }
 
 _format_btrfs() {
@@ -522,12 +554,18 @@ _format() {
     fi
     root_device="${usb_device}2"
     if [[ "${encryption}" == "yes" ]]; then
-        _luks
+        case "${rootfs}" in
+            'btrfs'|'f2fs'|'ext4')
+                _luks_format;;
+            'bcachefs')
+                encryption_type="bcachefs"
+                bcachefs_options+=('--encrypted');;
+        esac
     fi
 
     # format root partition
     # Default ext4
-    _format_"${rootfs_type}"
+    _format_"${rootfs}"
 
     _msg_info "Done!"
 }
@@ -540,7 +578,7 @@ _mount() {
     mount -- "${usb_device}1" "${WD}/${workdir}/usbesp"
 
     _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
-    case "${rootfs_type}" in
+    case "${rootfs}" in
         'btrfs')
             mount -t btrfs -- "${root_device}" "${WD}/${workdir}/usbrw"
             # create rootfs and home subvolumes for persistence
@@ -552,8 +590,8 @@ _mount() {
             mkdir -p -- "${WD}/${workdir}/usbrw/home"
             mount -o subvol="${btrfs_subvol_home}" -- "${root_device}" "${WD}/${workdir}/usbrw/home"
             ;;
-        'ext4' | 'f2fs')
-            mount -t "${rootfs_type}" -- "${root_device}" "${WD}/${workdir}/usbrw"
+        'bcachefs' | 'ext4' | 'f2fs')
+            mount -t "${rootfs}" -- "${root_device}" "${WD}/${workdir}/usbrw"
             ;;
         'zfs')
             zpool import -d /dev/disk/by-partuuid -R "${WD}/${workdir}/usbrw" -N "${zroot}"
@@ -706,7 +744,7 @@ _esp() {
     done
 
     # ZFS boot setup
-    if [[ "${rootfs_type}" == "zfs" ]]; then
+    if [[ "${rootfs}" == "zfs" ]]; then
         for _mediumfile in "${esp_files_settings[@]}"; do
             if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
                 sed -i -- "s|root=.*rootflags=defaults|zfs="${zroot}/ROOT/default" zfs_import_dir="${partuuid}" zfs_force=1 zfs_boot_only=1|" \
@@ -740,7 +778,7 @@ _rootfs() {
                        s|%ROOT_LABEL%|${root_label}|g;
                        s|%BTRFS_SUBVOL_HOME%|${btrfs_subvol_home}|g" \
                       "${WD}/${workdir}/usbrw/${_mediumfile}"
-            if [[ "${rootfs_type}" != "btrfs" && "${_mediumfile}" =~ 'fstab' ]]; then
+            if [[ "${rootfs}" != "btrfs" && "${_mediumfile}" =~ 'fstab' ]]; then
                 # remove unused btrfs line in fstab
                 sed -i -- '/btrfs/d' "${WD}/${workdir}/usbrw/${_mediumfile}"
             fi
@@ -752,7 +790,7 @@ _rootfs() {
     rm -r -- "${WD}/${workdir}/usbrw/etc/systemd/logind.conf.d"
 
     # live services
-    arch-chroot -- "${WD}/${workdir}/usbrw" systemctl disable pacman-init.service choose-mirror.service --quiet
+    arch-chroot -- "${WD}/${workdir}/usbrw" sh -c 'systemctl disable pacman-init.service choose-mirror.service --quiet; sleep 3'
     rm -r -- "${WD}/${workdir}/usbrw/etc/systemd/system/"{choose-mirror.service,pacman-init.service,etc-pacman.d-gnupg.mount,getty@tty1.service.d}
     rm -- "${WD}/${workdir}/usbrw/root/"{.automated_script.sh,.zlogin}
     rm -- "${WD}/${workdir}/usbrw/etc/initcpio/hooks/archiso"
@@ -793,8 +831,8 @@ _rootfs() {
     _msg_info "Done!"
 
     # ZFS on root setup
-    if [[ "${rootfs_type}" == "zfs" ]]; then
-        arch-chroot -- "${WD}/${workdir}/usbrw" systemctl mask zfs-import-cache.service
+    if [[ "${rootfs}" == "zfs" ]]; then
+        arch-chroot -- "${WD}/${workdir}/usbrw" sh -c 'systemctl mask zfs-import-cache.service'
         arch-chroot -- "${WD}/${workdir}/usbrw" zgenhostid
         sed -i -- 's/\(^HOOKS.*\)filesystems/\1zfs filesystems/;
                    s/\(^HOOKS.*\)fsck/\1/;
@@ -808,9 +846,9 @@ _rootfs() {
     _msg_info "Done!"
 
     if [[ "${encryption}" == "yes" ]]; then
-        _encryption
+        _"${encryption_type}"_encryption_setup
     fi
-    }
+}
 
 _biosbootloader() {
     _msg_info "Install boot loader"
@@ -844,6 +882,14 @@ while true; do
     case "$1" in
         '-h'|'--help')
             _help 0 ;;
+        '--bcachefs-compress')
+            if [[ "${2}" == 'gzip' || \
+                  "${2}" == 'lz4'  || \
+                  "${2}" == 'none' || \
+                  "${2}" == 'zstd' ]]; then
+                 bcachefs_options+=("--compression=${2}")
+            fi
+            shift 2 ;;
         '--btrfs-compress')
             if [[ "${2}" == 'lzo'  || \
                   "${2}" == 'no'   || \
@@ -854,7 +900,7 @@ while true; do
             fi
             shift 2 ;;
         '--encrypt')
-            if ! [[ "${rootfs_type}" == "zfs" ]]; then 
+            if ! [[ "${rootfs}" == "zfs" ]]; then 
                 encryption="yes"
             fi
             shift ;;
@@ -862,17 +908,17 @@ while true; do
             ext4_journal="no"
             shift ;;
         '--rootfs')
-            if ! [[ "${rootfs_type}" == "zfs" ]]; then 
+            if ! [[ "${rootfs}" == "zfs" ]]; then 
                 case "${2}" in
                     'btrfs')
                         btrfs_subvol_home="/home"
                         btrfs_subvol_root="/rootfs"
                         root_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-zstd}"
-                        rootfs_type="${2}" ;;
-                    'f2fs'|'ext4')
-                        rootfs_type="${2}" ;;
+                        rootfs="${2}" ;;
+                    'bcachefs'|'f2fs'|'ext4')
+                        rootfs="${2}" ;;
                     'zfs')
-                        rootfs_type="${2}"
+                        rootfs="${2}"
                         encryption="no" ;;
                     *)
                         echo "${2} is not a valid file system type option"
@@ -890,7 +936,7 @@ while true; do
             username="${2}"
             shift 2 ;;
         '--zfsonroot')
-            rootfs_type="zfs"
+            rootfs="zfs"
             encryption="no"
             shift ;;
         '--')

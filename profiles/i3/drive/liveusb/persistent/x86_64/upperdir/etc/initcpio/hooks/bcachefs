@@ -1,0 +1,28 @@
+#!/usr/bin/ash
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+run_hook() {
+
+[ -z "${device_wait}" ] && device_wait=30
+[ -n "${cow_device}" ] && bcachefs_cow_device="${cow_device}"
+[ -n "${cow_label}" ] && bcachefs_cow_device="/dev/disk/by-label/${cow_label}"
+
+sleep "${device_wait}" & pid=$!
+local break_loop=0
+while true; do
+    kill -0 "${pid}" > /dev/null 2>&1 || break_loop=1
+    # check if copy on write partition needs unlocking
+    if bcachefs unlock -c "${bcachefs_cow_device}" >/dev/null 2>&1; then
+        echo "Unlocking "${bcachefs_cow_device}":"
+        while true; do
+            bcachefs unlock "${bcachefs_cow_device}" && break 2
+        done
+    fi
+    [ "${break_loop}" == 1 ] && break
+    sleep 1
+done
+kill "${pid}" > /dev/null 2>&1
+}
+
+# vim: set ft=sh ts=4 sw=4 et:

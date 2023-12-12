@@ -1,0 +1,17 @@
+#!/usr/bin/ash
+#
+# SPDX-License-Identifier: GPL-3.0-or-later 
+
+build() {
+             add_module "bcachefs"
+             add_binary "bcachefs"
+             add_runscript
+}
+
+help() {
+           cat <<HELPEOF
+This hook is for getting the bcachefs unlock prompt at boot
+HELPEOF
+}
+
+# vim set ft=sh ts=4 sw=4 et:
