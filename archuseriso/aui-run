@@ -78,7 +78,8 @@ _checks() {
         echo "Error: ${device} is not a block device!"
         exit 1
     fi
-    if [[ -n "${usbdrive}" && ! $(lsblk -dnro rm "${device}" 2> /dev/null) -eq 1 ]]; then
+    if [[ -n "${usbdrive}" && ! ( $(lsblk -dnro rm      "${device}" 2> /dev/null) -eq 1 || \
+                                  $(lsblk -dnro hotplug "${device}" 2> /dev/null) -eq 1    ) ]]; then
         echo "Error: ${device} is not a removable block device!"
         exit 1
     fi

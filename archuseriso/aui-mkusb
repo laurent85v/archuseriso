@@ -242,7 +242,8 @@ _check() {
             echo "Error: ${usb_device} is not a scsi disk device!"
             _usage 1
     esac
-    if [[ ! $(lsblk -dnro rm -- "${usb_device}" 2> /dev/null) -eq 1 ]]; then
+    if ! [[ $(lsblk -dnro rm      -- "${usb_device}" 2> /dev/null) -eq 1 || \
+            $(lsblk -dnro hotplug -- "${usb_device}" 2> /dev/null) -eq 1      ]]; then
         echo "Error: ${usb_device} is not a removable block device!"
         _usage 1
     fi
