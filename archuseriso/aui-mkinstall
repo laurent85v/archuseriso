@@ -452,7 +452,7 @@ _format_btrfs() {
     _msg_info "partition #2: type Btrfs, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
             mkfs.btrfs -L "${root_label}" -- "${root_device}" > /dev/null; then
-        echo 'Format failed!'
+        echo 'Failed to format partition!'
         exit 1
     fi
 }
@@ -461,7 +461,7 @@ _format_f2fs() {
     _msg_info "partition #2: type F2FS, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
             mkfs.f2fs -l "${root_label}" -O encrypt,extra_attr,compression -- "${root_device}" > /dev/null; then
-        echo 'Format failed!'
+        echo 'Failed to format partition!'
         exit 1
     fi
 }
@@ -470,7 +470,7 @@ _format_ext4() {
     _msg_info "partition #2: type Ext4, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
             mkfs.ext4 -L "${root_label}" -O encrypt -q -- "${root_device}" > /dev/null; then
-        echo 'Format failed!'
+        echo 'Failed to format partition!'
         exit 1
     fi
     # disable ext4 journal
@@ -498,7 +498,7 @@ _format_zfs() {
             -O compression=lz4          \
             -R "${WD}/${workdir}/usbrw" \
             "${zroot}" "${partuuid}" > /dev/null; then
-        echo 'Format failed!'
+        echo 'Failed to format partition!'
         exit 1
     fi
     zfs create -o mountpoint=none "${zroot}/data"
@@ -517,7 +517,7 @@ _format() {
     _msg_info "partition #1: type FAT, label ${esp_label}"
     if ! udevadm lock --device="${usb_device}1" -- \
             mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}1" &> /dev/null; then
-        echo 'Format failed!'
+        echo 'Failed to format partition!'
         exit 1
     fi
     root_device="${usb_device}2"
