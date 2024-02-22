@@ -40,7 +40,7 @@ ia32_uefi_default_bootloader=""
 x64_uefi_default_bootloader=""
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v11"
+valid_medium_version="v12"
 
 _usage() {
     echo
