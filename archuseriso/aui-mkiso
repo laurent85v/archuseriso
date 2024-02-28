@@ -651,14 +651,120 @@ _make_setup_mkinitcpio() {
     fi
 }
 
+_profile_bootmode_syslinux_common() {
+    local _cfg
+    cp -rT --remove-destination "${profile}/syslinux/" "${work_dir}/syslinux/"
+    for _cfg in "${work_dir}/syslinux/"*.cfg; do
+        sed -i -- "s|%DESKTOP%|${desktop}|g;
+                   s|%ARCHISO_LABEL%|${iso_label}|g;
+                   s|%ARCHISO_UUID%|${iso_uuid}|g;
+                   s|%INSTALL_DIR%|${install_dir}|g;
+                   s|%ARCH%|${arch}|g"               \
+                  "${_cfg}"
+    done
+}
+
+_profile_bootmode_bios.syslinux.eltorito() {
+    _run_once _profile_bootmode_syslinux_common
+}
+
+_profile_bootmode_bios.syslinux.mbr() {
+    _run_once _profile_bootmode_syslinux_common
+}
+
+_profile_bootmode_grub_common() {
+    local _cfg search_filename
+
+    install -d -m 0755 "${work_dir}/grub" 
+
+    # Create a /boot/grub/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
+    # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
+    # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
+    : > "${work_dir}/grub/${iso_uuid}.uuid"
+    search_filename="/boot/grub/${iso_uuid}.uuid"
+
+    cp -rT --remove-destination "${profile}/efiboot/grub/" "${work_dir}/grub/"
+
+    for _cfg in "${work_dir}/grub/"*'.cfg'; do
+        sed -i -- "s|%DESKTOP%|${desktop}|g;
+                   s|%ARCHISO_LABEL%|${iso_label}|g;
+                   s|%ARCHISO_UUID%|${iso_uuid}|g;
+                   s|%INSTALL_DIR%|${install_dir}|g;
+                   s|%ARCH%|${arch}|g;
+                   s|%ARCHISO_SEARCH_FILENAME%|${search_filename}|g" \
+                  "${_cfg}"
+    done
+}
+
+_profile_bootmode_uefi-ia32.grub.eltorito() {
+    _run_once _profile_bootmode_grub_common
+}
+
+_profile_bootmode_uefi-ia32.grub.esp() {
+    _run_once _profile_bootmode_grub_common
+}
+
+_profile_bootmode_uefi-x64.grub.eltorito() {
+    _run_once _profile_bootmode_grub_common
+}
+
+_profile_bootmode_uefi-x64.grub.esp() {
+    _run_once _profile_bootmode_grub_common
+}
+
+_profile_bootmode_refind_common() {
+    cp -rT --remove-destination "${profile}/efiboot/refind/" "${work_dir}/refind/"
+}
+
+_profile_bootmode_uefi-x64.refind.eltorito() {
+    _run_once _profile_bootmode_refind_common
+}
+
+_profile_bootmode_uefi-x64.refind.esp() {
+    _run_once _profile_bootmode_refind_common
+}
+
+_profile_bootmode_systemd-boot_common() {
+    local _conf
+
+    cp -rT --remove-destination "${profile}/efiboot/loader/" "${work_dir}/loader/"
+
+    for _conf in "${work_dir}/loader/entries/"*".conf"; do
+        sed -i -- "s|%DESKTOP%|${desktop}|g;
+                   s|%ARCHISO_LABEL%|${iso_label}|g;
+                   s|%ARCHISO_UUID%|${iso_uuid}|g;
+                   s|%INSTALL_DIR%|${install_dir}|g;
+                   s|%ARCH%|${arch}|g" \
+                  "${_conf}"
+    done
+}
+
+_profile_bootmode_uefi-ia32.systemd-boot.eltorito() {
+    _run_once _profile_bootmode_systemd-boot_common
+}
+
+_profile_bootmode_uefi-ia32.systemd-boot.esp() {
+    _run_once _profile_bootmode_systemd-boot_common
+}
+
+_profile_bootmode_uefi-x64.systemd-boot.eltorito() {
+    _run_once _profile_bootmode_systemd-boot_common
+}
+
+_profile_bootmode_uefi-x64.systemd-boot.esp() {
+    _run_once _profile_bootmode_systemd-boot_common
+}
+
 _fat_image_efiboot_files_common() {
     local _file
     local _available_ucodes=()
+
     for _file in "${ucodes[@]}"; do
         if [[ -e "${pacstrap_dir}/boot/${_file}" ]]; then
             _available_ucodes+=("${pacstrap_dir}/boot/${_file}")
         fi
     done
+
     efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
                     "${pacstrap_dir}/boot/initramfs-"*".img"
                     "${_available_ucodes[@]}")
@@ -676,27 +782,9 @@ _fat_image_efiboot_files_common_x64() {
 }
 
 _make_common_bootmode_grub_cfg() {
-    local _cfg search_filename
+    local search_filename
 
-    install -d -- "${work_dir}/grub"
-
-    # Create a /boot/grub/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
-    # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
-    # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
-    : > "${work_dir}/grub/${iso_uuid}.uuid"
     search_filename="/boot/grub/${iso_uuid}.uuid"
-
-
-    # Fill GRUB configuration files
-    for _cfg in "${profile}/efiboot/grub/"*'.cfg'; do
-        sed "s|%DESKTOP%|${desktop}|g;
-             s|%ARCHISO_LABEL%|${iso_label}|g;
-             s|%ARCHISO_UUID%|${iso_uuid}|g;
-             s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g;
-             s|%ARCHISO_SEARCH_FILENAME%|${search_filename}|g" \
-            "${_cfg}" > "${work_dir}/grub/${_cfg##*/}"
-    done
 
     # Prepare grub.cfg that will be embedded inside the GRUB binaries
     IFS='' read -r -d '' grubembedcfg <<'EOF' || true
@@ -758,40 +846,6 @@ EOF
         > "${work_dir}/grub/grubenv"
 }
 
-_make_common_grubenv_and_loopbackcfg() {
-    local search_filename
-
-    install -d -m 0755 -- "${isofs_dir}/boot/grub"
-    # Create a /boot/grub/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
-    # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
-    # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
-    search_filename="/boot/grub/${iso_uuid}.uuid"
-    : >"${isofs_dir}/${search_filename}"
-
-    # Write grubenv
-    printf '%.1024s' \
-        "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\nARCHISO_LABEL=%s\nINSTALL_DIR=%s\nARCH=%s\nARCHISO_SEARCH_FILENAME=%s\n%s' \
-            "${iso_name}" \
-            "${iso_version}" \
-            "${iso_label}" \
-            "${install_dir}" \
-            "${arch}" \
-            "${search_filename}" \
-            "$(printf '%0.1s' "#"{1..1024})")" \
-        >"${isofs_dir}/boot/grub/grubenv"
-
-    # Copy loopback.cfg to /boot/grub/ on ISO 9660
-    if [[ -e "${profile}/efiboot/grub/loopback.cfg" ]]; then
-        sed "s|%DESKTOP%|${desktop}|g;
-             s|%ARCHISO_LABEL%|${iso_label}|g;
-             s|%ARCHISO_UUID%|${iso_uuid}|g;
-             s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g;
-             s|%ARCHISO_SEARCH_FILENAME%|${search_filename}|g" \
-            "${profile}/efiboot/grub/loopback.cfg" > "${isofs_dir}/boot/grub/loopback.cfg"
-    fi
-}
-
 _fat_image_efiboot_files_uefi-ia32.grub.esp() {
     local _grubmodules=()
 
@@ -850,7 +904,7 @@ _fat_image_efiboot_files_uefi-x64.grub.esp() {
 _fat_image_efiboot_files_uefi-x64.refind.esp() {
     _run_once _fat_image_efiboot_files_common_x64
     _run_once _fat_image_efiboot_files_common
-    efiboot_files+=("${profile}/efiboot/refind/refind-dvd.conf"
+    efiboot_files+=("${work_dir}/refind/refind-dvd.conf"
                     "${pacstrap_dir}/usr/share/refind")
 }
 
@@ -858,33 +912,14 @@ _fat_image_efiboot_files_uefi-ia32.systemd-boot.esp() {
     _run_once _fat_image_efiboot_files_common_ia32
     efiboot_files+=("${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
                     "${pacstrap_dir}/usr/share/refind/icons/os_arch.png"
-                    "${profile}/efiboot/loader/")
+                    "${work_dir}/loader/")
 }
 
 _fat_image_efiboot_files_uefi-x64.systemd-boot.esp() {
     _run_once _fat_image_efiboot_files_common_x64
     efiboot_files+=("${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
                     "${pacstrap_dir}/usr/share/refind/icons/os_arch.png"
-                    "${profile}/efiboot/loader/")
-}
-
-# Set up boot loaders
-_make_bootmodes() {
-    local _bootmode
-    # Calculate the required FAT image size in bytes for x64 EFI booting
-    for _bootmode in "${bootmodes[@]}"; do
-        if typeset -f "_fat_image_efiboot_files_${_bootmode}" &> /dev/null; then
-            _run_once "_fat_image_efiboot_files_${_bootmode}"
-        fi
-    done
-    # Make bootmodes
-    for _bootmode in "${bootmodes[@]}"; do
-        _run_once "_make_bootmode_${_bootmode}"
-    done
-
-    if [[ "${bootmodes[*]}" != *grub* ]]; then
-        _run_once _make_common_grubenv_and_loopbackcfg
-    fi
+                    "${work_dir}/loader/")
 }
 
 # Copy kernel and initramfs to ISO 9660
@@ -904,80 +939,6 @@ _make_boot_on_iso9660() {
             fi
         fi
     done
-    _msg_info "Done!"
-}
-
-# Prepare syslinux for booting from MBR (isohybrid)
-_make_bootmode_bios.syslinux.mbr() {
-    _msg_info "Setting up SYSLINUX for BIOS booting from a disk..."
-    install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
-    for _cfg in "${profile}/syslinux/"*.cfg; do
-        sed "s|%DESKTOP%|${desktop}|g;
-             s|%ARCHISO_LABEL%|${iso_label}|g;
-             s|%ARCHISO_UUID%|${iso_uuid}|g;
-             s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g"               \
-            "${_cfg}" > "${isofs_dir}/boot/syslinux/${_cfg##*/}"
-    done
-    if [[ -e "${profile}/syslinux/splash.png" ]]; then
-        install -m 0644 -- "${profile}/syslinux/splash.png" "${isofs_dir}/boot/syslinux/"
-    fi
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/"*.c32 "${isofs_dir}/boot/syslinux/"
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${isofs_dir}/boot/syslinux/"
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${isofs_dir}/boot/syslinux/"
-
-    _run_once _make_boot_on_iso9660
-
-    if [[ -e "${isofs_dir}/boot/syslinux/hdt.c32" ]]; then
-        install -d -m 0755 -- "${isofs_dir}/boot/syslinux/hdt"
-        if [[ -e "${pacstrap_dir}/usr/share/hwdata/pci.ids" ]]; then
-            gzip -cn9 "${pacstrap_dir}/usr/share/hwdata/pci.ids" > \
-                "${isofs_dir}/boot/syslinux/hdt/pciids.gz"
-        fi
-        find "${pacstrap_dir}/usr/lib/modules" -name 'modules.alias' -print -exec gzip -cn9 '{}' ';' -quit > \
-            "${isofs_dir}/boot/syslinux/hdt/modalias.gz"
-    fi
-
-    # Add other aditional/extra files to ${install_dir}/boot/
-    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.bin" ]]; then
-        # rename for PXE: https://wiki.archlinux.org/title/Syslinux#Using_memtest
-        install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
-        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/boot/memtest86+/memtest"
-        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-or-later.txt" "${isofs_dir}/boot/memtest86+/"
-    fi
-    _msg_info "Done!"
-}
-
-# Prepare syslinux for El-Torito booting
-_make_bootmode_bios.syslinux.eltorito() {
-    _msg_info "Setting up SYSLINUX for BIOS booting from an optical disc..."
-    install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
-    install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isolinux.bin" "${isofs_dir}/boot/syslinux/"
-    install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isohdpfx.bin" "${isofs_dir}/boot/syslinux/"
-
-    # ISOLINUX and SYSLINUX installation is shared
-    _run_once _make_bootmode_bios.syslinux.mbr
-
-    _msg_info "Done!"
-}
-
-# Copy kernel and initramfs to FAT image
-_make_boot_on_fat() {
-    local -a _all_ucode_images=()
-    _msg_info "Preparing kernel and initramfs for the FAT file system..."
-    mmd -i "${efibootimg}" \
-        "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}" \
-        "::/boot" "::/boot/memtest86+"
-    mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/vmlinuz-"* \
-        "${pacstrap_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
-    for _ucode_image in "${ucodes[@]}"; do
-        if [[ -e "${pacstrap_dir}/boot/${_ucode_image}" ]]; then
-            _all_ucode_images+=("${pacstrap_dir}/boot/${_ucode_image}")
-        fi
-    done
-    if (( ${#_all_ucode_images[@]} )); then
-        mcopy -i "${efibootimg}" "${_all_ucode_images[@]}" "::/${install_dir}/boot/"
-    fi
     _msg_info "Done!"
 }
 
@@ -1025,6 +986,26 @@ _make_efibootimg() {
 _make_efibootimg_grub_path() {
     mmd -D s -i "${efibootimg}" \
            ::/EFI/grub
+}
+
+# Copy kernel and initramfs to FAT image
+_make_boot_on_fat() {
+    local -a _all_ucode_images=()
+    _msg_info "Preparing kernel and initramfs for the FAT file system..."
+    mmd -i "${efibootimg}" \
+        "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}" \
+        "::/boot" "::/boot/memtest86+"
+    mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/vmlinuz-"* \
+        "${pacstrap_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
+    for _ucode_image in "${ucodes[@]}"; do
+        if [[ -e "${pacstrap_dir}/boot/${_ucode_image}" ]]; then
+            _all_ucode_images+=("${pacstrap_dir}/boot/${_ucode_image}")
+        fi
+    done
+    if (( ${#_all_ucode_images[@]} )); then
+        mcopy -i "${efibootimg}" "${_all_ucode_images[@]}" "::/${install_dir}/boot/"
+    fi
+    _msg_info "Done!"
 }
 
 _ed2k-shellia32.esp() {
@@ -1087,6 +1068,55 @@ _make_common_bootmode_grub_copy_to_isofs() {
     cp -r --remove-destination -- "${_files_to_copy[@]}" "${isofs_dir}/boot/grub/"
 }
 
+# Prepare syslinux for booting from MBR (isohybrid)
+_make_bootmode_bios.syslinux.mbr() {
+    _msg_info "Setting up SYSLINUX for BIOS booting from a disk..."
+    install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
+    for _cfg in "${work_dir}/syslinux/"*.cfg; do
+            install -m 0644 -- "${_cfg}" "${isofs_dir}/boot/syslinux/${_cfg##*/}"
+    done
+    if [[ -e "${work_dir}/syslinux/splash.png" ]]; then
+        install -m 0644 -- "${work_dir}/syslinux/splash.png" "${isofs_dir}/boot/syslinux/"
+    fi
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/"*.c32 "${isofs_dir}/boot/syslinux/"
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${isofs_dir}/boot/syslinux/"
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${isofs_dir}/boot/syslinux/"
+
+    _run_once _make_boot_on_iso9660
+
+    if [[ -e "${isofs_dir}/boot/syslinux/hdt.c32" ]]; then
+        install -d -m 0755 -- "${isofs_dir}/boot/syslinux/hdt"
+        if [[ -e "${pacstrap_dir}/usr/share/hwdata/pci.ids" ]]; then
+            gzip -cn9 "${pacstrap_dir}/usr/share/hwdata/pci.ids" > \
+                "${isofs_dir}/boot/syslinux/hdt/pciids.gz"
+        fi
+        find "${pacstrap_dir}/usr/lib/modules" -name 'modules.alias' -print -exec gzip -cn9 '{}' ';' -quit > \
+            "${isofs_dir}/boot/syslinux/hdt/modalias.gz"
+    fi
+
+    # Add other aditional/extra files to ${install_dir}/boot/
+    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.bin" ]]; then
+        # rename for PXE: https://wiki.archlinux.org/title/Syslinux#Using_memtest
+        install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
+        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/boot/memtest86+/memtest"
+        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-or-later.txt" "${isofs_dir}/boot/memtest86+/"
+    fi
+    _msg_info "Done!"
+}
+
+# Prepare syslinux for El-Torito booting
+_make_bootmode_bios.syslinux.eltorito() {
+    _msg_info "Setting up SYSLINUX for BIOS booting from an optical disc..."
+    install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
+    install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isolinux.bin" "${isofs_dir}/boot/syslinux/"
+    install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isohdpfx.bin" "${isofs_dir}/boot/syslinux/"
+
+    # ISOLINUX and SYSLINUX installation is shared
+    _run_once _make_bootmode_bios.syslinux.mbr
+
+    _msg_info "Done!"
+}
+
 _make_bootmode_uefi-ia32.grub.esp() {
     _msg_info "Setting up IA32 GRUB for UEFI booting..."
 
@@ -1120,8 +1150,7 @@ _make_bootmode_uefi-ia32.grub.eltorito() {
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,grub}
 
     # Copy GRUB EFI binary to the default/fallback boot path
-    install -m 0644 -- "${work_dir}/grubia32.efi" \
-        "${isofs_dir}/EFI/grub/grubia32.efi"
+    install -m 0644 -- "${work_dir}/grubia32.efi" "${isofs_dir}/EFI/grub/grubia32.efi"
 
     # Copy GRUB files
     _run_once _make_common_bootmode_grub_copy_to_isofs
@@ -1167,8 +1196,7 @@ _make_bootmode_uefi-x64.grub.eltorito() {
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,grub}
 
     # Copy GRUB EFI binary to the default/fallback boot path
-    install -m 0644 -- "${work_dir}/grubx64.efi" \
-        "${isofs_dir}/EFI/grub/"
+    install -m 0644 -- "${work_dir}/grubx64.efi" "${isofs_dir}/EFI/grub/"
 
     # Copy GRUB files
     _run_once _make_common_bootmode_grub_copy_to_isofs
@@ -1201,7 +1229,7 @@ _make_bootmode_uefi-x64.refind.esp() {
     mcopy -i "${efibootimg}" \
              "${work_dir}"/x86_64/airootfs/usr/share/refind/icons/* ::/EFI/refind/icons/
     mcopy -i "${efibootimg}" \
-             "${profile}/efiboot/refind/refind-dvd.conf" ::/EFI/refind/refind.conf
+             "${work_dir}/refind/refind-dvd.conf" ::/EFI/refind/refind.conf
 
     # Copy kernel and initramfs to FAT image.
     _run_once _make_boot_on_fat
@@ -1226,9 +1254,10 @@ _make_bootmode_uefi-x64.refind.eltorito() {
 
     # Copy rEFInd files to EFI path
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/refind/refind_x64.efi" "${isofs_dir}/EFI/refind/"
-    cp -a -- "${work_dir}"/x86_64/airootfs/usr/share/refind/{drivers_x64,icons}/ "${isofs_dir}/EFI/refind/"
+    cp -r --remove-destination -- "${work_dir}/x86_64/airootfs/usr/share/refind"/{drivers_x64,icons}/ \
+                                   "${isofs_dir}/EFI/refind/"
 
-    install -m 0644 -- "${profile}/efiboot/refind/refind-usb.conf" "${isofs_dir}/EFI/refind/refind.conf"
+    install -m 0644 -- "${work_dir}/refind/refind-usb.conf" "${isofs_dir}/EFI/refind/refind.conf"
 
     _run_once _ed2k-shellx64.eltorito
     
@@ -1239,37 +1268,25 @@ _make_bootmode_uefi-x64.refind.eltorito() {
 
 _make_bootmode_uefi.systemd-boot.common_config_files() {
     install -d -m 0755 -- "${isofs_dir}/loader/entries"
-    install -m 0644 -- "${profile}/efiboot/loader/loader.conf" "${isofs_dir}/loader/"
-    for _entry in  "${profile}/efiboot/loader/entries/"*".conf"; do
+    install -m 0644 -- "${work_dir}/loader/loader.conf" "${isofs_dir}/loader/"
+    for _entry in  "${work_dir}/loader/entries/"*".conf"; do
         install -m 0644 -- "${_entry}" "${isofs_dir}/loader/entries/${_entry##*/}"
-    done
-
-    for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
-        sed "s|%DESKTOP%|${desktop}|g;
-             s|%ARCHISO_LABEL%|${iso_label}|g;
-             s|%ARCHISO_UUID%|${iso_uuid}|g;
-             s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g" \
-             "${_conf}" > "${isofs_dir}/loader/entries/${_conf##*/}"
     done
 }
 
 _make_bootmode_uefi.systemd-boot.common() {
+    local _entry
+
     # Create the EFI paths in which a boot loader will be placed.
     mmd -i "${efibootimg}" \
            ::/EFI/systemd ::/loader ::/loader/entries
 
     # Copy systemd-boot configuration files
     mcopy -i "${efibootimg}" \
-             "${profile}/efiboot/loader/loader.conf" ::loader/
+             "${work_dir}/loader/loader.conf" ::loader/
 
-    for _conf in "${profile}/efiboot/loader/entries/"*".conf"; do
-        sed "s|%DESKTOP%|${desktop}|g;
-             s|%ARCHISO_LABEL%|${iso_label}|g;
-             s|%ARCHISO_UUID%|${iso_uuid}|g;
-             s|%INSTALL_DIR%|${install_dir}|g;
-             s|%ARCH%|${arch}|g" \
-             "${_conf}" | mcopy -i "${efibootimg}" - "::/loader/entries/${_conf##*/}"
+    for _entry in  "${work_dir}/loader/entries/"*".conf"; do
+        mcopy -i "${efibootimg}" "${_entry}" "::/loader/entries/${_entry##*/}"
     done
 }
 
@@ -1378,6 +1395,26 @@ _make_bootmode_uefi-x64.systemd-boot.eltorito() {
     _msg_info "Done!"
 }
 
+# Set up boot loaders
+_make_bootmodes() {
+    local _bootmode
+    # Prepare profile bootmodes
+    for _bootmode in "${bootmodes[@]}"; do
+        if typeset -f "_profile_bootmode_${_bootmode}" &> /dev/null; then
+            _run_once "_profile_bootmode_${_bootmode}"
+        fi
+    done
+    # Calculate the required FAT image size in bytes for x64 EFI booting
+    for _bootmode in "${bootmodes[@]}"; do
+        if typeset -f "_fat_image_efiboot_files_${_bootmode}" &> /dev/null; then
+            _run_once "_fat_image_efiboot_files_${_bootmode}"
+        fi
+    done
+    # Make bootmodes
+    for _bootmode in "${bootmodes[@]}"; do
+        _run_once "_make_bootmode_${_bootmode}"
+    done
+}
 
 # Set GRUB ia32 as the default EFI boot loader
 _make_ia32_uefi_default_bootloader_uefi-ia32.grub.esp() {
