@@ -189,7 +189,7 @@ plasma-nm
 plasma-pa
 plasma-thunderbolt
 plasma-vault
-plasma-wayland-session
+plasma-workspace
 plasma-workspace-wallpapers
 powerdevil
 print-manager
@@ -249,7 +249,6 @@ kgamma
 kget
 #kgpg
 khelpcenter
-khotkeys
 #kimagemapeditor
 kinfocenter
 kio-gdrive
