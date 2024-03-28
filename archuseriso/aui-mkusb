@@ -181,7 +181,7 @@ _luks_encryption_setup() {
 
 _bcachefs_encryption_setup() {
     _encryption_setup_mount_overlay
-    sed -i -- "s|archiso |bcachefs &|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
+    sed -i -- "s|^HOOKS=(.* filesystems|& bcachefs|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
     _msg_info "initramfs update"
     arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
     _encryption_setup_unmount_overlay
