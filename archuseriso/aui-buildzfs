@@ -25,7 +25,7 @@ SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
 ZFSPUBKEYS=(C77B9667 D4598027 C6AF658B)
-declare -a zfsmissingkeys
+declare -a zfsmissingkeys=('')
 declare -a zfspackages
 declare -a zfssources
 
