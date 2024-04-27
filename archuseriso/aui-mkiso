@@ -55,6 +55,7 @@ pkg_list_additions=()
 pkg_testing_list=()
 profile=""
 quiet=""
+search_filename=""
 user_pkg_dir=""
 work_dir=""
 x64_uefi_default_bootloader=""
@@ -668,15 +669,9 @@ _profile_bootmode_bios.syslinux.mbr() {
 }
 
 _profile_bootmode_grub_common() {
-    local _cfg search_filename
+    local _cfg
 
     install -d -m 0755 "${work_dir}/grub" 
-
-    # Create a /boot/grub/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
-    # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
-    # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
-    : > "${work_dir}/grub/${iso_uuid}.uuid"
-    search_filename="/boot/grub/${iso_uuid}.uuid"
 
     cp -rT --remove-destination "${profile}/efiboot/grub/" "${work_dir}/grub/"
 
@@ -2678,6 +2673,13 @@ _make_version() {
         printf '%.1024s' "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\n%s' \
             "${iso_name}" "${iso_version}" "$(printf '%0.1s' "#"{1..1024})")" \
             > "${isofs_dir}/${install_dir}/grubenv"
+
+        # Create a /boot/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
+        # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
+        # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
+        search_filename="/boot/${iso_uuid}.uuid"
+        install -d -m 755 -- "${isofs_dir}/boot"
+        : >"${isofs_dir}${search_filename}"
     fi
     # Write version file to system installation dir
     rm -f -- "${pacstrap_dir}/version"
