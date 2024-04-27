@@ -28,6 +28,7 @@ arch="x86_64"
 pacman_conf="pacman.conf"
 pacman_testing_conf="pacman-testing.conf"
 airootfs_image_tool_options=('-comp' 'zstd')
+bootstrap_tarball_compression=(gzip -cn6)
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
   ["/root"]="0:0:750"
