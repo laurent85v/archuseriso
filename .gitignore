@@ -1,5 +1,7 @@
 *~
 archuseriso-*.tar.gz*
+*.tar
+*.tar.*
 *.pkg.tar.xz
 *.pkg.tar.zst
 out/
