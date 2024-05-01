@@ -10,9 +10,9 @@ Archuseriso integrates most Archiso developments and adds additional features. A
 Encryption is an option when ceating the removable medium. Several types of file systems are offered, ext4, Bcachefs, Btrfs and F2FS. Adding native ZFS support to the iso image and the disk image is an option, including installation onto a ZFS filesystem.
 
 * AUR repository https://aur.archlinux.org/packages/archuseriso
-* ISO image download for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
-* GPT disk image download for USB disks only http://dl.gnutux.fr/archuseriso/img
-* ZFS packages download http://dl.gnutux.fr/archuseriso/zfsonlinux
+* ISO image for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
+* GPT disk image for USB disks only http://dl.gnutux.fr/archuseriso/img
+* ZFS packages http://dl.gnutux.fr/archuseriso/zfsonlinux
 
 Features
 --------
