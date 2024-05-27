@@ -120,7 +120,7 @@ usbutils
 vim
 virtualbox-guest-utils-nox
 vpnc
-wezterm-terminfo
+wezterm
 wireless-regdb
 wireless_tools
 wpa_supplicant
@@ -191,7 +191,7 @@ openpgp-card-tools
 networkmanager-openvpn
 networkmanager-pptp
 networkmanager-vpnc
-wezterm-terminfo
+wezterm
 numlockx
 system-config-printer
 xf86-input-elographics

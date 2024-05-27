@@ -120,7 +120,7 @@ usbutils
 vim
 virtualbox-guest-utils-nox
 vpnc
-wezterm-terminfo
+wezterm
 wireless-regdb
 wireless_tools
 wpa_supplicant
@@ -222,7 +222,7 @@ networkmanager-openconnect
 openpgp-card-tools
 networkmanager-pptp
 networkmanager-vpnc
-wezterm-terminfo
+wezterm
 numlockx
 orca
 rygel
