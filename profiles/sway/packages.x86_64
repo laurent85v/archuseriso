@@ -120,7 +120,6 @@ usbutils
 vim
 virtualbox-guest-utils-nox
 vpnc
-wezterm
 wireless-regdb
 wireless_tools
 wpa_supplicant
@@ -171,7 +170,6 @@ openpgp-card-tools
 networkmanager-openvpn
 networkmanager-pptp
 networkmanager-vpnc
-wezterm
 ranger
 slurp
 
