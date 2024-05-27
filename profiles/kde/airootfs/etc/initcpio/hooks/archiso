@@ -125,7 +125,7 @@ _search_for_archisodevice() {
     local search_dev
 
     # First try searching for a UUID matching $archisosearchuuid
-    if archisodevice="$(rootdelay="${rootdelay:-2}" resolve_device "UUID=${archisosearchuuid}")"; then
+    if archisodevice="$(rootdelay="${rootdelay:-4}" resolve_device "UUID=${archisosearchuuid}")"; then
         return 0
     fi
 
