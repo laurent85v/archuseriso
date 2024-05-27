@@ -2300,7 +2300,12 @@ _build_iso_image() {
     for bootmode in "${bootmodes[@]}"; do
         typeset -f "_add_xorrisofs_options_${bootmode}" &> /dev/null && "_add_xorrisofs_options_${bootmode}"
     done
-    
+
+    # Remove 300 KiB padding needed for CDs if the ISO exceeds the max size of a CD
+    if (( $(du -s --apparent-size -B1M "${isofs_dir}/" | awk '{ print $1 }') > 900 )); then
+        xorrisofs_options+=('-no-pad')
+    fi
+
     rm -f -- "${out_dir}/${image_name}"
     _msg_info "Creating ISO image..."
     if [[ "${quiet}" == "y" ]]; then
