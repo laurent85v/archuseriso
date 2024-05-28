@@ -46,6 +46,7 @@ iso_publisher=""
 iso_version=""
 iso_version_options=()
 lang=""
+lts=""
 out_dir=""
 packages=""
 packages_locales=""
@@ -134,8 +135,10 @@ usage: ${app_name} [options] <profile_dir>
                                         Default: '${iso_label}'
      -l, --language <lang>              Set default language, select one from:
                                         cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
-     -m, --build-modes [build modes]    Build modes to use (valid modes are: 'bootstrap', 'img' and 'iso').
-                                        Multiple build modes are provided as quoted, comma delimited list.
+     --lts                              Replace the linux package and the nvidia package with the long
+                                        term support version. Only available for the default iso build mode.
+     -m, --build-modes [build modes]    Build modes, comma separeted list. Valid modes are: 'bootstrap', 'img'
+                                        and 'iso'. Default build mode is 'iso'.
      -o <out_dir>                       Set the output directory
                                         Default: '${out_dir}'
      --pacman-testing-conf <file>       pacman configuration file with testing repositories enabled.
@@ -417,6 +420,15 @@ _make_custom_airootfs() {
         _msg_info "Copying custom airootfs files..."
         cp -af --no-preserve=ownership -- "${profile}/airootfs/." "${pacstrap_dir}"
 
+        if [[ -n "${lts}" ]]; then
+            if [[ -f "${pacstrap_dir}/etc/mkinitcpio.d/linux.preset" ]]; then
+                sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                           s|initramfs-linux|initramfs-linux-lts|" \
+                          "${pacstrap_dir}/etc/mkinitcpio.d/linux.preset"
+                mv "${pacstrap_dir}/etc/mkinitcpio.d/linux.preset" "${pacstrap_dir}/etc/mkinitcpio.d/linux-lts.preset"
+            fi
+        fi
+
         # Nvidia airootfs tree
         if [[ "${iso_version_options[@]}" =~ 'nvidia-open' ]]; then
             [[ -d "${profile}/airootfs-options/graphics/nvidia-open" ]] && \
@@ -660,6 +672,11 @@ _profile_bootmode_syslinux_common() {
                    s|%INSTALL_DIR%|${install_dir}|g;
                    s|%ARCH%|${arch}|g"               \
                   "${_cfg}"
+        if [[ -n "${lts}" ]]; then
+            sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                       s|initramfs-linux|initramfs-linux-lts|" \
+                      "${_cfg}"
+        fi
     done
 }
 
@@ -686,6 +703,11 @@ _profile_bootmode_grub_common() {
                    s|%ARCH%|${arch}|g;
                    s|%ARCHISO_SEARCH_FILENAME%|${search_filename}|g" \
                   "${_cfg}"
+        if [[ -n "${lts}" ]]; then
+            sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                       s|initramfs-linux|initramfs-linux-lts|" \
+                      "${_cfg}"
+        fi
     done
 }
 
@@ -729,6 +751,11 @@ _profile_bootmode_systemd-boot_common() {
                    s|%INSTALL_DIR%|${install_dir}|g;
                    s|%ARCH%|${arch}|g" \
                   "${_conf}"
+        if [[ -n "${lts}" ]]; then
+            sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                       s|initramfs-linux|initramfs-linux-lts|" \
+                      "${_conf}"
+        fi
     done
 }
 
@@ -1583,21 +1610,38 @@ _make_drive() {
     fi
 
     # bootloaders configs used for making removable usb drives
-    for drivefile in "${isofs_dir}/.drive/liveusb/loader/entries/"*.conf          \
-                     "${isofs_dir}/.drive/hybrid/loader/entries/"*.conf           \
-                     "${isofs_dir}/.drive/install/loader/entries/"*.conf          \
-                     "${isofs_dir}/.drive/liveusb/grub/grub.cfg"                  \
-                     "${isofs_dir}/.drive/hybrid/grub/grub.cfg"                   \
-                     "${isofs_dir}/.drive/install/grub/grub.cfg"                  \
-                     "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
-                     "${isofs_dir}/.drive/liveusb/syslinux/archiso_pxe-linux.cfg" \
-                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"  \
-                     "${isofs_dir}/.drive/hybrid/syslinux/archiso_pxe-linux.cfg"  \
-                     "${isofs_dir}/.drive/install/syslinux/archiso_sys-linux.cfg"; do
-        if [[ -f "${drivefile}" ]]; then
-            sed -i "s|%INSTALL_DIR%|${install_dir}|g;s|%DESKTOP%|${desktop}|g" "${drivefile}"
+    for _drivefile in "${isofs_dir}/.drive/liveusb/loader/entries/"*.conf           \
+                      "${isofs_dir}/.drive/hybrid/loader/entries/"*.conf           \
+                      "${isofs_dir}/.drive/install/loader/entries/"*.conf          \
+                      "${isofs_dir}/.drive/liveusb/grub/grub.cfg"                  \
+                      "${isofs_dir}/.drive/hybrid/grub/grub.cfg"                   \
+                      "${isofs_dir}/.drive/install/grub/grub.cfg"                  \
+                      "${isofs_dir}/.drive/liveusb/syslinux/archiso_sys-linux.cfg" \
+                      "${isofs_dir}/.drive/liveusb/syslinux/archiso_pxe-linux.cfg" \
+                      "${isofs_dir}/.drive/hybrid/syslinux/archiso_sys-linux.cfg"  \
+                      "${isofs_dir}/.drive/hybrid/syslinux/archiso_pxe-linux.cfg"  \
+                      "${isofs_dir}/.drive/install/syslinux/archiso_sys-linux.cfg"; do
+        if [[ -f "${_drivefile}" ]]; then
+            sed -i "s|%INSTALL_DIR%|${install_dir}|g;s|%DESKTOP%|${desktop}|g" "${_drivefile}"
+            if [[ -n "${lts}" ]]; then
+                sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                           s|initramfs-linux|initramfs-linux-lts|" \
+                          "${_drivefile}"
+            fi
         fi
     done
+    if [[ -n "${lts}" ]]; then
+        for _drivefile in "${isofs_dir}/.drive/hybrid/auirootfs/etc/mkinitcpio.d/linux.preset" \
+                          "${isofs_dir}/.drive/install/auirootfs/etc/mkinitcpio.d/linux.preset" \
+                          "${isofs_dir}/.drive/liveusb/persistent_${iso_label}/x86_64/upperdir/etc/mkinitcpio.d/linux.preset"; do
+            if [[ -f "${_drivefile}" ]]; then
+                sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                           s|initramfs-linux|initramfs-linux-lts|" \
+                          "${_drivefile}"
+                mv "${_drivefile%/*}/linux.preset" "${_drivefile%/*}/linux-lts.preset"
+            fi
+        done
+    fi
 
     # user data added to iso image
     if [[ -n "${embed_dir}" && -d "${embed_dir}" ]]; then
@@ -1992,6 +2036,21 @@ _validate_common_requirements_buildmode_iso_netboot() {
         (( validation_error=validation_error+1 ))
         _msg_error "Packages file '${packages}' does not exist." 0
     fi
+
+    # Change to linux-lts and nvidia-lts packages if '--lts' option is used
+    # Remove broadcom-wl virtualbox-host-modules-arch from the package list because that would install 
+    # the linux package as a dependency
+    for i in "${!pkg_list[@]}"; do
+        if [[ "${pkg_list[$i]}" == "linux" ]]; then
+            pkg_list[$i]="linux-lts"
+        elif [[ "${pkg_list[$i]}" == "nvidia" ]]; then
+            pkg_list[$i]="nvidia-lts"
+        elif [[ "${pkg_list[$i]}" == "broadcom-wl" ]]; then
+            pkg_list[$i]="linux-lts"
+        elif [[ "${pkg_list[$i]}" == "virtualbox-guest-utils-nox" ]]; then
+            pkg_list[$i]="linux-lts"
+        fi
+    done
 
     if [[ -v cert_list ]]; then
         # Check if the certificate files exist
@@ -2501,17 +2560,22 @@ _build_img_image() {
     fi
 
     for _espfile in "${_esp_files_settings[@]}"; do
-            if [[ -f "${work_dir}/imgp2/${_espfile}" ]]; then
-                sed -i -- "s|%DESKTOP%|${desktop}|g;
-                           s|%INSTALL_DIR%|${install_dir}|g;
-                           s|%ARCHISO_LABEL%|RO${iso_label}|g;
-                           s|%COW_LABEL%|COW${iso_label}|g;
-                           s|\scow_flags=%COW_FLAGS%||g;
-                           s|%ESP_LABEL%|ESP${iso_label}|g;
-                           s|=${iso_label}|=RO${iso_label}|g;
-                           s|%IMG_LABEL%|RO${iso_label}|g" \
-                           "${work_dir}/imgp2/${_espfile}"
-            fi
+        if [[ -f "${work_dir}/imgp2/${_espfile}" ]]; then
+            sed -i -- "s|%DESKTOP%|${desktop}|g;
+                       s|%INSTALL_DIR%|${install_dir}|g;
+                       s|%ARCHISO_LABEL%|RO${iso_label}|g;
+                       s|%COW_LABEL%|COW${iso_label}|g;
+                        s|\scow_flags=%COW_FLAGS%||g;
+                       s|%ESP_LABEL%|ESP${iso_label}|g;
+                       s|=${iso_label}|=RO${iso_label}|g;
+                       s|%IMG_LABEL%|RO${iso_label}|g" \
+                       "${work_dir}/imgp2/${_espfile}"
+        fi
+        if [[ -n "${lts}" ]]; then
+            sed -i -- "s|vmlinuz-linux|vmlinuz-linux-lts|;
+                       s|initramfs-linux|initramfs-linux-lts|" \
+                      "${work_dir}/imgp2/${_espfile}"
+        fi
     done
     for _cowfile in "${_cow_files_settings[@]}"; do
             sed -i -- "s|%ESP_LABEL%|ESP${iso_label}|g" "${work_dir}/imgp3/${_cowfile}"
@@ -2731,9 +2795,9 @@ _make_version() {
     _msg_info "Creating version files..."
     if [[ "${buildmode}" == @("img"|"iso"|"netboot") ]]; then
         if [[ -z "${iso_version}" ]]; then
-            iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux 2> /dev/null | \
+            iso_version="$(pacman --sysroot "${work_dir}/x86_64/airootfs" -Q linux"${lts:-}" 2> /dev/null | \
                            cut -d' ' -f2 |                                                        \
-                           sed s'/\./_/g; s/_arch.*//; s/^/linux_/')${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
+                           sed s"/\./_/g; s/_arch.*//; s/^/linux${lts:-}_/")${iso_version_options[0]:+-${iso_version_options[0]}}${lang:+-${lang}}-$(date +%m%d)"
         fi
         install -d -m 0755 -- "${isofs_dir}/${install_dir}"
         # Write version file to ISO 9660
@@ -2916,7 +2980,7 @@ OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:rvw:' \
               -l 'addpkg:,addpkgtesting:,application:,embeddir:' \
               -l 'add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
               -l 'gpgkey:,gpgsender:,graphics:,installdir:,label:,language:' \
-              -l 'outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
+              -l 'lts,outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
               -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
               -l 'verbose,workdir:,work-dir:,zfs-support' \
               -l 'remove-work-dir' \
@@ -3001,6 +3065,9 @@ while true; do
                     _usage 1;;
             esac
             shift 2 ;;
+        '--lts')
+            lts="-lts"
+            shift ;;
         '-m'|'--build-modes')
             IFS=',' read -r -a override_buildmodes <<< "${2}"
             shift 2 ;;
