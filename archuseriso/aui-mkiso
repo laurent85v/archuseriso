@@ -2956,8 +2956,10 @@ _build_buildmode_iso() {
 # Build the IMG buildmode
 _build_buildmode_img() {
     local run_once_mode="${buildmode}"
-    _build_iso_base
-    _run_once _build_img_image
+    if [[ -z "${lts}" ]]; then
+        _build_iso_base
+        _run_once _build_img_image
+    fi
 }
 
 # build all buildmodes
