@@ -2040,17 +2040,19 @@ _validate_common_requirements_buildmode_iso_netboot() {
     # Change to linux-lts and nvidia-lts packages if '--lts' option is used
     # Remove broadcom-wl virtualbox-host-modules-arch from the package list because that would install 
     # the linux package as a dependency
-    for i in "${!pkg_list[@]}"; do
-        if [[ "${pkg_list[$i]}" == "linux" ]]; then
-            pkg_list[$i]="linux-lts"
-        elif [[ "${pkg_list[$i]}" == "nvidia" ]]; then
-            pkg_list[$i]="nvidia-lts"
-        elif [[ "${pkg_list[$i]}" == "broadcom-wl" ]]; then
-            pkg_list[$i]="linux-lts"
-        elif [[ "${pkg_list[$i]}" == "virtualbox-guest-utils-nox" ]]; then
-            pkg_list[$i]="linux-lts"
-        fi
-    done
+    if [[ -n "${lts}" ]]; then
+        for i in "${!pkg_list[@]}"; do
+            if [[ "${pkg_list[$i]}" == "linux" ]]; then
+                pkg_list[$i]="linux-lts"
+            elif [[ "${pkg_list[$i]}" == "nvidia" ]]; then
+                pkg_list[$i]="nvidia-lts"
+            elif [[ "${pkg_list[$i]}" == "broadcom-wl" ]]; then
+                pkg_list[$i]="linux-lts"
+            elif [[ "${pkg_list[$i]}" == "virtualbox-guest-utils-nox" ]]; then
+                pkg_list[$i]="linux-lts"
+            fi
+        done
+    fi
 
     if [[ -v cert_list ]]; then
         # Check if the certificate files exist
