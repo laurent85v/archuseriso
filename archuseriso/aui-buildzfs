@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Copyright (C) 2021 Laurent Jourden <laurent85@enarel.fr>
+# Copyright (C) 2024 Laurent Jourden <laurent85@enarel.fr>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
@@ -148,14 +148,14 @@ _build_zfs () {
     cp -a -- "zfs-${zfsversion}.tar.gz"{,.asc} ../zfs-linux
     chown -R -- "${SCRIPTUSER}": "${auiwork}/"{zfs-utils,zfs-linux}
 
-    _msg_info "Building zfs-utils"
+    _msg_info "Building zfs-utils & zfs-utils-debug"
     LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
     _msg_info "Done!"
 
     cd -- "${auiwork}/zfs-linux/"
     _msg_info "Building zfs-linux & zfs-linux-headers" 
-    LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+    LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -I "${zfspackages[1]}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
     mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
     _msg_info "Done!"
 
