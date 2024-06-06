@@ -804,9 +804,6 @@ _fat_image_efiboot_files_common_x64() {
 }
 
 _make_common_bootmode_grub_cfg() {
-    local search_filename
-
-    search_filename="/boot/grub/${iso_uuid}.uuid"
 
     # Prepare grub.cfg that will be embedded inside the GRUB binaries
     IFS='' read -r -d '' grubembedcfg <<'EOF' || true
