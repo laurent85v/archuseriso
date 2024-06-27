@@ -1,0 +1,4 @@
+#!ipxe
+dhcp
+ntp pool.ntp.org
+chain http://ipxe.gnutux.fr || shell

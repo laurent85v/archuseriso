@@ -12,6 +12,7 @@ Encryption is an option when ceating the removable medium. Several types of file
 * AUR repository https://aur.archlinux.org/packages/archuseriso
 * ISO image for DVDs and USB disks http://dl.gnutux.fr/archuseriso/iso
 * GPT disk image for USB disks only http://dl.gnutux.fr/archuseriso/img
+* iPXE Network Bootloader image http://dl.gnutux.fr/archuseriso/ipxe
 * ZFS packages http://dl.gnutux.fr/archuseriso/zfsonlinux
 
 Features
@@ -203,6 +204,20 @@ test of thumb drive /dev/sdc in uefi mode
       sudo aui-run -u -d /dev/sdc
 
 
+iPXE Network Booloader
+----------------------
+Boot the Xfce live desktop from network.
+ 
+Pick one of the iPXE image available on http://dl.gnutux.fr/archuseriso/ipxe
+
+* aui-ipxe.iso cdrom image
+* aui-ipxe.usb usb stick image
+* aui-ipxe.efi x64 UEFI binary
+
+Write the relevant image onto the media. Boot the media to load the iPXE boot menu then start the Xfce live desktop. The iPXE loader will boot and start the live environment from the Archuseriso server.
+
+To boot live on a laptop, use a smartphone's USB tethering feature for internet connectivity.
+
 Docker image
 ------------
 Using a Docker image for running archuseriso.
@@ -234,12 +249,12 @@ Archuseriso Program List
 
 Documentation
 --------------
-Currently Archuseriso has no specific documentation. You can refer to Archiso's documentation.
+Currently Archuseriso has no specific documentation. You can refer to the Archiso documentation.
 
 Files of interest:
 
 * profiles/&lt;profile name&gt;/packages.x86_64: list of packages to install
-* profiles/&lt;profile name&gt;/profiledef.sh: profile settings
+* profiles/&lt;profile name&gt;/profiledef.sh: profile configuration
 
 Known issues
 ------------

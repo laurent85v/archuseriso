@@ -1,0 +1,13 @@
+diff --git a/src/Makefile.housekeeping b/src/Makefile.housekeeping
+index d13cb367..22027386 100644
+--- a/src/Makefile.housekeeping
++++ b/src/Makefile.housekeeping
+@@ -135,7 +135,7 @@ eval :
+ # Check for various tool workarounds
+ #
+ 
+-WORKAROUND_CFLAGS :=
++WORKAROUND_CFLAGS := -Wno-error=maybe-uninitialized
+ WORKAROUND_ASFLAGS :=
+ WORKAROUND_LDFLAGS :=
+ 

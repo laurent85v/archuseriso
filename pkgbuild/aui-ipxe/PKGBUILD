@@ -1,0 +1,104 @@
+# Maintainer: Laurent Jourden <laurent85@enarel.fr>
+
+pkgname=aui-ipxe
+pkgbase=ipxe
+pkgver=v1.21.1.r626.g5a9f476
+pkgrel=1
+pkgdesc="Archuseriso Network Bootloader"
+arch=(x86_64)
+url="https://ipxe.org"
+license=(GPL2 custom:UBDL)
+makedepends=(cdrtools)
+optdepends=(
+  'bash: for run_ipxe'
+  'qemu-desktop: for run_ipxe'
+  'edk2-ovmf: for run_ipxe'
+)
+# the TLS chain of trust is described at the upstream letsencrypt website:
+# https://letsencrypt.org/certificates/
+# the code signing setup is described in Arch Linux's releng repository:
+# https://gitlab.archlinux.org/archlinux/releng/-/blob/master/README.rst#code-signing
+source=(
+  'git+https://github.com/ipxe/ipxe.git'
+  aui.ipxe
+  isrgrootx1.pem
+  lets-encrypt-r3.pem
+  codesigning_pierre_archlinux.pem
+  general.h
+  Makefile.housekeeping.patch
+  codesigning_laurent_jourden_archuseriso.pem
+)
+sha512sums=('SKIP'
+            '652008c3d8bb15326006ffa04c9c2bc8088bdcd7eae66fa8a5083f3bfe016c301512b0898423b53178e94b3334bcdee2ac2d61299462a3122d810d9829bc73ea'
+            'b819e7965412dbeecc6417b1e57356d9b10e8e2feb0db1165947e7e1b7d882de226afb8457475f5107393a981d902c7f405500cadb6f61bd2acbca5d8c7cc1f4'
+            '7ff2a6b6501b30806e19446d569db0348c0457c15a9c86f186d957607278ee3cbeedd8307e1ff6dc5c0740545192eada7c0f84cdeb8ff39e6b85bd3fc400a914'
+            'e3a8c74dcf95cb4b77ed379d2185ef56b6ab2f4c7bdaf5a68876d21aca4d7961b0d8090da7132c6f1797bdca24014dfea032129ee207282797b91e31b6dc4d48'
+            'c3e591abf4efc0a7eeaf0dd77e03d4c4d483439fc47dea230dc2abaf173cdbebe02839134733ffd9cc52fd2a3392a5f41a6110877b2efed845e538d35cab688d'
+            'fd4bd2037ec19ac481c8a90f43bd4f29aa8404d263f441e9e05f3e37c84b73ce5eda447d6665c842c3ed5c855ebd442df64821428abcf678f25fd87415ef1eb4'
+            'c4c40d5a09dda4dddb9ded7a375371f2ba3fcf669640b81270ce08e079eef461cd1d90871521ec9833be5d4365e5b7d2fa977a3e4c67fed3dd3ac3e13e4a2541')
+b2sums=('SKIP'
+        '264077fd3d5341a85d11d8f0013d580b4a6e0304417e8dc9b748fce4504306d6cea79f455c5af00495b00be9c7136f46a8c87de7bc1beb4fefa4fdd1b1011386'
+        '6d02d871afa45caaa2b22ea2ed48217012aeeb61c50b28e82cc0750344719bdb9ef4b0100abc524b12ec6cb2b1c0084f4d24ce480af87b52aa39d4d3714467ca'
+        '44fc45af926d8c0a563b81640764a4ced266f857c72113839dcd5d441c030bb6f78576b04fcbd8b17f645ed4e2701a4634e55755f13210fa880f442ad6fbb5b1'
+        'a61f76a2ecbf344bb26e064146e4c6821ee195c7b7579cbf8c61d60ded3c3946d53329a8c2e795435ef5498bec97042472f186c13b4e0dc274da34d047f8f326'
+        '867ea1848d4ea69f830d6fff106e7eda38a539e9ded419b077e32fc552f0fd7ff4f737dc1e68f00b080e61a35b733741d37924ad1e41dcb109588e2c2ac1c052'
+        'e073ce5d37160c7c9ae09e1a5a1474c2297ab1c746fda28b8b67ec7f71a859ab992eda2ef415ef821a7b4f066da37f757b6e8de44ce8db370523e546803c3af7'
+        'ff3ad3af7b925f18306ab6661faefc56f10735ae9b0e0a79449bc920e6eee43a6d89de6b415fbd6a6c8dfc607154a23199c2057faf12a873315cb502cc3345bd')
+pkgver() {
+  cd "$pkgbase/src"
+  git describe --long --tags --abbrev=7 | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+}
+   
+prepare() {
+  cd $pkgbase/src/
+  #
+  patch -Np2 < $srcdir/Makefile.housekeeping.patch
+  # symlink header with custom configuration into place
+  ln -sv ../../../../general.h config/local/
+}
+
+build() {
+  local _file _certs=""
+  local _options=(
+    NO_WERROR=1
+    bin/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.iso
+    bin/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.usb
+    bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.iso
+    bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.usb
+    bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.efi
+    -C src
+  )
+
+  # add certs
+  for _file in "${source[@]}"; do
+    if [[ "$_file" == *.pem ]]; then
+      _certs+="$srcdir/$_file,"
+    fi
+  done
+
+  cd $pkgbase
+  # build arch specific images
+  # NOTE: to debug issues with TLS or codesigning, add "DEBUG=open,tls,x509:3,certstore,privkey"
+  make EMBED="$srcdir/aui.ipxe" CERT="$_certs" TRUST="$_certs" "${_options[@]}"
+
+  # move binaries out of the way
+  mv -v src/bin/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.iso src/bin/aui-ipxe.iso
+  mv -v src/bin/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.usb src/bin/aui-ipxe.img
+  mv -v src/bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.iso src/bin-x86_64-efi/aui-ipxe-efi.iso
+  mv -v src/bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.usb src/bin-x86_64-efi/aui-ipxe-efi.img
+  mv -v src/bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.efi src/bin-x86_64-efi/aui-ipxe.efi
+
+  # build default images
+  make "${_options[@]}"
+
+}
+
+package() {
+  local _arch
+
+  cd $pkgbase
+  install -vDm 644 src/bin/aui-ipxe.{img,iso} -t "$pkgdir/usr/share/$pkgname/"
+  install -vDm 644 src/bin-x86_64-efi/aui-ipxe-efi.{img,iso} -t "$pkgdir/usr/share/$pkgname/x86_64/"
+  install -vDm 644 src/bin-x86_64-efi/aui-ipxe.efi -t "$pkgdir/usr/share/$pkgname/x86_64/"
+  install -vDm 644 COPYING.UBDL -t "$pkgdir/usr/share/licenses/$pkgname/"
+}

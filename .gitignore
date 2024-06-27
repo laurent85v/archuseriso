@@ -6,3 +6,6 @@ archuseriso-*.tar.gz*
 *.pkg.tar.zst
 out/
 work/
+pkgbuild/aui-ipxe/ipxe/
+pkgbuild/aui-ipxe/pkg/
+pkgbuild/aui-ipxe/src/
