@@ -2520,7 +2520,6 @@ _build_img_image() {
     # Mount partitions
     install -d -m 0755 -- "${work_dir}/imgp1"
     install -d -m 0755 --  "${work_dir}/imgp2"
-    install -d -m 0755 --  "${work_dir}/imgp2"
     install -d -m 0755 --  "${work_dir}/imgp3"
     mount -- "${_loopdevice}p1" "${work_dir}/imgp1"
     install -d -m 0755 -- "${work_dir}/imgp1/${install_dir}"

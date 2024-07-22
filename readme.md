@@ -8,7 +8,7 @@ A list of build profiles of the main desktop environments is provided.
 * AUR repository https://aur.archlinux.org/packages/archuseriso
 * ISO hybrid image for DVDs, USB disks and thumb drives http://dl.gnutux.fr/archuseriso/iso
 * Disk image for USB disks and thumb drives http://dl.gnutux.fr/archuseriso/img
-* iPXE Network Boot image http://dl.gnutux.fr/archuseriso/ipxe
+* iPXE Network Bootloader image http://dl.gnutux.fr/archuseriso/ipxe
 * ZFS packages http://dl.gnutux.fr/archuseriso/zfsonlinux
 
 Archuseriso is based on Archiso https://wiki.archlinux.org/title/Archiso
@@ -19,7 +19,7 @@ Features
 * 10 desktop environments build profiles
 * 16 languages
 * live usb with data persistence
-* choice of filesystem among Ext4 / Bcachefs / Btrfs / F2FS / ZFS file
+* choice of filesystem among Ext4 / Bcachefs / Btrfs / F2FS / ZFS
 * data encryption
 * bootloader among syslinux, systemd-boot, Grub and rEFInd
 * ISO images and USB disk images
