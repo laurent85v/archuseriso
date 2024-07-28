@@ -1,0 +1,404 @@
+#!/usr/bin/env bash
+#
+# Copyright (C) 2024 Laurent Jourden <laurent85@enarel.fr>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Compress an Arch Linux system to a bootable disk image.
+
+set -e -u
+
+# Control the environment
+umask 0022
+export LC_ALL="C.UTF-8"
+
+appname="${0##*/}"
+linux_release=""
+aui_suffix="$(mktemp -u _XXX)"
+ro_label="RO${aui_suffix}"
+esp_label="ESP${aui_suffix}"
+cow_label="COW${aui_suffix}"
+loopdevice=""
+outdir="${PWD}/out"
+profile="/usr/share/archuseriso/hd2aui"
+workdir="${PWD}"
+auiwork="$(mktemp -u auiwork.XXXXXXXX)"
+
+_help() {
+    echo
+    echo "${appname}: Compress an Arch Linux system to a bootable disk image."
+    echo
+    echo 'Synopsis:'
+    echo "${appname} [options] <path to root filesystem>"
+    echo
+    echo
+    echo 'Options:'
+    echo '-h, --help                  Command line help'
+    echo "-w, --workdir               Set the working directory (default: ./auiwork.XXXXXXXX)"
+    echo "-o, --outdir                Set the output directory (default: ./out)"
+    echo "--config                    Path to hd2aui configuration files (default: ${profile})"
+    echo
+    exit "${1}"
+}
+
+_msg_info() {
+    local _msg="${1}"
+    printf '[%s] INFO: %s\n' "${appname}" "${_msg}"
+}
+
+# Show an ERROR message then exit with status
+# $1: message string
+# $2: exit code number (with 0 does not exit)
+_msg_error() {
+    local _msg="${1}"
+    local _error=${2}
+    printf '[%s] ERROR: %s\n' "${appname}" "${_msg}" >&2
+    if (( _error > 0 )); then
+        exit "${_error}"
+    fi
+}
+
+_cleanup() {
+    local _auiworks
+    _auiworks=('imgp2' 'imgp3' 'overlay' 'rootfsbind')
+    for _auiwork in "${_auiworks[@]}"; do
+        if mountpoint -q -- "${auiwork}/${_auiwork}"; then
+            umount  -- "${auiwork}/${_auiwork}" || exit 1
+        fi
+    done
+    if [[ -d "${auiwork}" ]]; then
+        rm -r -- "${auiwork}"
+    fi
+}
+
+_unmount() {
+    echo
+    _msg_info "Unmount working directories, may take some time"
+    _cleanup
+    _msg_info "Done!"
+}
+
+_check() {
+    if [[ $# -ne 1 ]]; then
+        _msg_error 'Error: Invalid arguments!' 1
+    fi
+    if [[ ${EUID} -ne 0 ]]; then
+        _msg_error 'This script must be run as root!' 1
+    fi
+    rootfs_path="${1}"
+
+    # check rootfs path is valid
+    [[ -d "${rootfs_path}" ]] || _msg_error "${rootfs_path} is not a valid directory path!" 1
+
+    # check workdir and outdir are walid directories
+    [[ -v override_workdir ]] && workdir="${override_workdir}"
+    [[ -v override_outdir ]] && outdir="${override_outdir}"
+    [[ -d "${workdir}" ]] || install -d -m 0755 "${workdir}"
+    [[ -d "${outdir}" ]] || install -d -m 0755 "${outdir}"
+    auiwork="${workdir}/${auiwork}"
+
+    # check rootfs is an Arch Linux system
+    if [[ ! -f "${rootfs_path}/usr/share/factory/etc/issue" ]]; then
+        _msg_error "Does not look like a valid Arch Linux root filesystem!" 0
+        _msg_error "/usr/share/factory/etc/issue: File not found!" 1
+    fi
+    if ! grep -q 'Arch Linux' "${rootfs_path}/usr/share/factory/etc/issue"; then
+        _msg_error "Does not look a valid Arch Linux root filesystem!" 0
+        _msg_error "/usr/share/factory/etc/issue: Invalid content!" 0
+        _msg_error "Can't proceed" 1
+    fi
+    [[ -f "${rootfs_path}/etc/mkinitcpio.conf" ]] || _msg_error "/etc/mkinitcpio.conf is missing! Aborting" 1
+  
+    # check rootfs is not the running system
+    (( $(stat --format=%i /usr/lib/systemd/systemd) != \
+       $(stat --format=%i "${rootfs_path}/usr/lib/systemd/systemd") )) || \
+       _msg_error "The root filesystem path argument is the running system! Cannot proceed, aborting." 1
+
+    # Set hd2aui profile path
+    [[ -d "${profile}" ]] || _msg_error "Some Archuseriso files are missing. Install Archuseriso! Aborting." 1
+    [[ -d "${profile}/airootfs" ]] || _msg_error "${profile} is not a valid hd2aui configuration path! Aborting." 1
+    [[ -d "${profile}/esp" ]] || _msg_error "${profile} is not a valid hd2aui configuration path! Aborting." 1
+
+    # check linux package is installed
+    if ! eval -- env -u TMPDIR arch-chroot "${rootfs_path}" pacman -Q linux &> /dev/null; then
+        _msg_error "linux package not installed! Aborting." 1
+    fi
+    linux_release="$(eval -- env -u TMPDIR arch-chroot "${rootfs_path}" pacman -Q linux 2> /dev/null | awk '{print $2}' | sed 's|.arch|-arch|')"
+    grep -q -E -- '^[[:digit:]]{1,2}\.[[:digit:]]{1,}\.[[:digit:]]{1,3}' <<< "${linux_release}" ||
+        linux_release="${linux_release%arch*}.0-${linux_release##*-}"
+
+    # calculate filesystem size, set limit to 20G
+    if (( $(du -B1G -s "${rootfs_path}" | awk '{print $1}') > 20 )); then
+        _msg_error "Filesystem size exceeds 20G limit! aborting." 1
+    fi
+}
+
+_confirm() {
+    echo
+    _msg_info "Path to root filesystem:   ${rootfs_path}"
+    echo
+    read -r -n1 -p "Confirm operation (N/y)? "
+    echo
+    if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+        echo 'Operation canceled by user!'
+        exit 0
+    fi
+}
+
+_overlayfs() {
+    local _lines=0 _archiso=""
+    local -a _hooks=() _packages=()
+
+    # overlay fs setup
+    _msg_info "Preparing the overlay filesystem"
+
+    # check & prepare working directory
+    for mountpoint in "${auiwork}/"{rootfsbind,overlay}; do
+        if findmnt -nr -- "${mountpoint}" > /dev/null; then
+            _msg_error "${mountpoint} appears in active mounts, unmount before proceeding!" 1
+        fi
+    done
+    for mountpoint in "${auiwork}/"{rootfsbind,overlay}; do
+        if [[ -e "${mountpoint}" ]]; then
+            _msg_error "${mountpoint} exists in working directory! Delete or rename before proceeding!" 1
+        fi
+    done
+    install -d -m 0755 -- "${auiwork}/"{rootfsbind,esp,overlay,overlayup,overlaywork}
+
+    # bind mount read-only the rootfs 
+    if ! mount --options=bind,ro -- "${rootfs_path}" "${auiwork}/rootfsbind"; then
+        _msg_error "Bind mount of root filesystem failed! Aborting." 1
+    fi
+    # Mount overlay filesystem
+    if ! mount --types=overlay overlay \
+               --options=lowerdir="${auiwork}/rootfsbind",upperdir="${auiwork}/overlayup",workdir="${auiwork}/overlaywork" -- \
+               "${auiwork}/overlay"; then
+        _msg_error "Mounting overlay filesystem failed! Aborting." 1
+    fi
+    _msg_info "Done!"
+
+    # Copy submount contents to overlay
+    for submount in $(findmnt --noheadings --raw --submount --output=TARGET --mountpoint="${rootfs_path}" | \
+                      grep -v -- "${rootfs_path}$"); do
+        rsync -SHAXax -- "${submount}/" "${auiwork}/overlay${submount#${rootfs_path}}"
+    done
+    _msg_info "Configuring overlay filesystem for live startup"
+    # copy linux kernel to /boot overlay
+    if [[ ! -f "${auiwork}/overlay/boot/vmlinuz-linux" ]]; then
+        install -m 0644 -- "${auiwork}/overlay/usr/lib/modules/${linux_release}/vmlinuz" "${auiwork}/overlay/boot/vmlinuz-linux"
+    fi
+ 
+    # add archiso hooks to mkinitcpio.conf
+    _lines=$(sed -n -- '/^HOOKS=/p' "${auiwork}/overlay/etc/mkinitcpio.conf" | wc -l)
+    (( _lines > 1 || _lines == 0 )) && _msg_error 'Invalid mkinitcpio.conf! HOOKS line missing or duplicates. Aborting.' 1
+
+    # shellcheck source=/dev/null
+    source "${auiwork}/overlay/etc/mkinitcpio.conf"
+    for ((i=0; i < "${#HOOKS[@]}"; i++)); do
+        [[ "${HOOKS[${i}]}" = 'archiso' ]] && _archiso="yes"
+        ! [[ "${HOOKS[${i}]}" = 'autodetect' ]] && _hooks+=("${HOOKS[${i}]}")
+    done
+    ! [[ "${HOOKS[*]}" =~ 'microcode' ]] && _hooks+=('microcode')
+    ! [[ "${_archiso}" = "yes" ]] && _hooks+=('archiso')
+    for hk in archiso_loop_mnt archiso_pxe_common archiso_pxe_http archiso_pxe_nbd archiso_pxe_nfs; do
+        ! [[ "${_hooks[*]}" =~ "${hk}" ]] && _hooks+=("${hk}")
+    done
+    sed -i -- "s/^HOOKS=.*/HOOKS=(${_hooks[*]})/" "${auiwork}/overlay/etc/mkinitcpio.conf"
+    _msg_info "Done!"
+
+    _msg_info "Installing necessary packages to overlay filesystem"
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q mkinitcpio-archiso &> /dev/null || _packages+=('mkinitcpio-archiso')
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q nbd &> /dev/null || _packages+=('nbd')
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q mkinitcpio-nfs-utils &> /dev/null || _packages+=('mkinitcpio-nfs-utils')
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q amd-ucode &> /dev/null || _packages+=('amd-ucode')
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q intel-ucode &> /dev/null || _packages+=('intel-ucode')
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q limine &> /dev/null || _packages+=('limine')
+    eval -- env -u TMPDIR pacstrap -c -G -M -- "${auiwork}/overlay" "${_packages[@]}" &> /dev/null || \
+        _msg_error "Could not install ${_packages[@]} to overlay! Aborting." 1
+    _msg_info "Done!"
+
+    _msg_info "Configuring boot files"
+    # copy airootfs files to overlay
+    if [[ -d "${profile}/airootfs" ]]; then
+        cp -af --no-preserve=ownership -- "${profile}/airootfs/." "${auiwork}/overlay/"
+    else
+        _msg_error "Some Archuseriso files are missing. Install Archuseriso! Aborting." 1
+    fi
+
+    # Set archiso cow_spacesize to 50% ram size
+    # Set copytoram default to no
+    sed -i 's|\x27256M\x27|"$(( $(awk \x27/MemTotal:/ { print $2 }\x27 /proc/meminfo) / 2 / 1024 ))M"|;
+            s|\x27copytoram\x27 \x27auto\x27|\x27copytoram\x27 \x27no\x27|' \
+           "${auiwork}/overlay/etc/initcpio/hooks/archiso"
+
+    # generate initramfs
+    env -u TMPDIR arch-chroot "${auiwork}/overlay" mkinitcpio -P &> /dev/null || \
+        _msg_error 'Making initramfs failed! Aborting.' 1
+
+    # copy esp profile to auiwork
+    if [[ -d "${profile}/esp" ]]; then
+        cp -af --no-preserve=ownership -- "${profile}/esp/." "${auiwork}/esp/"
+    else
+        _msg_error "Some Archuseriso files are missing. Install Archuseriso! Aborting." 1
+    fi
+
+    # copy limine bootloader files to esp
+    install -m 0644 -- "${auiwork}/overlay/usr/share/limine/limine-bios.sys" "${auiwork}/esp/"
+    install -d -m 0755 -- "${auiwork}/esp/EFI/BOOT/"
+    install -m 0644 -- "${auiwork}/overlay/usr/share/limine/BOOTX64.EFI" "${auiwork}/esp/EFI/BOOT/"
+
+    # set boot parameters
+    sed -i -- "s|%RO_LABEL%|${ro_label}|;s|%COW_LABEL%|${cow_label}|" "${auiwork}/esp/limine.conf" || \
+       _msg_error "Limine configuration file setup failed! Aborting." 1
+    sed -i -- "s|%ESP_LABEL%|${esp_label}|" "${auiwork}/overlay/etc/fstab" || \
+       _msg_error "fstab configuration file setup failed! Aborting." 1
+ 
+    # copy linux kernel and initramfs to esp
+    install -d -m 0755 -- "${auiwork}/esp/arch/boot/x86_64/"
+    install -m 0644 -- "${auiwork}/overlay/boot/vmlinuz-linux" "${auiwork}/esp/arch/boot/x86_64/"
+    install -m 0644 -- "${auiwork}/overlay/boot/initramfs-linux.img" "${auiwork}/esp/arch/boot/x86_64/"
+    _msg_info "Done!"
+
+    _msg_info "Filesystem cleanup"
+    # Delete unnecessary files in overlay /boot
+    [[ -d "${auiwork}/overlay/boot" ]] && find "${auiwork}/overlay/boot" -mindepth 1 -delete
+    # Delete pacman package cache
+    [[ -d "${auiwork}/overlay/var/cache/pacman/pkg" ]] && find "${auiwork}/overlay/var/cache/pacman/pkg" -type f -delete
+    # Delete all log files, keeps empty dirs.
+    [[ -d "${auiwork}/overlay/var/log" ]] && find "${auiwork}/overlay/var/log" -type f -delete
+    # Delete all temporary files and dirs
+    [[ -d "${auiwork}/overlay/var/tmp" ]] && find "${auiwork}/overlay/var/tmp" -mindepth 1 -delete
+    # Create /etc/machine-id with special value 'uninitialized': the final id is
+    # generated on first boot, systemd's first-boot mechanism applies (see machine-id(5))
+    rm -f -- "${auiwork}/overlay/etc/machine-id"
+    printf 'uninitialized\n' > "${auiwork}/overlay/etc/machine-id"
+    _msg_info "Done!"
+
+    _msg_info "Creating the compressed filesystem image"
+    # make squashfs image
+    mksquashfs "${auiwork}/overlay/" "${auiwork}/airootfs.sfs" -noappend -comp zstd -quiet 2> /dev/null || \
+        _msg_error "Making squashfs image failed! Aborting." 1
+    _msg_info "Done!"
+}
+
+_diskimage() {
+    local _rosize=0 _espsize=0 _cowsize=0
+
+    image_name="hd2aui-$(date +%m%d)${aui_suffix/_/-}.img"
+
+    [[ -d "${outdir}" ]] || install -d -m 0755 -- "${outdir}"
+
+    rm -f -- "${outdir}/${image_name}"
+    _msg_info "Creating the GPT disk image..."
+
+    # Limine Bios/GPT dedicated stage 2 partition size in MiB
+    _liminelegacy=1
+
+    # ESP size in MiB
+    _espsize=512
+
+    # Read-only fs size in MiB (squashfs image size + ext4 overhead)
+    _rosize=$(( $(du -B1M -s -- "${auiwork}/airootfs.sfs" | awk '{print $1}') + 192 ))
+
+    # COW size = 128 MiB
+    _cowsize=128
+
+    # IMG size = LIM + ESP + RO + COW
+    # Create IMG file
+    truncate -s $(( _liminelegacy + _espsize + _rosize + _cowsize + 2 ))M -- "${outdir}/${image_name}" || \
+        _msg_error "Disk image creation failed! Aborting." 1
+
+    # GPT partitions
+    loopdevice=$(losetup -f --show "${outdir}/${image_name}" 2> /dev/null || \
+                _msg_error "Loop device setup failed! Aborting" 1)
+    if ! echo 'label: gpt' | udevadm lock --device="${loopdevice}" -- \
+       sfdisk -W always -- "${loopdevice}" &> /dev/null; then
+        _msg_error "GPT partition table setup failed! Aborting" 1
+    fi
+    if ! echo -e ",${_liminelegacy}MiB,L,\n,${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7,\n,${_rosize}MiB,L,\n,+,L,\n" | \
+            udevadm lock --device="${loopdevice}" -- sfdisk --append  -W always -- "${loopdevice}" &> /dev/null; then
+        _msg_error "Partitionning the disk image failed! Aborting." 1
+    fi
+    sleep 3
+    partprobe -- "${loopdevice}"
+
+    if ! udevadm lock --device="${loopdevice}p2" -- \
+            mkfs.fat -F32 -n "ESP${aui_suffix}" -- "${loopdevice}p2" &> /dev/null; then
+        _msg_error "Formating partition #1 failed!" 1
+    fi
+    if ! udevadm lock --device="${loopdevice}p3" -- \
+            mkfs.ext4 -L "RO${aui_suffix}" -m0 -q -T largefile4 -- "${loopdevice}p3" &> /dev/null; then
+        _msg_error "Formating partition #2 failed!" 1
+    fi
+    if ! udevadm lock --device="${loopdevice}p4" -- \
+            mkfs.ext4 -L "COW${aui_suffix}" -O encrypt -q -- "${loopdevice}p4" &> /dev/null; then
+        _msg_error "Formating partition #3 failed!" 1
+    fi
+    _msg_info "Done!"
+
+    _msg_info "Copying the live filesystem and boot files to the GPT disk image..."
+    # Mount disk image partitions
+    install -d -m 0755 -- "${auiwork}/imgp2"
+    install -d -m 0755 --  "${auiwork}/imgp3"
+    mount --type=vfat -- "${loopdevice}p2" "${auiwork}/imgp2"
+    mount --type=ext4 -- "${loopdevice}p3" "${auiwork}/imgp3"
+    install -d -m 0755 -- "${auiwork}/imgp3/arch/x86_64"
+
+    # Copy filesystem to image disk
+    install -m 0755 -- "${auiwork}/airootfs.sfs" "${auiwork}/imgp3/arch/x86_64/"
+    cp -af --no-preserve=ownership -- "${auiwork}/esp/." "${auiwork}/imgp2/"
+
+    # persistent kernel & initramfs
+    install -m 0644 -- "${auiwork}/esp/arch/boot/x86_64/"{vmlinuz-linux,initramfs-linux.img} "${auiwork}/imgp2/"
+    _msg_info "Done!"
+}
+
+_biosbootloader() {
+    # Limine bios/gpt legacy bootloader
+    limine bios-install "${loopdevice}" 1 &> /dev/null
+
+    # Unmount all
+    _unmount
+
+    # Remove loop device
+    losetup -d "${loopdevice}"
+}
+
+# arguments
+OPTS=$(getopt -o 'h,o,w' --long 'help,config:,outdir:,workdir:' -n "${appname}" -- "$@")
+[[ $? -eq 0 ]] || _help 1
+eval set -- "${OPTS}"
+unset OPTS
+[[ $# -eq 1 ]] && _help 1
+
+while true; do
+    case "${1}" in
+        '-h'|'--help')
+            _help 0 ;;
+        '--config')
+            profile="${2}"
+            shift 2 ;;
+        '-o'|'--outdir')
+            override_outdir="${2}"
+            shift 2 ;;
+        '-w'|'--workdir')
+            override_workdir="${2}"
+            shift 2 ;;
+        '--')
+            shift
+            break ;;
+    esac
+done
+
+trap _cleanup EXIT
+_check "$@"
+_confirm
+_overlayfs
+_diskimage
+_biosbootloader
+echo
+_msg_info "Success!"
+ echo
+_msg_info "$(du -BM -s -- "${outdir}/${image_name}")"
+
+# vim:ts=4:sw=4:et:
