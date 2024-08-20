@@ -469,10 +469,10 @@ _make_custom_airootfs() {
     fi
 
     # Set archiso cow_spacesize to 50% ram size
-    sed -i 's|\(cow_spacesize=\)"256M"|\1"$(( $(awk \x27/MemTotal:/ { print $2 }\x27 /proc/meminfo) / 2 / 1024 ))M"|' \
-        "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
     # Set copytoram default to no
-    sed -i 's|\(&& copytoram=\)"auto"|\1"no"|' "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
+    sed -i 's|\x27256M\x27|"$(( $(awk \x27/MemTotal:/ { print $2 }\x27 /proc/meminfo) / 2 / 1024 ))M"|;
+            s|\x27copytoram\x27 \x27auto\x27|\x27copytoram\x27 \x27no\x27|' \
+           "${work_dir}/x86_64/airootfs/etc/initcpio/hooks/archiso"
     _msg_info "Done!"
 }
 
