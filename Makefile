@@ -10,15 +10,20 @@ DOC_FILES=AUTHORS.rst Dockerfile LICENSE readme.md
 
 all:
 
-install: install-scripts install-pkgbuild install-profiles install-doc
+install: install-scripts install-hd2aui install-pkgbuild install-profiles install-doc
 
 install-scripts:
+	install -vD -m 755 archuseriso/aui-hd2aui             -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-mkiso              -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-mkusb              -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-mkhybrid           -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-mkinstall          -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-run                -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-buildzfs           -t $(BIN_DIR)/
+
+install-hd2aui:
+	install -d -m 755 $(PROFILE_DIR)
+	cp -a --no-preserve=ownership hd2aui $(PROFILE_DIR)/
 
 install-pkgbuild:
 	install -d -m 755 $(PROFILE_DIR)
@@ -31,4 +36,4 @@ install-profiles:
 install-doc:
 	install -vD -m 644 $(DOC_FILES) -t $(DOC_DIR)/
 
-.PHONY: install install-scripts install-profiles install-doc
+.PHONY: install install-scripts install-hd2aui install-pkgbuild install-profiles install-doc
