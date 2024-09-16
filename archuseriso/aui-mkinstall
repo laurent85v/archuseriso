@@ -869,7 +869,8 @@ _biosbootloader() {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'btrfs-compress:,encrypt,ext4-no-journal,help' \
+OPTS=$(getopt -o 'h' --long 'bcachefs-compress:'                           \
+                     --long 'btrfs-compress:,encrypt,ext4-no-journal,help' \
                      --long 'rootfs:,size-esp:,size-rootfs:,username:'     \
                      --long 'zfsonroot'                                    \
                      -n "${appname}" -- "$@")
