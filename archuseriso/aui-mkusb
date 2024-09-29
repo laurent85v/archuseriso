@@ -30,7 +30,6 @@ install_dir=""
 iso_label=""
 iso_file=""
 iso_ize=0
-encryption_type="luks"
 medium_version=""
 partition_table="gpt"
 raw_write="no"
@@ -175,15 +174,6 @@ _luks_encryption_setup() {
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
     fi
-    _encryption_setup_unmount_overlay
-    _msg_info "Done!"
-}
-
-_bcachefs_encryption_setup() {
-    _encryption_setup_mount_overlay
-    sed -i -- "s|^HOOKS=(.* filesystems|& bcachefs|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
-    _msg_info "initramfs update"
-    arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
     _encryption_setup_unmount_overlay
     _msg_info "Done!"
 }
@@ -563,7 +553,6 @@ _format() {
             'btrfs'|'f2fs'|'ext4')
                 _luks_format ;;
             'bcachefs')
-                encryption_type="bcachefs"
                 bcachefs_options+=('--encrypted');;
         esac
     fi
@@ -761,7 +750,7 @@ _persistence() {
     _msg_info "Done!"
 
     if [[ "${encryption}" == "yes" ]]; then
-        _"${encryption_type}"_encryption_setup
+        _luks_encryption_setup
     fi
 }
 
