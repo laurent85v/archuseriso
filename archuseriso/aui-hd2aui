@@ -33,10 +33,19 @@ _help() {
     echo
     echo
     echo 'Options:'
-    echo '-h, --help                  Command line help'
-    echo "-w, --workdir               Set the working directory (default: ./auiwork.XXXXXXXX)"
-    echo "-o, --outdir                Set the output directory (default: ./out)"
     echo "--config                    Path to hd2aui configuration files (default: ${profile})"
+    echo '--bcachefs-compress=algo    Bcachefs compression algorithm: gzip, lz4 (default), none, zstd'
+    echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo (default), none, zlib, zstd'
+    echo '--encrypt                   LUKS encryption for ext4, f2fs and btrfs. Bcachefs native encryption'
+    echo '--ext4-no-journal           Disable ext4 journal'
+    echo '--gpt                       GPT partition table layout (default)'
+    echo '-h, --help                  Command line help'
+    echo '--mbr                       MBR partition table layout'
+    echo "-o, --outdir                Set the output directory (default: ./out)"
+    echo '--rootfs=fstype             Filesystem type: bcachefs, btrfs, ext4 (default), f2fs'
+    echo '--esp-size=integer[g|G]     EFI System Partition size in GiB (ESP)'
+    echo '--cow-size=integer[g|G]     Size in GiB. Main partition hosting the squashfs image and data persistence'
+    echo "-w, --workdir               Set the working directory (default: ./auiwork.XXXXXXXX)"
     echo
     exit "${1}"
 }
@@ -213,6 +222,7 @@ _overlayfs() {
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q amd-ucode &> /dev/null || _packages+=('amd-ucode')
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q intel-ucode &> /dev/null || _packages+=('intel-ucode')
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q limine &> /dev/null || _packages+=('limine')
+    eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q cryptsetup &> /dev/null || _packages+=('cryptsetup')
     eval -- env -u TMPDIR pacstrap -c -G -M -- "${auiwork}/overlay" "${_packages[@]}" &> /dev/null || \
         _msg_error "Could not install ${_packages[@]} to overlay! Aborting." 1
     _msg_info "Done!"
