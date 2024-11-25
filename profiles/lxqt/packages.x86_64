@@ -151,12 +151,11 @@ libpulse
 libstatgrab
 libsysstat
 libva-intel-driver
-libva-mesa-driver
+libva-nvidia-driver
 libva-utils
-libva-vdpau-driver
 lsb-release
 lxqt
-mesa-vdpau
+mesa
 mobile-broadband-provider-info
 mousetweaks
 network-manager-applet

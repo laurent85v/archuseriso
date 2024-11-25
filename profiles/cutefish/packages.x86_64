@@ -151,11 +151,10 @@ gst-libav
 intel-media-driver
 jre-openjdk
 libva-intel-driver
-libva-mesa-driver
+libva-nvidia-driver
 libva-utils
-libva-vdpau-driver
 lsb-release
-mesa-vdpau
+mesa
 network-manager-applet
 noto-fonts
 pavucontrol-qt

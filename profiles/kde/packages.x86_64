@@ -164,12 +164,11 @@ kwallet-pam
 kwalletmanager
 kwayland-integration
 libva-intel-driver
-libva-mesa-driver
+libva-nvidia-driver
 libva-utils
-libva-vdpau-driver
 lsb-release
 maliit-keyboard
-mesa-vdpau
+mesa
 network-manager-applet
 noto-fonts
 noto-fonts-cjk

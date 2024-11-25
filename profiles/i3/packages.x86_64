@@ -141,12 +141,11 @@ i3
 intel-media-driver
 libcanberra
 libva-intel-driver
-libva-mesa-driver
+libva-nvidia-driver
 libva-utils
-libva-vdpau-driver
 lightdm-gtk-greeter
 lsb-release
-mesa-vdpau
+mesa
 mobile-broadband-provider-info
 network-manager-applet
 pipewire-alsa
