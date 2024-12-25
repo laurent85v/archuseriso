@@ -749,7 +749,7 @@ _persistence() {
     fi
     _msg_info "Done!"
 
-    if [[ "${encryption}" == "yes" ]]; then
+    if [[ "${encryption}" == "yes" && ! "${rootfs}" == "bcachefs" ]]; then
         _luks_encryption_setup
     fi
 }
