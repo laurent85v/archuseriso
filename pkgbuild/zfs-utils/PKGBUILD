@@ -68,6 +68,7 @@ build() {
                 --with-udevdir=/usr/lib/udev \
                 --libexecdir=/usr/lib \
                 --localstatedir=/var \
+                --without-libunwind \
                 --with-python="$PWD/python3-fake" \
                 --enable-pyzfs=no \
                 --enable-systemd \
