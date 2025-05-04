@@ -50,7 +50,7 @@ _mnt_overlayfs() {
     local mnt="${3}"
     mkdir -p "/run/archiso/cowspace/${cow_directory}/upperdir" "/run/archiso/cowspace/${cow_directory}/workdir"
     mount -t overlay -o \
-        "lowerdir=${src},upperdir=/run/archiso/cowspace/${cow_directory}/upperdir,workdir=/run/archiso/cowspace/${cow_directory}/workdir" \
+        "x-initrd.mount,lowerdir=${src},upperdir=/run/archiso/cowspace/${cow_directory}/upperdir,workdir=/run/archiso/cowspace/${cow_directory}/workdir" \
         airootfs "${newroot}${mnt}"
 }
 
@@ -112,7 +112,7 @@ _mnt_dev() {
         'UUID='* | 'LABEL='* | 'PARTUUID='* | 'PARTLABEL='*) : ;;
         *) dev="${resolved_dev}" ;;
     esac
-    if mount --mkdir -o "${opts}" "${flg}" "${dev}" "${mnt}"; then
+    if mount --mkdir -o "x-initrd.mount,${opts}" "${flg}" "${dev}" "${mnt}"; then
         msg ":: Device '${dev}' mounted successfully."
     else
         echo "ERROR; Failed to mount '${dev}'"
@@ -141,7 +141,7 @@ _search_for_archisodevice() {
         fi
         msg ":: Searching for '${archisosearchfilename}' in '${search_dev}'"
         umount /archisosearch 2>/dev/null
-        if mount -r "$search_dev" /archisosearch 2>/dev/null; then
+        if mount -o 'x-initrd.mount' -r "$search_dev" /archisosearch 2>/dev/null; then
             if [ -e "/archisosearch${archisosearchfilename}" ]; then
                 archisodevice="$search_dev"
                 break
@@ -352,17 +352,17 @@ archiso_mount_handler() {
     fi
     if [ "${copytoram}" = "y" ]; then
         msg ":: Mounting /run/archiso/copytoram (tmpfs) filesystem, size=${copytoram_size}"
-        mount --mkdir -t tmpfs -o "size=${copytoram_size}",mode=0755 copytoram /run/archiso/copytoram
+        mount --mkdir -t tmpfs -o "x-initrd.mount,size=${copytoram_size}",mode=0755 copytoram /run/archiso/copytoram
     fi
 
     if [ -n "${cow_device}" ]; then
         # Mount cow_device read-only at first and remount it read-write right after. This prevents errors when the
         # device is already mounted read-only somewhere else (e.g. if cow_device and archisodevice are the same).
         _mnt_dev "${cow_device}" "/run/archiso/cowspace" "-r" "${cow_flags}"
-        mount -o remount,rw "/run/archiso/cowspace"
+        mount -o x-initrd.mount,remount,rw "/run/archiso/cowspace"
     else
         msg ":: Mounting /run/archiso/cowspace (tmpfs) filesystem, size=${cow_spacesize}..."
-        mount --mkdir -t tmpfs -o "size=${cow_spacesize}",mode=0755 cowspace /run/archiso/cowspace
+        mount --mkdir -t tmpfs -o "x-initrd.mount,size=${cow_spacesize}",mode=0755 cowspace /run/archiso/cowspace
     fi
     mkdir -p "/run/archiso/cowspace/${cow_directory}"
     chmod 0700 "/run/archiso/cowspace/${cow_directory}"
