@@ -15,7 +15,6 @@ clonezilla
 cryptsetup
 darkhttpd
 ddrescue
-dhclient
 dhcpcd
 diffutils
 dmidecode
