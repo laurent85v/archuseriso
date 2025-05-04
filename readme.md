@@ -16,8 +16,8 @@ Archuseriso is based on Archiso https://wiki.archlinux.org/title/Archiso
 Features
 --------
 
-* 10 profiles
-* 16 languages
+* desktop profiles
+* language configuration 
 * data persistence
 * choice of filesystem among Ext4 / Bcachefs / Btrfs / F2FS / ZFS
 * data encryption
@@ -30,7 +30,6 @@ Profiles
 * Console
 * Cinnamon
 * Cutefish
-* Deepin
 * Gnome
 * i3
 * Kde Plasma
