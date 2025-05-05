@@ -148,6 +148,7 @@ frei0r-plugins
 gst-libav
 intel-media-driver
 jre-openjdk
+kwin
 libva-intel-driver
 libva-nvidia-driver
 libva-utils
