@@ -299,11 +299,11 @@ cpio
 cpupower
 cryfs
 fakeroot
+fastfetch
 git
 grsync
 hddtemp
 hwinfo
-neofetch
 net-tools
 os-prober
 p7zip

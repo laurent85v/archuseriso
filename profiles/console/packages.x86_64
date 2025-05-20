@@ -140,10 +140,10 @@ cpio
 cpupower
 cryfs
 fakeroot
+fastfetch
 git
 hddtemp
 hwinfo
-neofetch
 net-tools
 os-prober
 pacman-contrib
