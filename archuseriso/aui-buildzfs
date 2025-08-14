@@ -25,7 +25,7 @@ SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
 ZFSPUBKEYS=(C77B9667 D4598027 C6AF658B)
-declare -a zfsmissingkeys=('')
+declare -a zfsmissingkeys=()
 declare -a zfspackages
 declare -a zfssources
 
@@ -211,13 +211,14 @@ if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
 fi
 
 
-for _zfspubkey in ${ZFSPUBKEYS[*]}; do
+for _zfspubkey in ${ZFSPUBKEYS[@]}; do
     if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${_zfspubkey}" &> /dev/null; then
         zfsmissingkeys+=("${_zfspubkey}")
     fi
 done
 
-if [[ -n "${zfsmissingkeys}" ]]; then
+if [[ -n "${zfsmissingkeys[*]}" ]]; then
+    echo "Missing OpenZFS public keys: ${zfsmissingkeys[*]}"
     echo
     read -r -n1 -p 'Retreive missing OpenZFS public keys (N/y)? '
     echo
@@ -225,7 +226,7 @@ if [[ -n "${zfsmissingkeys}" ]]; then
         echo 'Operation canceled by user!'
         exit 0
     fi
-    for _zfsmissingkey in ${zfsmissingkeys[*]}; do
+    for _zfsmissingkey in ${zfsmissingkeys[@]}; do
         if ! sudo --user "${SCRIPTUSER}" gpg --recv "${_zfsmissingkey}"; then
             echo
             echo "Retreiving OpenZFS public key ${_zfsmissingkey} failed, aborting!"
