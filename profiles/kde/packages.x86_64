@@ -279,6 +279,7 @@ numlockx
 #packagekit-qt5
 plasma-firewall
 plasma-systemmonitor 
+plasma-x11-session
 skanlite
 svgpart
 sweeper
