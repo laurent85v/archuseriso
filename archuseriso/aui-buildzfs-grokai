@@ -1,0 +1,439 @@
+#!/usr/bin/env bash
+#
+# Copyright (C) 2024 Laurent Jourden <laurent85@enarel.fr>
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Script to build the ZFS packages against the linux kernel
+# for Arch Linux.
+#
+# Version: 1.0.0
+#
+# This script automates the process of building ZFS packages by:
+# - Fetching the latest or specified ZFS release from GitHub
+# - Creating a chroot environment for isolated builds
+# - Building zfs-utils and zfs-linux packages
+# - Handling GPG key verification
+#
+# Requirements:
+# - Run as root via sudo from a user session
+# - devtools and pacman-contrib packages installed
+# - Access to pkgbuild directory
+#
+# Usage: sudo ./aui-buildzfs [options]
+# Examples:
+#   sudo ./aui-buildzfs --release=2.1.2 --pkgdest=/path/to/output
+#   sudo ./aui-buildzfs --linuxtesting --pkgdest=/tmp/zfs-packages
+#   sudo ./aui-buildzfs --help
+
+set -euo pipefail  # Exit on error, undefined vars, and pipe failures
+
+# Constants
+readonly SCRIPT_VERSION="1.0.0"
+readonly GITHUB_API_URL="https://api.github.com/repos/openzfs/zfs/releases"
+readonly DEFAULT_PKGBUILD_DIR="/usr/share/archuseriso/pkgbuild"
+readonly DEFAULT_PKGDEST="${PWD}/out"
+readonly ZFS_PUBKEYS=(C77B9667 D4598027 C6AF658B)  # OpenZFS signing keys
+
+# Global variables
+WD="$(pwd)"
+APP_NAME="${0##*/}"
+PKGBUILD_DIR="${DEFAULT_PKGBUILD_DIR}"
+AUI_WORK_DIR="${WD}/$(mktemp -u auiwork.XXXXXXXX)"
+ARCH_ROOT="${AUI_WORK_DIR}/archroot64"
+HELP_FLAG="no"
+LINUX_TESTING="no"
+LINUX_VERSION=""
+MODULES_VERSION=""
+PKG_DEST=""
+PKG_DEST_MAKEPKG=""
+RELEASE=""
+SCRIPT_USER="${SUDO_USER:-}"
+ZFS_VERSION=""
+ZFS_MISSING_KEYS=()
+ZFS_PACKAGES=()
+ZFS_SOURCES=()
+
+# Function to display usage information
+_usage() {
+    local exit_code="${1:-0}"
+    printf -- '\n%s, ZFS packages creation tool for Arch Linux.\n\n' "${APP_NAME}"
+    printf -- 'Synopsis:\n%s [options]\n\n' "${APP_NAME}"
+    printf -- 'Examples:\n'
+    printf -- '  %s --release=2.1.2 --pkgdest=/path/to/output\n' "${APP_NAME}"
+    printf -- '  %s --linuxtesting --pkgdest=/tmp/zfs-packages\n' "${APP_NAME}"
+    printf -- '  %s --help\n\n' "${APP_NAME}"
+    printf -- 'For more options, run: %s --help\n' "${APP_NAME}"
+    exit "${exit_code}"
+}
+
+# Function to display help information
+_help() {
+    local exit_code="${1:-0}"
+    printf 'Options:\n'
+    printf -- '-h, --help                Command line help\n'
+    printf -- "-D, --pkgbuild-dir=<path> Path to pkgbuild directory (default: %s)\n" "${DEFAULT_PKGBUILD_DIR}"
+    printf -- '--linuxtesting            Build packages against the linux kernel in testing repository\n'
+    printf -- '--pkgdest=<path>          Packages destination directory (default: %s)\n' "${DEFAULT_PKGDEST}"
+    printf -- '-r, --release             Specify the ZFS release version to build\n'
+    printf -- '                          Example: %s --release=2.1.2\n\n' "${APP_NAME}"
+    exit "${exit_code}"
+}
+
+# Function to print info messages
+_msg_info() {
+    local msg="${1}"
+    printf '[%s] INFO: %s\n' "${APP_NAME}" "${msg}"
+}
+
+# Function to clean up temporary directories
+_cleanup() {
+    if [[ -d "${AUI_WORK_DIR}" ]]; then
+        _msg_info "Cleaning up temporary directory: ${AUI_WORK_DIR}"
+        rm -rf -- "${AUI_WORK_DIR}"
+    fi
+}
+
+# Function to initialize the script environment
+_init() {
+    local link="${GITHUB_API_URL}"
+
+    # Check for required packages
+    if ! pacman -Q devtools &>/dev/null; then
+        printf 'Error: devtools package not installed. Please install it and try again.\n' >&2
+        exit 1
+    fi
+    if ! pacman -Q pacman-contrib &>/dev/null; then
+        printf 'Error: pacman-contrib package not installed. Please install it and try again.\n' >&2
+        exit 1
+    fi
+
+    # Determine package destination from makepkg.conf
+    PKG_DEST_MAKEPKG="$(grep -s '^PKGDEST=' /etc/makepkg.conf || true)"
+    PKG_DEST_MAKEPKG="${PKG_DEST_MAKEPKG#PKGDEST=}"
+    PKG_DEST_MAKEPKG="${PKG_DEST_MAKEPKG:-${DEFAULT_PKGDEST}}"
+    PKG_DEST="${PKG_DEST:-${PKG_DEST_MAKEPKG}}"
+
+    # Validate PKGBUILD_DIR
+    if [[ ! -d "${PKGBUILD_DIR}" ]]; then
+        printf 'Error: PKGBUILD directory %s does not exist\n' "${PKGBUILD_DIR}" >&2
+        exit 1
+    fi
+
+    # Validate RELEASE format if provided
+    if [[ -n "${RELEASE}" ]] && [[ ! "${RELEASE}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        printf 'Error: Invalid RELEASE format. Expected x.y.z\n' >&2
+        exit 1
+    fi
+
+    # Create necessary directories
+    mkdir -p -- "${ARCH_ROOT}" "${PKG_DEST}" || {
+        printf 'Error: Failed to create directories %s or %s\n' "${ARCH_ROOT}" "${PKG_DEST}" >&2
+        exit 1
+    }
+
+    # Fetch ZFS sources
+    if [[ -z "${RELEASE}" ]]; then
+        _msg_info "Fetching latest ZFS release information"
+        mapfile -t ZFS_SOURCES < <(
+            curl --silent --retry 3 --retry-connrefused --fail --max-time 30 \
+                 -- "${link}/latest" | \
+            grep browser_download_url | cut -d':' -f2- | sed 's/"//g; s/^[[:blank:]]*//'
+        ) || {
+            printf 'Error: Failed to fetch latest ZFS release from GitHub API\n' >&2
+            exit 1
+        }
+    else
+        _msg_info "Fetching ZFS release ${RELEASE} information"
+        mapfile -t ZFS_SOURCES < <(
+            curl --silent --retry 3 --retry-connrefused --fail --max-time 30 \
+                 -- "${link}" | grep "${RELEASE}" | \
+            grep browser_download_url | cut -d':' -f2- | sed 's/"//g; s/^[[:blank:]]*//'
+        ) || {
+            printf 'Error: Failed to fetch ZFS release %s from GitHub API\n' "${RELEASE}" >&2
+            exit 1
+        }
+        if [[ -z "${ZFS_SOURCES[*]}" ]]; then
+            printf 'Error: Release %s not found\n' "${RELEASE}" >&2
+            exit 1
+        fi
+    fi
+
+    # Extract ZFS version
+    ZFS_VERSION="${ZFS_SOURCES[0]%/zfs-*}"
+    ZFS_VERSION="${ZFS_VERSION#*-}"
+    if [[ -z "${ZFS_VERSION}" ]]; then
+        printf 'Error: Failed to extract ZFS version from sources\n' >&2
+        exit 1
+    fi
+    _msg_info "Using ZFS version: ${ZFS_VERSION}"
+}
+
+# Function to check available disk space
+_check_disk_space() {
+    local required_space_gb=5  # Estimate 5GB required
+    local available_space_kb
+    available_space_kb=$(df --output=avail "${PWD}" | tail -1)
+    local available_space_gb=$(( available_space_kb / 1024 / 1024 ))
+    if (( available_space_gb < required_space_gb )); then
+        printf 'Error: Insufficient disk space. Required: %d GB, Available: %d GB\n' "${required_space_gb}" "${available_space_gb}" >&2
+        exit 1
+    fi
+    _msg_info "Disk space check passed: ${available_space_gb} GB available"
+}
+
+# Function to create the Arch Linux chroot environment
+_create_archroot64() {
+    _msg_info "Creating chroot environment in ${ARCH_ROOT}/root"
+    if ! LC_ALL=C mkarchroot -C "${PKGBUILD_DIR}/pacman.conf" \
+                           -c /var/cache/pacman/pkg \
+                           -- "${ARCH_ROOT}/root" \
+                           base linux linux-headers base-devel >/dev/null; then
+        printf 'Error: Failed to create chroot environment\n' >&2
+        exit 1
+    fi
+
+    if [[ "${LINUX_TESTING}" == "yes" ]]; then
+        _msg_info "Setting up testing repository"
+        if ! unshare --fork --pid pacman --config "${PKGBUILD_DIR}/pacman-testing.conf" \
+                                         --root "${ARCH_ROOT}/root" -Sy; then
+            printf 'Error: Failed to sync testing repository\n' >&2
+            exit 1
+        fi
+        if unshare --fork --pid pacman --config "${PKGBUILD_DIR}/pacman-testing.conf" \
+                                       --root "${ARCH_ROOT}/root" -Si testing/linux; then
+            if ! pacstrap -C "${PKGBUILD_DIR}/pacman-testing.conf" \
+                          -c -G -M "${ARCH_ROOT}/root" \
+                          linux linux-headers >/dev/null; then
+                printf 'Error: Failed to install testing kernel in chroot\n' >&2
+                exit 1
+            fi
+        else
+            printf 'Error: No linux package available in testing repository\n' >&2
+            exit 1
+        fi
+    fi
+    _msg_info "Chroot environment created successfully"
+}
+
+# Function to build ZFS packages
+_build_zfs() {
+    # Get Linux version from chroot
+    LINUX_VERSION="$(pacman --sysroot "${ARCH_ROOT}/root" -Q linux | cut -d' ' -f2)" || {
+        printf 'Error: Failed to get Linux version from chroot\n' >&2
+        exit 1
+    }
+
+    # Calculate modules version
+    if [[ "$(cut -d'.' -f3 <<< "${LINUX_VERSION}")" =~ 'arch' ]]; then
+        MODULES_VERSION="${LINUX_VERSION%.arch*}.0-${LINUX_VERSION##*.}"
+    else
+        MODULES_VERSION="${LINUX_VERSION%.arch*}-${LINUX_VERSION##*.}"
+    fi
+
+    # Copy PKGBUILD directories
+    cp -arT -- "${PKGBUILD_DIR}/zfs-utils/" "${AUI_WORK_DIR}/zfs-utils/" || {
+        printf 'Error: Failed to copy zfs-utils PKGBUILD\n' >&2
+        exit 1
+    }
+    cp -arT -- "${PKGBUILD_DIR}/zfs-linux/" "${AUI_WORK_DIR}/zfs-linux/" || {
+        printf 'Error: Failed to copy zfs-linux PKGBUILD\n' >&2
+        exit 1
+    }
+
+    # Update PKGBUILD files with versions
+    sed -i -- "s/%ZFSVERSION%/${ZFS_VERSION}/;
+               s/%LINUXVERSION%/${LINUX_VERSION}/;
+               s/%MODULESVERSION%/${MODULES_VERSION}/" \
+              "${AUI_WORK_DIR}/zfs-utils/PKGBUILD" \
+              "${AUI_WORK_DIR}/zfs-linux/PKGBUILD" || {
+        printf 'Error: Failed to update PKGBUILD files\n' >&2
+        exit 1
+    }
+
+    cd -- "${AUI_WORK_DIR}/zfs-utils/" || {
+        printf 'Error: Failed to change to zfs-utils directory\n' >&2
+        exit 1
+    }
+
+    # Download ZFS source files in parallel
+    _msg_info "Downloading ZFS source files in parallel"
+    printf '%s\n' "${ZFS_SOURCES[@]}" | xargs -n1 -P$(nproc) -I {} sh -c '
+        echo "Downloading {}"
+        if ! curl --silent --retry 3 --retry-connrefused --fail --max-time 300 -L -O "{}"; then
+            echo "Error: Failed to download {}" >&2
+            exit 1
+        fi
+    ' || {
+        printf 'Error: One or more downloads failed\n' >&2
+        exit 1
+    }
+
+    # Copy source files to zfs-linux directory
+    cp -a -- "zfs-${ZFS_VERSION}.tar.gz"{,.asc} ../zfs-linux || {
+        printf 'Error: Failed to copy ZFS source files\n' >&2
+        exit 1
+    }
+
+    # Set ownership
+    chown -R -- "${SCRIPT_USER}": "${AUI_WORK_DIR}/"{zfs-utils,zfs-linux} || {
+        printf 'Error: Failed to set ownership of work directories\n' >&2
+        exit 1
+    }
+
+    # Build zfs-utils
+    _msg_info "Building zfs-utils and zfs-utils-debug"
+    if ! LC_ALL=C sudo --user "${SCRIPT_USER}" makechrootpkg -r "${ARCH_ROOT}" \
+                                                            -- PKGDEST="" \
+                                                            --cleanbuild \
+                                                            --clean \
+                                                            --force \
+                                                            --syncdeps \
+                                                            --needed \
+                                                            --noconfirm \
+                                                            --noprogressbar \
+                                                            -- \
+                                                            --jobs="$(nproc)"; then
+        printf 'Error: Failed to build zfs-utils\n' >&2
+        exit 1
+    fi
+
+    mapfile -t ZFS_PACKAGES < <(find -- "${AUI_WORK_DIR}/"{zfs-utils,zfs-linux} \
+                                   | grep -E '\.pkg\.tar\.(zst|xz)$') || {
+        printf 'Error: Failed to find built packages\n' >&2
+        exit 1
+    }
+    _msg_info "zfs-utils build completed"
+
+    # Build zfs-linux
+    cd -- "${AUI_WORK_DIR}/zfs-linux/" || {
+        printf 'Error: Failed to change to zfs-linux directory\n' >&2
+        exit 1
+    }
+    _msg_info "Building zfs-linux and zfs-linux-headers"
+    if ! LC_ALL=C sudo --user "${SCRIPT_USER}" makechrootpkg -r "${ARCH_ROOT}" \
+                                                            -I "${ZFS_PACKAGES[0]}" \
+                                                            -I "${ZFS_PACKAGES[1]}" \
+                                                            -- PKGDEST="" \
+                                                            --cleanbuild \
+                                                            --clean \
+                                                            --force \
+                                                            --syncdeps \
+                                                            --needed \
+                                                            --noconfirm \
+                                                            --noprogressbar \
+                                                            -- \
+                                                            --jobs="$(nproc)"; then
+        printf 'Error: Failed to build zfs-linux\n' >&2
+        exit 1
+    fi
+
+    mapfile -t ZFS_PACKAGES < <(find -- "${AUI_WORK_DIR}/"{zfs-utils,zfs-linux} \
+                                   | grep -E '\.pkg\.tar\.(zst|xz)$') || {
+        printf 'Error: Failed to find final packages\n' >&2
+        exit 1
+    }
+    _msg_info "zfs-linux build completed"
+
+    # Copy packages to destination
+    cp -- "${ZFS_PACKAGES[@]}" "${PKG_DEST}" || {
+        printf 'Error: Failed to copy packages to %s\n' "${PKG_DEST}" >&2
+        exit 1
+    }
+
+    _msg_info "Cleaning up work directory"
+    rm -rf -- "${AUI_WORK_DIR}"
+}
+
+# Parse command line options
+OPTS=$(getopt -o 'C:,D:,h,r:' -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:' \
+              -n "${APP_NAME}" -- "$@") || _usage 1
+eval set -- "${OPTS}"
+unset OPTS
+
+while true; do
+    case "${1}" in
+        '-h'|'--help')
+            HELP_FLAG="yes"
+            shift ;;
+        '--linuxtesting')
+            LINUX_TESTING="yes"
+            shift ;;
+        '-D'|'--pkgbuild-dir')
+            PKGBUILD_DIR="${2}"
+            shift 2 ;;
+        '--pkgdest')
+            PKG_DEST="${2}"
+            shift 2 ;;
+        '-r'|'--release')
+            RELEASE="${2}"
+            shift 2 ;;
+        '--')
+            shift
+            break ;;
+    esac
+done
+
+# Display help if requested
+if [[ "${HELP_FLAG}" == "yes" ]]; then
+    _help 0
+fi
+
+# Check if running as root
+if [[ ${EUID} -ne 0 ]]; then
+    printf 'Error: This script must be run as root.\n\n' >&2
+    printf 'Get help:\n%s --help\n' "${APP_NAME}" >&2
+    exit 1
+fi
+
+# Check if run via sudo from user session
+if [[ "${SCRIPT_USER}" = 'root' || -z "${SCRIPT_USER}" ]]; then
+    printf '\nError: The script must be run from a user session using sudo!\n' >&2
+    printf 'Aborting...\n' >&2
+    exit 1
+fi
+
+# Check for missing GPG keys
+for zfs_pubkey in "${ZFS_PUBKEYS[@]}"; do
+    if ! sudo --user "${SCRIPT_USER}" gpg --list-public-keys "${zfs_pubkey}" &>/dev/null; then
+        ZFS_MISSING_KEYS+=("${zfs_pubkey}")
+    fi
+done
+
+# Handle missing GPG keys
+if [[ -n "${ZFS_MISSING_KEYS[*]}" ]]; then
+    printf 'Missing OpenZFS public keys: %s\n\n' "${ZFS_MISSING_KEYS[*]}"
+    read -r -n1 -p 'Retrieve missing OpenZFS public keys (N/y)? '
+    printf '\n'
+    if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+        printf 'Operation canceled by user!\n' >&2
+        exit 1
+    fi
+    for zfs_missing_key in "${ZFS_MISSING_KEYS[@]}"; do
+        _msg_info "Retrieving GPG key ${zfs_missing_key}"
+        if ! sudo --user "${SCRIPT_USER}" gpg --recv "${zfs_missing_key}"; then
+            printf 'Error: Failed to retrieve OpenZFS public key %s\n' "${zfs_missing_key}" >&2
+            exit 1
+        fi
+    done
+fi
+
+# Set up cleanup trap
+trap _cleanup EXIT
+
+# Main execution
+_msg_info "Starting ZFS package build process"
+_init
+_check_disk_space
+_create_archroot64
+_build_zfs
+
+# Return to original directory
+cd "${WD}"
+
+# Display results
+printf '\nDone!\n\n'
+printf '%s\n' "${ZFS_PACKAGES[@]}" | sed 's|\s|\n|g' | sed 's|.*/||'
+printf '\nZFS packages directory location: %s\n\n' "${PKG_DEST}"
+
+# vim:ts=4:sw=4:et:
