@@ -32,7 +32,6 @@ f2fs-tools
 fatresize
 foot-terminfo
 fsarchiver
-gnu-netcat
 gpart
 gpm
 gptfdisk
@@ -81,6 +80,7 @@ ntfs-3g
 nvme-cli
 open-iscsi
 open-vm-tools
+openbsd-netcat
 openconnect
 openpgp-card-tools
 openssh
