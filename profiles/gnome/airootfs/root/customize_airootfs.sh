@@ -31,12 +31,6 @@ sed -i 's/^#\(background=\)$/\1#232627/
         s/^#\(theme-name=\)$/\1Adwaita/
         s/^#\(icon-theme-name=\)$/\1Adwaita/' /etc/lightdm/lightdm-gtk-greeter.conf
 
-# Force wayland session type (related to Nvidia proprietary driver)
-sed -i 's|^\(Exec=\).*|\1env XDG_SESSION_TYPE=wayland /usr/bin/gnome-session|' /usr/share/xsessions/gnome.desktop
-
-# Remove duplicate from lightdm sessions type list
-mv /usr/share/wayland-sessions/gnome.desktop{,.duplicate}
-
 # missing link pointing to default vncviewer
 ln -s /usr/bin/gvncviewer /usr/local/bin/vncviewer
 
