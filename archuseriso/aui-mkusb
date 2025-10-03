@@ -692,7 +692,8 @@ _esp() {
 
     for mediumfile in "${esp_files_settings[@]}"; do
         if [[ -f "${WD}/${workdir}/usbesp/${mediumfile}" ]]; then
-            sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
+            sed -i -- "s|%ARCH%|${arch}|g;
+                       s|%ARCHISO_LABEL%|${iso_label}|g;
                        s|%COW_LABEL%|${cow_label}|g;
                        s|%COW_FLAGS%|${cow_flags}|g;
                        s|%ESP_LABEL%|${esp_label}|g;
