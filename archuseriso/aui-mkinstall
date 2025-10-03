@@ -733,7 +733,8 @@ _esp() {
 
     for _mediumfile in "${esp_files_settings[@]}"; do
         if [[ -f "${WD}/${workdir}/usbesp/${_mediumfile}" ]]; then
-            sed -i -- "s|%ARCHISO_LABEL%|${iso_label}|g;
+            sed -i -- "s|%ARCH%|${arch}|g;
+                       s|%ARCHISO_LABEL%|${iso_label}|g;
                        s|%DESKTOP%|${desktop}|g;
                        s|%ESP_LABEL%|${esp_label}|g;
                        s|%ROOT_LABEL%|${root_label}|g;
