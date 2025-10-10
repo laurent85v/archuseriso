@@ -222,7 +222,6 @@ gnumeric
 ### Vulkan
 ##
 # Optional
-amdvlk
 vulkan-intel
 vulkan-mesa-layers
 vulkan-radeon
