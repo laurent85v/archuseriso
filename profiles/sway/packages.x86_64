@@ -131,7 +131,6 @@ zsh
 ## Required or recommended
 acpi
 alsa-firmware
-dmenu
 foot
 intel-media-driver
 libcanberra
@@ -154,10 +153,12 @@ ttf-hack
 vdpauinfo
 wireplumber
 weechat
+wmenu
 xorg-xwayland
 
 ## Optional
 aspell-en
+fuzzel
 jre-openjdk
 mako
 mesa-demos
