@@ -305,7 +305,7 @@ _diskimage() {
     _liminelegacy=1
 
     # ESP size in MiB
-    _espsize=512
+    _espsize=768
 
     # Read-only fs size in MiB (squashfs image size + ext4 overhead)
     _rosize=$(( $(du -B1M -s -- "${auiwork}/airootfs.sfs" | awk '{print $1}') + 192 ))

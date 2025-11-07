@@ -288,7 +288,7 @@ _check() {
         fi
         esp_size=$(( esp_size * 1024 ))
     else
-        esp_size=512
+        esp_size=768
     fi
     # Set persistent partition size in MiB, free space left by default
     if [[ -n "${cow_size}" ]]; then
