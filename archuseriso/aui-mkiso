@@ -644,16 +644,34 @@ _make_customize_airootfs() {
 
 # rebuild initramfs (airootfs)
 _make_setup_mkinitcpio() {
+    local _logfile="${work_dir}/mkinitcpio.log"
+    local _mkinitcpio_exit_code
+
     if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
         export ARCHISO_GNUPG_FD
     fi
 
+    # Temporarily disable 'set -e' to prevent script termination on missing
+    # /usr/lib/initcpio/udev/11-dm-initramfs.rules file. Issue #74
+    set +e
     if [[ "${quiet}" = "y" ]]; then
-        arch-chroot "${pacstrap_dir}" mkinitcpio -P &> /dev/null || \
-          _msg_error 'Building initramfs failed! Use --verbose option for details.' 1
+        arch-chroot "${pacstrap_dir}" mkinitcpio -P &> "${_logfile}"
     else
-        arch-chroot "${pacstrap_dir}" mkinitcpio -P
+        arch-chroot "${pacstrap_dir}" mkinitcpio -P 2>&1 | tee "${_logfile}"
+    fi
+    # Re-enable strict error handling for the rest of the script
+    set -e
+
+    # Capture the actual exit status of mkinitcpio (before the pipe)
+    # PIPESTATUS[0] holds the exit code of the command on the left side of the pipe
+    _mkinitcpio_exit_code="${PIPESTATUS[0]}"
+
+    # Analyze mkinitcpio execution result, ignore missing /usr/lib/initcpio/udev/11-dm-initramfs.rules file
+    if [[ "${_mkinitcpio_exit_code}" -ge 1 ]] && \
+          grep "ERROR:" "${_log_file}" | grep -v '11-dm-initramfs.rules' | grep -q 'ERROR:'; then
+        # Critical failure: exit code >1 or explicit "ERROR:" in output
+        _msg_error "mkinitcpio FAILED with CRITICAL ERROR (exit code: ${_mkinitcpio_exit_code})" 1
     fi
 
     if [[ -n "${gpg_key}" ]]; then
