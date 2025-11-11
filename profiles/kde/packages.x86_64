@@ -166,7 +166,6 @@ libva-intel-driver
 libva-nvidia-driver
 libva-utils
 lsb-release
-maliit-keyboard
 mesa
 network-manager-applet
 noto-fonts
