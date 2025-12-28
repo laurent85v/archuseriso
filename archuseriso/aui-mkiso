@@ -11,7 +11,6 @@ export LC_ALL="C.UTF-8"
 export LC_ALL="C"
 [[ -v SOURCE_DATE_EPOCH ]] || printf -v SOURCE_DATE_EPOCH '%(%s)T' -1
 export SOURCE_DATE_EPOCH
-SCRIPTUSER="${SUDO_USER:-}"
 
 # Set application name from the script's file name
 app_name="${0##*/}"
@@ -35,7 +34,6 @@ efibootimg=""
 embed_dir=""
 gpg_key=""
 gpg_sender=""
-ia32_uefi_default_bootloader=""
 image_name=""
 install_dir=""
 iso_application=""
@@ -61,7 +59,7 @@ quiet=""
 search_filename=""
 user_pkg_dir=""
 work_dir=""
-x64_uefi_default_bootloader=""
+uefi_default_bootloader=""
 zfs_support="no"
 declare -A file_permissions=()
 declare -i rm_work_dir=0
@@ -669,7 +667,7 @@ _make_setup_mkinitcpio() {
 
     # Analyze mkinitcpio execution result, ignore missing /usr/lib/initcpio/udev/11-dm-initramfs.rules file
     if [[ "${_mkinitcpio_exit_code}" -ge 1 ]] && \
-          grep "ERROR:" "${_log_file}" | grep -v '11-dm-initramfs.rules' | grep -q 'ERROR:'; then
+          grep "ERROR:" "${_logfile}" | grep -v '11-dm-initramfs.rules' | grep -q 'ERROR:'; then
         # Critical failure: exit code >1 or explicit "ERROR:" in output
         _msg_error "mkinitcpio FAILED with CRITICAL ERROR (exit code: ${_mkinitcpio_exit_code})" 1
     fi
@@ -680,7 +678,7 @@ _make_setup_mkinitcpio() {
     fi
 }
 
-_profile_bootmode_syslinux_common() {
+_profile_bootmode_bios.syslinux() {
     local _cfg
     cp -rT --remove-destination "${profile}/syslinux/" "${work_dir}/syslinux/"
     for _cfg in "${work_dir}/syslinux/"*.cfg; do
@@ -698,15 +696,7 @@ _profile_bootmode_syslinux_common() {
     done
 }
 
-_profile_bootmode_bios.syslinux.eltorito() {
-    _run_once _profile_bootmode_syslinux_common
-}
-
-_profile_bootmode_bios.syslinux.mbr() {
-    _run_once _profile_bootmode_syslinux_common
-}
-
-_profile_bootmode_grub_common() {
+_profile_bootmode_uefi.grub() {
     local _cfg
 
     install -d -m 0755 "${work_dir}/grub" 
@@ -729,35 +719,11 @@ _profile_bootmode_grub_common() {
     done
 }
 
-_profile_bootmode_uefi-ia32.grub.eltorito() {
-    _run_once _profile_bootmode_grub_common
-}
-
-_profile_bootmode_uefi-ia32.grub.esp() {
-    _run_once _profile_bootmode_grub_common
-}
-
-_profile_bootmode_uefi-x64.grub.eltorito() {
-    _run_once _profile_bootmode_grub_common
-}
-
-_profile_bootmode_uefi-x64.grub.esp() {
-    _run_once _profile_bootmode_grub_common
-}
-
-_profile_bootmode_refind_common() {
+_profile_bootmode_uefi.refind() {
     cp -rT --remove-destination "${profile}/efiboot/refind/" "${work_dir}/refind/"
 }
 
-_profile_bootmode_uefi-x64.refind.eltorito() {
-    _run_once _profile_bootmode_refind_common
-}
-
-_profile_bootmode_uefi-x64.refind.esp() {
-    _run_once _profile_bootmode_refind_common
-}
-
-_profile_bootmode_systemd-boot_common() {
+_profile_bootmode_uefi.systemd-boot() {
     local _conf
 
     cp -rT --remove-destination "${profile}/efiboot/loader/" "${work_dir}/loader/"
@@ -777,23 +743,7 @@ _profile_bootmode_systemd-boot_common() {
     done
 }
 
-_profile_bootmode_uefi-ia32.systemd-boot.eltorito() {
-    _run_once _profile_bootmode_systemd-boot_common
-}
-
-_profile_bootmode_uefi-ia32.systemd-boot.esp() {
-    _run_once _profile_bootmode_systemd-boot_common
-}
-
-_profile_bootmode_uefi-x64.systemd-boot.eltorito() {
-    _run_once _profile_bootmode_systemd-boot_common
-}
-
-_profile_bootmode_uefi-x64.systemd-boot.esp() {
-    _run_once _profile_bootmode_systemd-boot_common
-}
-
-_fat_image_efiboot_files_common() {
+_fat_image_common_efiboot_files() {
     local _file
     local _available_ucodes=()
 
@@ -808,16 +758,10 @@ _fat_image_efiboot_files_common() {
     efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
                     "${pacstrap_dir}/boot/initramfs-"*".img"
                     "${_available_ucodes[@]}")
-}
-
-_fat_image_efiboot_files_common_ia32() {
-    [[ -f "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]] && \
-        efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
-}
-
-_fat_image_efiboot_files_common_x64() {
     [[ -f "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]] && \
         efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi")
+    [[ -f "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]] && \
+        efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
     [[ -f "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]] && efiboot_files+=("${pacstrap_dir}/boot/memtest86+/memtest.efi")
 }
 
@@ -883,35 +827,7 @@ EOF
         > "${work_dir}/grub/grubenv"
 }
 
-_fat_image_efiboot_files_uefi-ia32.grub.esp() {
-    local _grubmodules=()
-
-    _run_once _make_common_bootmode_grub_cfg
-
-    # Create EFI binary
-    # Module list from https://bugs.archlinux.org/task/71382#comment202911
-    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet exfat ext2 f2fs fat \
-                  font gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi      \
-                  lsefimmap minicmd normal ntfs ntfscomp part_apple part_gpt part_msdos png read reboot regexp     \
-                  search search_fs_file search_fs_uuid search_label serial sleep tpm udf usb usbserial_common      \
-                  usbserial_ftdi usbserial_pl2303 usbserial_usbdebug video xfs zstd)
-    grub-mkstandalone -O i386-efi                     \
-                      --modules="${_grubmodules[*]}"  \
-                      --locales="en@quot"             \
-                      --themes=""                     \
-                      --sbat=/usr/share/grub/sbat.csv \
-                      --disable-shim-lock             \
-                      -o "${work_dir}/grubia32.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
-
-    # Add GRUB to the list of files used to calculate the required FAT image size.
-    efiboot_files+=("${work_dir}/grubia32.efi"
-                    "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
-
-    _run_once _fat_image_efiboot_files_common_ia32
-    _run_once _fat_image_efiboot_files_common
-}
-
-_fat_image_efiboot_files_uefi-x64.grub.esp() {
+_fat_image_efiboot_files_uefi.grub() {
     local _grubmodules=()
 
     _run_once _make_common_bootmode_grub_cfg
@@ -930,31 +846,31 @@ _fat_image_efiboot_files_uefi-x64.grub.esp() {
                       --sbat=/usr/share/grub/sbat.csv \
                       --disable-shim-lock             \
                       -o "${work_dir}/grubx64.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
+    grub-mkstandalone -O i386-efi                     \
+                      --modules="${_grubmodules[*]}"  \
+                      --locales="en@quot"             \
+                      --themes=""                     \
+                      --sbat=/usr/share/grub/sbat.csv \
+                      --disable-shim-lock             \
+                      -o "${work_dir}/grubia32.efi" "boot/grub/grub.cfg=${work_dir}/grub-embed.cfg"
 
     # Add GRUB to the list of files used to calculate the required FAT image size.
     efiboot_files+=("${work_dir}/grubx64.efi")
+    efiboot_files+=("${work_dir}/grubia32.efi")
 
-    _run_once _fat_image_efiboot_files_common_x64
-    _run_once _fat_image_efiboot_files_common
+    _run_once _fat_image_common_efiboot_files
 }
 
-_fat_image_efiboot_files_uefi-x64.refind.esp() {
-    _run_once _fat_image_efiboot_files_common_x64
-    _run_once _fat_image_efiboot_files_common
+_fat_image_efiboot_files_uefi.refind() {
+    _run_once _fat_image_common_efiboot_files
     efiboot_files+=("${work_dir}/refind/refind-dvd.conf"
                     "${pacstrap_dir}/usr/share/refind")
 }
 
-_fat_image_efiboot_files_uefi-ia32.systemd-boot.esp() {
-    _run_once _fat_image_efiboot_files_common_ia32
+_fat_image_efiboot_files_uefi.systemd-boot() {
+    _run_once _fat_image_common_efiboot_files
     efiboot_files+=("${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
-                    "${pacstrap_dir}/usr/share/refind/icons/os_arch.png"
-                    "${work_dir}/loader/")
-}
-
-_fat_image_efiboot_files_uefi-x64.systemd-boot.esp() {
-    _run_once _fat_image_efiboot_files_common_x64
-    efiboot_files+=("${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootx64.efi"
+                    "${pacstrap_dir}/usr/lib/systemd/boot/efi/systemd-bootia32.efi"
                     "${pacstrap_dir}/usr/share/refind/icons/os_arch.png"
                     "${work_dir}/loader/")
 }
@@ -1038,12 +954,6 @@ _make_efibootimg() {
            ::/EFI ::/EFI/BOOT
 }
 
-# Create the EFI paths in which a boot loader will be placed.
-_make_efibootimg_grub_path() {
-    mmd -D s -i "${efibootimg}" \
-           ::/EFI/grub
-}
-
 # Copy kernel and initramfs to FAT image
 _make_boot_on_fat() {
     local -a _all_ucode_images=()
@@ -1066,46 +976,33 @@ _make_boot_on_fat() {
     _msg_info "Done!"
 }
 
-_ed2k-shellia32.esp() {
-    # shellia32.efi is picked up automatically when on /
-    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
-        mcopy -i "${efibootimg}" \
-                 "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ::/shellia32.efi
-    fi
-}
-
-_ed2k-shellx64.esp() {
+_ed2k-shell() {
     # shellx64.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
         mcopy -i "${efibootimg}" \
                  "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ::/shellx64.efi
     fi
-}
-
-_ed2k-shellia32.eltorito() {
-    # edk2-shell based UEFI shell
+    # shellia32.efi is picked up automatically when on /
+    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
+        mcopy -i "${efibootimg}" \
+                 "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ::/shellia32.efi
+    fi
+    # shellx64.efi is picked up automatically when on /
+    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
+        install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/edk2-shell/x64/Shell_Full.efi" "${isofs_dir}/shellx64.efi"
+    fi
     # shellia32.efi is picked up automatically when on /
     if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]]; then
         install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/edk2-shell/ia32/Shell_Full.efi" "${isofs_dir}/shellia32.efi"
     fi
 }
 
-_ed2k-shellx64.eltorito() {
-    # edk2-shell based UEFI shell
-    # shellx64.efi is picked up automatically when on /
-    if [[ -e "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]]; then
-        install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/share/edk2-shell/x64/Shell_Full.efi" "${isofs_dir}/shellx64.efi"
-    fi
-}
 
-_memtest86.esp() {
+_memtest86() {
     # Add other aditional/extra files to efibootimg ${install_dir}/boot/
     if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
         mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/memtest86+/memtest.efi" "::/boot/memtest86+/"
     fi
-}
-
-_memtest86.eltorito() {
     # Add other aditional/extra files to ${install_dir}/boot/
     if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
         install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
@@ -1114,21 +1011,9 @@ _memtest86.eltorito() {
     fi
 }
 
-# Copy GRUB files to ISO 9660 which is used by both IA32 UEFI and x64 UEFI
-_make_common_bootmode_grub_copy_to_isofs() {
-    local _files_to_copy=()
-
-    _files_to_copy+=("${work_dir}/grub/"*)
-    if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
-        _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
-    fi
-    install -d -m 0755 -- "${isofs_dir}/boot/grub/"
-    cp -r --remove-destination -- "${_files_to_copy[@]}" "${isofs_dir}/boot/grub/"
-}
-
-# Prepare syslinux for booting from MBR (isohybrid)
-_make_bootmode_bios.syslinux.mbr() {
-    _msg_info "Setting up SYSLINUX for BIOS booting from a disk..."
+# Prepare syslinux for booting from MBR (isohybrid) and El-Torito booting
+_make_bootmode_bios.syslinux() {
+    _msg_info "Syslinux: setting up BIOS booting..."
     install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
     for _cfg in "${work_dir}/syslinux/"*.cfg; do
             install -m 0644 -- "${_cfg}" "${isofs_dir}/boot/syslinux/${_cfg##*/}"
@@ -1159,67 +1044,19 @@ _make_bootmode_bios.syslinux.mbr() {
         install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/boot/memtest86+/memtest"
         install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-only.txt" "${isofs_dir}/boot/memtest86+/LICENSE"
     fi
-    _msg_info "Done!"
-}
-
-# Prepare syslinux for El-Torito booting
-_make_bootmode_bios.syslinux.eltorito() {
-    _msg_info "Setting up SYSLINUX for BIOS booting from an optical disc..."
     install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
     install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isolinux.bin" "${isofs_dir}/boot/syslinux/"
     install -m 0644 -- "${pacstrap_dir}/usr/lib/syslinux/bios/isohdpfx.bin" "${isofs_dir}/boot/syslinux/"
 
-    # ISOLINUX and SYSLINUX installation is shared
-    _run_once _make_bootmode_bios.syslinux.mbr
-
     _msg_info "Done!"
 }
 
-_make_bootmode_uefi-ia32.grub.esp() {
-    _msg_info "Setting up IA32 GRUB for UEFI booting..."
+# Prepare GRUB for El Torito & Isohybrid booting
+_make_bootmode_uefi.grub() {
+    local _files_to_copy=()
 
-    _run_once _efiboot_image_size
-
-    # Create a FAT image for the EFI system partition
-    _run_once _make_efibootimg
-
-    # Create the EFI paths in which a boot loader will be placed.
-    _run_once _make_efibootimg_grub_path
-
-    # Copy GRUB EFI binary to the default/fallback boot path
-    mcopy -i "${efibootimg}" \
-             "${work_dir}/grubia32.efi" ::/EFI/grub
-
-    _run_once _ed2k-shellia32.esp
-
-    _msg_info "Done! GRUB set up for UEFI booting successfully."
-}
-
-# Prepare GRUB for El Torito booting
-_make_bootmode_uefi-ia32.grub.eltorito() {
     # El Torito UEFI boot requires an image containing the EFI system partition.
-    # uefi-ia32.grub.eltorito has the same requirements as uefi-ia32.grub.esp
-    _run_once _make_bootmode_uefi-ia32.grub.esp
-
-    # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
-    # manual partitioning and simply copying the ISO 9660 file system contents.
-    # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Grub IA32: preparing EFI directory for the ISO 9660 file system..."
-    install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,grub}
-
-    # Copy GRUB EFI binary to the default/fallback boot path
-    install -m 0644 -- "${work_dir}/grubia32.efi" "${isofs_dir}/EFI/grub/grubia32.efi"
-
-    # Copy GRUB files
-    _run_once _make_common_bootmode_grub_copy_to_isofs
-
-    _run_once _ed2k-shellia32.eltorito
-
-    _msg_info "Done!"
-}
-
-_make_bootmode_uefi-x64.grub.esp() {
-    _msg_info "Setting up x86-64 GRUB for UEFI booting..."
+    _msg_info "Grub: setting up UEFI booting..."
 
     _run_once _efiboot_image_size
 
@@ -1227,48 +1064,49 @@ _make_bootmode_uefi-x64.grub.esp() {
     _run_once _make_efibootimg
 
     # Create the EFI paths in which a boot loader will be placed.
-    _run_once _make_efibootimg_grub_path
+    mmd -D s -i "${efibootimg}" ::/EFI/grub
+
+    # Copy kernel and initramfs to FAT image.
+    _run_once _make_boot_on_fat
 
     # Copy GRUB EFI binary to the default/fallback boot path
     mcopy -i "${efibootimg}" \
         "${work_dir}/grubx64.efi" ::/EFI/grub/
+    mcopy -i "${efibootimg}" \
+             "${work_dir}/grubia32.efi" ::/EFI/grub
 
-    # Copy GRUB files
-    _run_once _make_common_bootmode_grub_copy_to_isofs
-
-    _run_once _ed2k-shellx64.esp
-
-    _msg_info "Done! GRUB set up for UEFI booting successfully."
-}
-
-# Prepare GRUB for El Torito booting
-_make_bootmode_uefi-x64.grub.eltorito() {
-    # El Torito UEFI boot requires an image containing the EFI system partition.
-    # uefi-x64.grub.eltorito has the same requirements as uefi-x64.grub.esp
-    _run_once _make_bootmode_uefi-x64.grub.esp
+    _msg_info "Done!"
 
     # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Grub x64: preparing EFI directory for the ISO 9660 file system..."
+    _msg_info "Grub: preparing EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,grub}
 
     # Copy GRUB EFI binary to the default/fallback boot path
     install -m 0644 -- "${work_dir}/grubx64.efi" "${isofs_dir}/EFI/grub/"
+    install -m 0644 -- "${work_dir}/grubia32.efi" "${isofs_dir}/EFI/grub/"
 
-    # Copy GRUB files
-    _run_once _make_common_bootmode_grub_copy_to_isofs
+    # Copy GRUB files to ISO 9660 which is used by both IA32 UEFI and x64 UEFI
+    _files_to_copy+=("${work_dir}/grub/"*)
+    if compgen -G "${profile}/efiboot/grub/!(*.cfg)" &> /dev/null; then
+        _files_to_copy+=("${profile}/efiboot/grub/"!(*.cfg))
+    fi
+    install -d -m 0755 -- "${isofs_dir}/boot/grub/"
+    cp -r --remove-destination -- "${_files_to_copy[@]}" "${isofs_dir}/boot/grub/"
+    
+    _run_once _ed2k-shell
 
-    _run_once _ed2k-shellx64.eltorito
-
-    _run_once _memtest86.eltorito
+    _run_once _memtest86
 
     _msg_info "Done!"
 }
 
-# Prepare refind for booting when written to a disk (isohybrid)
-_make_bootmode_uefi-x64.refind.esp() {
-    _msg_info "Setting up refind for UEFI booting..."
+# Prepare refind for El Torito & Isohybrid booting
+_make_bootmode_uefi.refind() {
+    # El Torito UEFI boot requires an image containing the EFI system partition.
+    # Prepare refind for booting when written to a disk (isohybrid)
+    _msg_info "rEFInd: setting up UEFI booting..."
 
     _run_once _efiboot_image_size
 
@@ -1292,18 +1130,8 @@ _make_bootmode_uefi-x64.refind.esp() {
     # Copy kernel and initramfs to FAT image.
     _run_once _make_boot_on_fat
 
-    _run_once _ed2k-shellx64.esp
-    
-    _run_once _memtest86.esp
-
     _msg_info "Done!"
-}
 
-# Prepare refind for El Torito booting
-_make_bootmode_uefi-x64.refind.eltorito() {
-    # El Torito UEFI boot requires an image containing the EFI system partition.
-    # uefi-x64.refind.eltorito has the same requirements as uefi-x64.refind.esp
-    _run_once _make_bootmode_uefi-x64.systemd-boot.esp
     # Additionally set up refind in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
@@ -1317,24 +1145,26 @@ _make_bootmode_uefi-x64.refind.eltorito() {
 
     install -m 0644 -- "${work_dir}/refind/refind-usb.conf" "${isofs_dir}/EFI/refind/refind.conf"
 
-    _run_once _ed2k-shellx64.eltorito
+    _run_once _ed2k-shell
     
-    _run_once _memtest86.eltorito
+    _run_once _memtest86
 
     _msg_info "Done!"
 }
 
-_make_bootmode_uefi.systemd-boot.common_config_files() {
-    install -d -m 0755 -- "${isofs_dir}/loader/entries"
-    install -m 0644 -- "${work_dir}/loader/loader.conf" "${isofs_dir}/loader/"
-    for _entry in  "${work_dir}/loader/entries/"*".conf"; do
-        install -m 0644 -- "${_entry}" "${isofs_dir}/loader/entries/${_entry##*/}"
-    done
-}
-
-_make_bootmode_uefi.systemd-boot.common() {
+# Prepare system-boot for El Torito & Isohybrid booting
+_make_bootmode_uefi.systemd-boot() {
     local _entry
 
+    # El Torito UEFI boot requires an image containing the EFI system partition.
+    # Prepare system-boot for booting when written to a disk (isohybrid)
+    _msg_info "Systemd-boot: setting up UEFI booting..."
+
+    _run_once _efiboot_image_size
+
+    # Create a FAT image for the EFI system partition
+    _run_once _make_efibootimg
+    
     # Create the EFI paths in which a boot loader will be placed.
     mmd -i "${efibootimg}" \
            ::/EFI/systemd ::/loader ::/loader/entries
@@ -1346,21 +1176,12 @@ _make_bootmode_uefi.systemd-boot.common() {
     for _entry in  "${work_dir}/loader/entries/"*".conf"; do
         mcopy -i "${efibootimg}" "${_entry}" "::/loader/entries/${_entry##*/}"
     done
-}
-
-# Prepare system-boot for booting when written to a disk (isohybrid)
-_make_bootmode_uefi-ia32.systemd-boot.esp() {
-    _msg_info "Setting up systemd-boot ia32 for UEFI booting..."
-
-    _run_once _efiboot_image_size
-
-    # Create a FAT image for the EFI system partition
-    _run_once _make_efibootimg
-    
-    # systemd-boot uefi common
-    _run_once _make_bootmode_uefi.systemd-boot.common
 
     # Copy systemd-boot EFI binary to EFI path
+    mcopy -i "${efibootimg}" \
+             "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::/EFI/systemd/
+    mcopy -i "${efibootimg}" \
+             "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" ::/EFI/systemd/systemd-bootx64.png
     mcopy -i "${efibootimg}" \
              "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootia32.efi" ::/EFI/systemd/
     mcopy -i "${efibootimg}" \
@@ -1370,85 +1191,30 @@ _make_bootmode_uefi-ia32.systemd-boot.esp() {
     # systemd-boot can only access files from the EFI system partition it was launched from.
     _run_once _make_boot_on_fat
 
-    _run_once _ed2k-shellia32.esp
-    
     _msg_info "Done!"
-}
-
-# Prepare system-boot for booting when written to a disk (isohybrid)
-_make_bootmode_uefi-x64.systemd-boot.esp() {
-    _msg_info "Setting up systemd-boot x64 for UEFI booting..."
-
-    _run_once _efiboot_image_size
-
-    # Create a FAT image for the EFI system partition
-    _run_once _make_efibootimg
-    
-    # systemd-boot uefi common
-    _run_once _make_bootmode_uefi.systemd-boot.common
-
-    # Copy systemd-boot EFI binary to EFI path
-    mcopy -i "${efibootimg}" \
-             "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" ::/EFI/systemd/
-    mcopy -i "${efibootimg}" \
-             "${work_dir}/x86_64/airootfs/usr/share/refind/icons/os_arch.png" ::/EFI/systemd/systemd-bootx64.png
-
-    # Copy kernel and initramfs to FAT image.
-    # systemd-boot can only access files from the EFI system partition it was launched from.
-    _run_once _make_boot_on_fat
-
-    _run_once _ed2k-shellx64.esp
-    
-    _run_once _memtest86.esp
-
-    _msg_info "Done!"
-}
-
-# Prepare system-boot for El Torito booting
-_make_bootmode_uefi-ia32.systemd-boot.eltorito() {
-    # El Torito UEFI boot requires an image containing the EFI system partition.
-    # uefi-ia32.systemd-boot.eltorito has the same requirements as uefi-x64.systemd-boot.esp
-    _run_once _make_bootmode_uefi-ia32.systemd-boot.esp
 
     # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
     # manual partitioning and simply copying the ISO 9660 file system contents.
     # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Systemd-boot ia32: preparing EFI directory for the ISO 9660 file system..."
-    install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,systemd}
-
-    # Copy systemd-boot EFI binary to EFI path
-    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootia32.efi" "${isofs_dir}/EFI/systemd/"
-
-    # Copy systemd-boot configuration files
-    _run_once _make_bootmode_uefi.systemd-boot.common_config_files
-    install -m 0644 -- "${pacstrap_dir}/usr/share/refind/icons/os_arch.png" "${isofs_dir}/EFI/systemd/systemd-bootia32.png"
-
-    _run_once _ed2k-shellia32.eltorito
-
-    _msg_info "Done!"
-}
-
-# Prepare system-boot for El Torito booting
-_make_bootmode_uefi-x64.systemd-boot.eltorito() {
-    # El Torito UEFI boot requires an image containing the EFI system partition.
-    # uefi-x64.systemd-boot.eltorito has the same requirements as uefi-x64.systemd-boot.esp
-    _run_once _make_bootmode_uefi-x64.systemd-boot.esp
-    # Additionally set up systemd-boot in ISO 9660. This allows creating a medium for the live environment by using
-    # manual partitioning and simply copying the ISO 9660 file system contents.
-    # This is not related to El Torito booting and no firmware uses these files.
-    _msg_info "Systemd-boot x64: preparing EFI directory for the ISO 9660 file system..."
+    _msg_info "Systemd-boot: preparing EFI directory for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}"/EFI/{BOOT,systemd}
 
     # Copy systemd-boot EFI binary to EFI path
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootx64.efi" "${isofs_dir}/EFI/systemd/"
+    install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/systemd/boot/efi/systemd-bootia32.efi" "${isofs_dir}/EFI/systemd/"
 
     # Copy systemd-boot configuration files
-    _run_once _make_bootmode_uefi.systemd-boot.common_config_files
+    install -d -m 0755 -- "${isofs_dir}/loader/entries"
+    install -m 0644 -- "${work_dir}/loader/loader.conf" "${isofs_dir}/loader/"
+    for _entry in  "${work_dir}/loader/entries/"*".conf"; do
+        install -m 0644 -- "${_entry}" "${isofs_dir}/loader/entries/${_entry##*/}"
+    done
     install -m 0644 -- "${pacstrap_dir}/usr/share/refind/icons/os_arch.png" "${isofs_dir}/EFI/systemd/systemd-bootx64.png"
+    install -m 0644 -- "${pacstrap_dir}/usr/share/refind/icons/os_arch.png" "${isofs_dir}/EFI/systemd/systemd-bootia32.png"
 
-    _run_once _ed2k-shellx64.eltorito
+    _run_once _ed2k-shell
 
-    _run_once _memtest86.eltorito
+    _run_once _memtest86
 
     _msg_info "Done!"
 }
@@ -1474,26 +1240,19 @@ _make_bootmodes() {
     done
 }
 
-# Set GRUB ia32 as the default EFI boot loader
-_make_ia32_uefi_default_bootloader_uefi-ia32.grub.esp() {
+# Set GRUB as the default EFI boot loader
+_make_uefi_default_bootloader_uefi.grub() {
     # EFI boot image
     mmove -i "${efibootimg}" ::/EFI/grub/grubia32.efi ::/EFI/BOOT/BOOTIA32.EFI
-
-    # ISO 9660 file system
-    mv -- "${isofs_dir}/EFI/grub/grubia32.efi" "${isofs_dir}/EFI/BOOT/BOOTIA32.EFI"
-}
-
-# Set GRUB x64 as the default EFI boot loader
-_make_x64_uefi_default_bootloader_uefi-x64.grub.esp() {
-    # EFI boot image
     mmove -i "${efibootimg}" ::/EFI/grub/grubx64.efi ::/EFI/BOOT/BOOTx64.EFI
 
     # ISO 9660 file system
+    mv -- "${isofs_dir}/EFI/grub/grubia32.efi" "${isofs_dir}/EFI/BOOT/BOOTIA32.EFI"
     mv -- "${isofs_dir}/EFI/grub/grubx64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.EFI"
 }
 
 # Set rEFInd as the default EFI bootloader
-_make_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
+_make_uefi_default_bootloader_uefi.refind() {
     # EFI boot image
     mmove -i "${efibootimg}" ::/EFI/refind/* ::/EFI/BOOT/
     mmove -i "${efibootimg}" ::/EFI/BOOT/refind_x64.efi ::/EFI/BOOT/BOOTx64.EFI
@@ -1503,36 +1262,24 @@ _make_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
     mv -- "${isofs_dir}/EFI/BOOT/refind_x64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.EFI"
 }
 
-# Set systemd-boot ia32 as the default EFI boot loader
-_make_ia32_uefi_default_bootloader_uefi-ia32.systemd-boot.esp() {
+# Set systemd-boot as the default EFI boot loader
+_make_uefi_default_bootloader_uefi.systemd-boot() {
     # EFI boot image
     mmove -i "${efibootimg}" ::/EFI/systemd/systemd-bootia32.efi ::/EFI/BOOT/BOOTIA32.EFI
     mmove -i "${efibootimg}" ::/EFI/systemd/systemd-bootia32.png ::/EFI/BOOT/
-
-    # ISO 9660 file system
-    mv -- "${isofs_dir}/EFI/systemd/systemd-bootia32.efi" "${isofs_dir}/EFI/BOOT/BOOTIA32.EFI"
-    mv -- "${isofs_dir}/EFI/systemd/systemd-bootia32.png" "${isofs_dir}/EFI/BOOT/"
-}
-
-# Set systemd-boot x64 as the default EFI boot loader
-_make_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
-    # EFI boot image
     mmove -i "${efibootimg}" ::/EFI/systemd/systemd-bootx64.efi ::/EFI/BOOT/BOOTx64.EFI
     mmove -i "${efibootimg}" ::/EFI/systemd/systemd-bootx64.png ::/EFI/BOOT/
 
     # ISO 9660 file system
+    mv -- "${isofs_dir}/EFI/systemd/systemd-bootia32.efi" "${isofs_dir}/EFI/BOOT/BOOTIA32.EFI"
+    mv -- "${isofs_dir}/EFI/systemd/systemd-bootia32.png" "${isofs_dir}/EFI/BOOT/"
     mv -- "${isofs_dir}/EFI/systemd/systemd-bootx64.efi" "${isofs_dir}/EFI/BOOT/BOOTx64.EFI"
     mv -- "${isofs_dir}/EFI/systemd/systemd-bootx64.png" "${isofs_dir}/EFI/BOOT/"
 }
 
-# Run uefi ia32 default boot loader configuration
-_make_ia32_uefi_default_bootloader() {
-    _run_once _make_ia32_uefi_default_bootloader_"${ia32_uefi_default_bootloader}"
-}
-
-# Run uefi x64 default boot loader configuration
-_make_x64_uefi_default_bootloader() {
-    _run_once _make_x64_uefi_default_bootloader_"${x64_uefi_default_bootloader}"
+# Run uefi default boot loader configuration
+_make_uefi_default_bootloader() {
+    _run_once _make_uefi_default_bootloader_"${uefi_default_bootloader}"
 }
 
 # Archuseriso drive config
@@ -1545,8 +1292,7 @@ _make_drive() {
     # Copy drive profile
     cp -aT --no-preserve=ownership -- "${profile}/drive/" "${isofs_dir}/.drive/"
     printf 'bootmodes=( %s )\n' "${bootmodes[*]}" >> "${isofs_dir}/.drive/mediumdef.sh"
-    printf 'x64_uefi_default_bootloader="%s"\n' "${x64_uefi_default_bootloader}" >> "${isofs_dir}/.drive/mediumdef.sh"
-    printf 'ia32_uefi_default_bootloader="%s"\n' "${ia32_uefi_default_bootloader}" >> "${isofs_dir}/.drive/mediumdef.sh"
+    printf 'uefi_default_bootloader="%s"\n' "${uefi_default_bootloader}" >> "${isofs_dir}/.drive/mediumdef.sh"
 
     mv -- "${isofs_dir}/.drive/liveusb/persistent" "${isofs_dir}/.drive/liveusb/persistent_${iso_label}"
 
@@ -1667,12 +1413,11 @@ _make_drive() {
     ln -s -- "../${install_dir}/pkglist.${arch}.txt" "${isofs_dir}/.drive/pkglist.${arch}.txt"
 }
 
-_validate_requirements_bootmode_bios.syslinux.mbr() {
-    # bios.syslinux.mbr requires bios.syslinux.eltorito
-    # shellcheck disable=SC2076
-    if [[ ! " ${bootmodes[*]} " =~ ' bios.syslinux.eltorito ' ]]; then
+_validate_requirements_bootmode_bios.syslinux() {
+    # Check if the architecture supports BIOS booting
+    if [[ "$arch" != @('x86_64'|'i686') ]]; then
         (( validation_error=validation_error+1 ))
-        _msg_error "Using 'bios.syslinux.mbr' boot mode without 'bios.syslinux.eltorito' is not supported." 0
+        _msg_error "Validating '${bootmode}': BIOS boot modes are not supported on the '${arch}' architecture!" 0
     fi
 
     # Check if the syslinux package is in the package list
@@ -1705,12 +1450,7 @@ _validate_requirements_bootmode_bios.syslinux.mbr() {
     fi
 }
 
-_validate_requirements_bootmode_bios.syslinux.eltorito() {
-    # bios.syslinux.eltorito has the exact same requirements as bios.syslinux.mbr
-    _run_once _validate_requirements_bootmode_bios.syslinux.mbr
-}
-
-_validate_requirements_bootmode_uefi-x64.common.esp() {
+_validate_common_requirements_bootmode_uefi() {
     # Check for optional packages
     # shellcheck disable=SC2076
     if [[ ! " ${pkg_list[*]} " =~ ' edk2-shell ' ]]; then
@@ -1722,12 +1462,7 @@ _validate_requirements_bootmode_uefi-x64.common.esp() {
     fi
 }
 
-_validate_requirements_bootmode_uefi-ia32.systemd-boot.esp() {
-    # uefi-ia32.systemd-boot.esp has the exact same requirements as uefi-x64.systemd-boot.esp
-    _run_once _validate_requirements_bootmode_uefi-x64.systemd-boot.esp
-}
-
-_validate_requirements_bootmode_uefi-x64.systemd-boot.esp() {
+_validate_requirements_bootmode.systemd-boot() {
     # Check if mkfs.fat is available
     if ! command -v mkfs.fat &> /dev/null; then
         (( validation_error=validation_error+1 ))
@@ -1760,20 +1495,10 @@ _validate_requirements_bootmode_uefi-x64.systemd-boot.esp() {
         done
     fi
 
-    _run_once _validate_requirements_bootmode_uefi-x64.common.esp
+    _run_once _validate_common_requirements_bootmode_uefi
 }
 
-_validate_requirements_bootmode_uefi-ia32.systemd-boot.eltorito() {
-    # uefi-ia32.systemd-boot.eltorito has the exact same requirements as uefi-ia32.systemd-boot.esp
-    _run_once _validate_requirements_bootmode_uefi-ia32.systemd-boot.esp
-}
-
-_validate_requirements_bootmode_uefi-x64.systemd-boot.eltorito() {
-    # uefi-x64.systemd-boot.eltorito has the exact same requirements as uefi-x64.systemd-boot.esp
-    _run_once _validate_requirements_bootmode_uefi-x64.systemd-boot.esp
-}
-
-_validate_requirements_bootmode_uefi-x64.refind.esp() {
+_validate_requirements_bootmode.refind() {
     # Check if mkfs.fat is available
     if ! command -v mkfs.fat &> /dev/null; then
         (( validation_error=validation_error+1 ))
@@ -1801,31 +1526,17 @@ _validate_requirements_bootmode_uefi-x64.refind.esp() {
         fi
     fi
 
-    _run_once _validate_requirements_bootmode_uefi-x64.common.esp
+    _run_once _validate_common_requirements_bootmode_uefi
 }
 
-_validate_requirements_bootmode_uefi-x64.refind.eltorito() {
-    # uefi-x64.refind.eltorito has the exact same requirements as uefi-x64.refind.esp
-    _run_once _validate_requirements_bootmode_uefi-x64.refind.esp
-}
-
-_validate_requirements_bootmode_uefi-ia32.grub.esp() {
-     _run_once _validate_requirements_bootmode_uefi-x64.grub.esp
-}
-
-_validate_requirements_bootmode_uefi-ia32.grub.eltorito() {
-    # uefi-ia32.grub.eltorito has the exact same requirements as uefi-ia32.grub.esp
-    _run_once _validate_requirements_bootmode_uefi-ia32.grub.esp
-}
-
-_validate_requirements_bootmode_uefi-x64.grub.esp() {
+_validate_requirements_bootmode_uefi.grub() {
     # Check if GRUB is available
     if ! command -v grub-mkstandalone &> /dev/null; then
         (( validation_error=validation_error+1 ))
         _msg_error "Validating '${bootmode}': grub-install is not available on this host. Install 'grub'!" 0
     fi
 
-        # Check if mkfs.fat is available
+    # Check if mkfs.fat is available
     if ! command -v mkfs.fat &> /dev/null; then
         (( validation_error=validation_error+1 ))
         _msg_error "Validating '${bootmode}': mkfs.fat is not available on this host. Install 'dosfstools'!" 0
@@ -1856,12 +1567,7 @@ _validate_requirements_bootmode_uefi-x64.grub.esp() {
         done
     fi
 
-    _run_once _validate_requirements_bootmode_uefi-x64.common.esp
-}
-
-_validate_requirements_bootmode_uefi-x64.grub.eltorito() {
-    # uefi-x64.grub.eltorito has the exact same requirements as uefi-x64.grub.esp
-    _run_once _validate_requirements_bootmode_uefi-x64.grub.esp
+    _run_once _validate_common_requirements_bootmode_uefi
 }
 
 # Build airootfs filesystem image
@@ -2138,23 +1844,23 @@ _validate_requirements_buildmode_netboot() {
     _run_once _validate_common_requirements_buildmode_all
 }
 
-_validate_requirements_x64_uefi_default_bootloader_uefi-x64.grub.esp() {
+_validate_requirements_uefi_default_bootloader_uefi.grub() {
     # All requirements met at this stage
     true
 }
 
-_validate_requirements_x64_uefi_default_bootloader_uefi-x64.refind.esp() {
+_validate_requirements_uefi_default_bootloader_uefi.refind() {
     # All requirements met at this stage
     true
 }
 
-_validate_requirements_x64_uefi_default_bootloader_uefi-x64.systemd-boot.esp() {
+_validate_requirements_uefi_default_bootloader_uefi.systemd-boot() {
     # All requirements met at this stage
     true
 }
 
-# SYSLINUX El Torito
-_add_xorrisofs_options_bios.syslinux.eltorito() {
+# SYSLINUX MBR (isohybrid) and El Torito
+_add_xorrisofs_options_bios.syslinux() {
     xorrisofs_options+=(
         # El Torito boot image for x86 BIOS
         '-eltorito-boot' 'boot/syslinux/isolinux.bin'
@@ -2162,12 +1868,6 @@ _add_xorrisofs_options_bios.syslinux.eltorito() {
         '-eltorito-catalog' 'boot/syslinux/boot.cat'
         # Required options to boot with ISOLINUX
         '-no-emul-boot' '-boot-load-size' '4' '-boot-info-table'
-    )
-}
-
-# SYSLINUX MBR (isohybrid)
-_add_xorrisofs_options_bios.syslinux.mbr() {
-    xorrisofs_options+=(
         # SYSLINUX MBR bootstrap code; does not work without "-eltorito-boot syslinux/isolinux.bin"
         '-isohybrid-mbr' "${isofs_dir}/boot/syslinux/isohdpfx.bin"
         # When GPT is used, create an additional partition in the MBR (besides 0xEE) for sectors 0–1 (MBR
@@ -2182,8 +1882,8 @@ _add_xorrisofs_options_bios.syslinux.mbr() {
     )
 }
 
-# systemd-boot in an attached EFI system partition
-_add_xorrisofs_options_uefi-x64.systemd-boot.esp() {
+# UEFI boot loader in an attached EFI system partition and El Torito
+_add_common_xorrisofs_options_uefi() {
     # Move the first partition away from the start of the ISO, otherwise the GPT will not be valid and ISO 9660
     # partition will not be mountable
     # shellcheck disable=SC2076
@@ -2192,138 +1892,39 @@ _add_xorrisofs_options_uefi-x64.systemd-boot.esp() {
     xorrisofs_options+=('-append_partition' '2' 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' "${efibootimg}")
     # Ensure GPT is used as some systems do not support UEFI booting without it
     # shellcheck disable=SC2076
-    if [[ " ${bootmodes[*]} " =~ ' bios.syslinux.mbr ' ]]; then
-        # A valid GPT prevents BIOS booting on some systems, instead use an invalid GPT (without a protective MBR).
-        # The attached partition will have the EFI system partition type code in MBR, but in the invalid GPT it will
-        # have a Microsoft basic partition type code.
-        if [[ ! " ${bootmodes[*]} " =~ ' uefi-x64.systemd-boot.eltorito ' &&  \
-              ! " ${bootmodes[*]} " =~ ' uefi-ia32.grub.eltorito ' ]]; then
-            # If '-isohybrid-gpt-basdat' is specified before '-e', then the appended EFI system partition will have the
-            # EFI system partition type ID/GUID in both MBR and GPT. If '-isohybrid-gpt-basdat' is specified after '-e',
-            # the appended EFI system partition will have the Microsoft basic data type GUID in GPT.
-            if [[ ! " ${xorrisofs_options[*]} " =~ ' -isohybrid-gpt-basdat ' ]]; then
-                xorrisofs_options+=('-isohybrid-gpt-basdat')
-            fi
-        fi
-    else
+    if [[ " ${bootmodes[*]} " =~ ' bios.syslinux ' ]]; then
         # Use valid GPT if BIOS booting support will not be required
         xorrisofs_options+=('-appended_part_as_gpt')
-    fi
-}
-
-# systemd-boot via El Torito
-_add_xorrisofs_options_uefi-x64.systemd-boot.eltorito() {
-    # shellcheck disable=SC2076
-    if [[ " ${bootmodes[*]} " =~ ' uefi-x64.systemd-boot.esp ' || \
-          " ${bootmodes[*]} " =~ ' uefi-ia32.grub.esp ' ]]; then
-        # systemd-boot in an attached EFI system partition via El Torito
-        xorrisofs_options+=(
-            # Start a new El Torito boot entry for UEFI
-            '-eltorito-alt-boot'
-            # Set the second partition as the El Torito UEFI boot image
-            '-e' '--interval:appended_partition_2:all::'
-            # Boot image is not emulating floppy or hard disk; required for all known boot loaders
-            '-no-emul-boot'
-        )
-        # A valid GPT prevents BIOS booting on some systems, use an invalid GPT instead.
-        if [[ " ${bootmodes[*]} " =~ ' bios.syslinux.mbr ' ]]; then
-            # If '-isohybrid-gpt-basdat' is specified before '-e', then the appended EFI system partition will have the
-            # EFI system partition type ID/GUID in both MBR and GPT. If '-isohybrid-gpt-basdat' is specified after '-e',
-            # the appended EFI system partition will have the Microsoft basic data type GUID in GPT.
-            if [[ ! " ${xorrisofs_options[*]} " =~ ' -isohybrid-gpt-basdat ' ]]; then
-                xorrisofs_options+=('-isohybrid-gpt-basdat')
-            fi
-        fi
     else
-        # The ISO will not contain a GPT partition table, so to be able to reference efiboot.img, place it as a
-        # file inside the ISO 9660 file system
-        install -d -m 0755 -- "${isofs_dir}/EFI/archiso"
-        cp -a -- "${efibootimg}" "${isofs_dir}/EFI/archiso/efiboot.img"
-        # systemd-boot in an embedded efiboot.img via El Torito
-        xorrisofs_options+=(
-            # Start a new El Torito boot entry for UEFI
-            '-eltorito-alt-boot'
-            # Set efiboot.img as the El Torito UEFI boot image
-            '-e' 'EFI/archiso/efiboot.img'
-            # Boot image is not emulating floppy or hard disk; required for all known boot loaders
-            '-no-emul-boot'
-        )
+        # A valid GPT prevents BIOS booting on some systems, use an invalid GPT instead.
+        # If '-isohybrid-gpt-basdat' is specified before '-e', then the appended EFI system partition will have the
+        # EFI system partition type ID/GUID in both MBR and GPT. If '-isohybrid-gpt-basdat' is specified after '-e',
+        # the appended EFI system partition will have the Microsoft basic data type GUID in GPT.
+        xorrisofs_options+=('-isohybrid-gpt-basdat')
     fi
-    # Specify where to save the El Torito boot catalog file in case it is not already set by bios.syslinux.eltorito
+    # systemd-boot in an attached EFI system partition via El Torito
+    xorrisofs_options+=(
+        # Start a new El Torito boot entry for UEFI
+        '-eltorito-alt-boot'
+        # Set the second partition as the El Torito UEFI boot image
+        '-e' '--interval:appended_partition_2:all::'
+        # Boot image is not emulating floppy or hard disk; required for all known boot loaders
+        '-no-emul-boot'
+    )
+
+    # Specify where to save the El Torito boot catalog file in case it is not already set by bios.syslinux
     # shellcheck disable=SC2076
     [[ " ${bootmodes[*]} " =~ ' bios.' ]] || xorrisofs_options+=('-eltorito-catalog' 'EFI/boot.cat')
 }
 
-# GRUB in an attached EFI system partition.
-# Same as _add_xorrisofs_options_uefi-x64.systemd-boot.esp.
-_add_xorrisofs_options_uefi-x64.grub.esp() {
-    # Move the first partition away from the start of the ISO, otherwise the GPT will not be valid and ISO 9660
-    # partition will not be mountable
-    # shellcheck disable=SC2076
-    [[ " ${xorrisofs_options[*]} " =~ ' -partition_offset ' ]] || xorrisofs_options+=('-partition_offset' '16')
-    # Attach efiboot.img as a second partition and set its partition type to "EFI system partition"
-    xorrisofs_options+=('-append_partition' '2' 'C12A7328-F81F-11D2-BA4B-00A0C93EC93B' "${efibootimg}")
-    # Ensure GPT is used as some systems do not support UEFI booting without it
-    # shellcheck disable=SC2076
-    if [[ " ${bootmodes[*]} " =~ ' bios.syslinux.mbr ' ]]; then
-        # A valid GPT prevents BIOS booting on some systems, instead use an invalid GPT (without a protective MBR).
-        # The attached partition will have the EFI system partition type code in MBR, but in the invalid GPT it will
-        # have a Microsoft basic partition type code.
-        if [[ ! " ${bootmodes[*]} " =~ ' uefi-x64.grub.eltorito ' &&  ! " ${bootmodes[*]} " =~ ' uefi-ia32.grub.eltorito ' ]]; then
-            # If '-isohybrid-gpt-basdat' is specified before '-e', then the appended EFI system partition will have the
-            # EFI system partition type ID/GUID in both MBR and GPT. If '-isohybrid-gpt-basdat' is specified after '-e',
-            # the appended EFI system partition will have the Microsoft basic data type GUID in GPT.
-            if [[ ! " ${xorrisofs_options[*]} " =~ ' -isohybrid-gpt-basdat ' ]]; then
-                xorrisofs_options+=('-isohybrid-gpt-basdat')
-            fi
-        fi
-    else
-        # Use valid GPT if BIOS booting support will not be required
-        xorrisofs_options+=('-appended_part_as_gpt')
-    fi
+# systemd-boot in an attached EFI system partition and El Torito
+_add_xorrisofs_options_uefi.systemd-boot() {
+    _add_common_xorrisofs_options_uefi
 }
 
-# GRUB via El Torito
-# Same as _add_xorrisofs_options_uefi-x64.systemd-boot.eltorito.
-_add_xorrisofs_options_uefi-x64.grub.eltorito() {
-    # shellcheck disable=SC2076
-    if [[ " ${bootmodes[*]} " =~ ' uefi-x64.grub.esp ' || " ${bootmodes[*]} " =~ ' uefi-ia32.grub.esp ' ]]; then
-        # grub in an attached EFI system partition via El Torito
-        xorrisofs_options+=(
-            # Start a new El Torito boot entry for UEFI
-            '-eltorito-alt-boot'
-            # Set the second partition as the El Torito UEFI boot image
-            '-e' '--interval:appended_partition_2:all::'
-            # Boot image is not emulating floppy or hard disk; required for all known boot loaders
-            '-no-emul-boot'
-        )
-        # A valid GPT prevents BIOS booting on some systems, use an invalid GPT instead.
-        if [[ " ${bootmodes[*]} " =~ ' bios.syslinux.mbr ' ]]; then
-            # If '-isohybrid-gpt-basdat' is specified before '-e', then the appended EFI system partition will have the
-            # EFI system partition type ID/GUID in both MBR and GPT. If '-isohybrid-gpt-basdat' is specified after '-e',
-            # the appended EFI system partition will have the Microsoft basic data type GUID in GPT.
-            if [[ ! " ${xorrisofs_options[*]} " =~ ' -isohybrid-gpt-basdat ' ]]; then
-                xorrisofs_options+=('-isohybrid-gpt-basdat')
-            fi
-        fi
-    else
-        # The ISO will not contain a GPT partition table, so to be able to reference efiboot.img, place it as a
-        # file inside the ISO 9660 file system
-        install -d -m 0755 -- "${isofs_dir}/EFI/archiso"
-        cp -a -- "${efibootimg}" "${isofs_dir}/EFI/archiso/efiboot.img"
-        # grub in an embedded efiboot.img via El Torito
-        xorrisofs_options+=(
-            # Start a new El Torito boot entry for UEFI
-            '-eltorito-alt-boot'
-            # Set efiboot.img as the El Torito UEFI boot image
-            '-e' 'EFI/archiso/efiboot.img'
-            # Boot image is not emulating floppy or hard disk; required for all known boot loaders
-            '-no-emul-boot'
-        )
-    fi
-    # Specify where to save the El Torito boot catalog file in case it is not already set by bios.syslinux.eltorito
-    # shellcheck disable=SC2076
-    [[ " ${bootmodes[*]} " =~ ' bios.' ]] || xorrisofs_options+=('-eltorito-catalog' 'EFI/boot.cat')
+# GRUB in an attached EFI system partition and El Torito
+_add_xorrisofs_options_uefi.grub() {
+    _add_common_xorrisofs_options_uefi
 }
 
 # Build bootstrap image
@@ -2391,6 +1992,9 @@ _build_iso_image() {
         xorriso "${xorriso_options[@]}" -as mkisofs \
             -iso-level 3 \
             -full-iso9660-filenames \
+            -joliet \
+            -joliet-long \
+            -rock \
             -volid "${iso_label}" \
             -appid "${iso_application}" \
             -publisher "${iso_publisher}" \
@@ -2402,6 +2006,9 @@ _build_iso_image() {
         xorriso -as mkisofs \
             -iso-level 3 \
             -full-iso9660-filenames \
+            -joliet \
+            -joliet-long \
+            -rock \
             -volid "${iso_label}" \
             -appid "${iso_application}" \
             -publisher "${iso_publisher}" \
@@ -2437,29 +2044,25 @@ _umount_img() {
     fi
 }
 
-_img_bootmode_bios.syslinux.mbr() {
+_img_bootmode_bios.syslinux() {
     cp -rT -- "${work_dir}/iso/.drive/img/syslinux/" "${work_dir}/imgp2/boot/syslinux/"
     _esp_files_settings+=( $(find "${work_dir}/iso/.drive/img/syslinux" -type f | \
                              sed -- "s|^${work_dir}/iso/.drive/img/|boot/|") )
 }
 
-_img_bootmode_uefi-ia32.grub.esp() {
-    _run_once _img_bootmode_uefi-x64.grub.esp
-}
-
-_img_bootmode_uefi-x64.grub.esp() {
+_img_bootmode_uefi.grub() {
     cp -rT -- "${work_dir}/iso/.drive/img/grub/" "${work_dir}/imgp2/boot/grub/"
     _esp_files_settings+=( $(find "${work_dir}/iso/.drive/img/grub" -type f | \
                              sed -- "s|^${work_dir}/iso/.drive/img/|boot/|") )
 }
 
-_img_bootmode_uefi-x64.refind.esp() {
+_img_bootmode_uefi.refind() {
     cp -rT -- "${work_dir}/iso/.drive/liveusb/refind/" "${work_dir}/imgp2/EFI/refind/"
     _esp_files_settings+=( $(find "${work_dir}/iso/.drive/liveusb/refind" -type f | \
                              sed -- "s|^${work_dir}/iso/.drive/liveusb/|EFI/|") )
 }
 
-_img_bootmode_uefi-x64.systemd-boot.esp() {
+_img_bootmode_uefi.systemd-boot() {
     cp -rT -- "${work_dir}/iso/.drive/img/loader/" "${work_dir}/imgp2/loader/"
     _esp_files_settings+=( $(find "${work_dir}/iso/.drive/img/loader" -type f | \
                              sed -- "s|^${work_dir}/iso/.drive/img/||") )
@@ -2562,7 +2165,7 @@ _build_img_image() {
     for bootmode in "${bootmodes[@]}"; do
         typeset -f "_img_bootmode_${bootmode}" &> /dev/null && _run_once "_img_bootmode_${bootmode}"
     done
-    if [[ "${x64_uefi_default_bootloader}" == 'uefi-x64.refind.esp' ]]; then
+    if [[ "${uefi_default_bootloader}" == 'uefi.refind' ]]; then
         for _esp_file in "${_esp_files_settings[@]}"; do
             [[ "${_esp_file}" =~ 'refind' ]] && \
             mv "${work_dir}/imgp2/${_esp_file}" "${work_dir}/imgp2/EFI/BOOT/"
@@ -2647,7 +2250,6 @@ _read_profile() {
         [[ -n "$arch" ]] || arch="$(uname -m)"
         packages="$(realpath -- "${packages:-${profile}/packages.${arch}}")"
         bootstrap_packages="$(realpath -- "${bootstrap_packages:-${profile}/bootstrap_packages.${arch}}")"
-        packages="$(realpath -- "${packages}")"
         if [[ -n "${lang}" ]]; then
           packages_locales="$(realpath -- "${profile}/lang/${lang}/packages.${arch}")"
         fi
@@ -2664,6 +2266,7 @@ _validate_options() {
     local run_once_mode="validate"
 
     _msg_info "Validating options..."
+
     # Check if pacman configuration file exists
     if [[ ! -e "${pacman_conf}" ]]; then
         (( validation_error=validation_error+1 ))
@@ -2693,15 +2296,15 @@ _validate_options() {
     done
 
     # Check if the specified default EFI boot loader is supported
-    if typeset -f "_make_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
-        if typeset -f "_validate_requirements_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
-            "_validate_requirements_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}"
+    if typeset -f "_make_uefi_default_bootloader_${uefi_default_bootloader}" &> /dev/null; then
+        if typeset -f "_validate_requirements_uefi_default_bootloader_${uefi_default_bootloader}" &> /dev/null; then
+            "_validate_requirements_uefi_default_bootloader_${uefi_default_bootloader}"
         else
-            _msg_warning "Function '_validate_requirements_x64_uefi_default_bootloader_${x64_uefi_default_bootloader}' does not exist. Validating the requirements of '${x64_uefi_default_bootloader}' boot loader will not be possible."
+            _msg_warning "Function '_validate_requirements_uefi_default_bootloader_${uefi_default_bootloader}' does not exist. Validating the requirements of '${uefi_default_bootloader}' boot loader will not be possible."
         fi
     else
         (( validation_error=validation_error+1 ))
-        _msg_error "${x64_uefi_default_bootloader} is not a valid EFI boot loader!" 0
+        _msg_error "${uefi_default_bootloader} is not a valid EFI boot loader!" 0
     fi
 
     # Check if pacman-testing configuration file exists
@@ -2716,7 +2319,6 @@ _validate_options() {
     _msg_info "Done!"
 }
 
-# set overrides from mkarchiso option parameters, if present
 # Set defaults and, if present, overrides from aui-mkiso command line option parameters
 _set_overrides() {
     # Set variables that have command line overrides
@@ -2795,8 +2397,6 @@ _export_gpg_publickey() {
 }
 
 _make_version() {
-    local osrelease
-
     _msg_info "Creating version files..."
     if [[ "${buildmode}" == @("img"|"iso"|"netboot") ]]; then
         if [[ -z "${iso_version}" ]]; then
@@ -2814,7 +2414,7 @@ _make_version() {
     fi
     if [[ "${buildmode}" == "iso" ]]; then
         # Write a limited grubenv with version information to install_dir on ISO 9660 for use cases where only the
-        #
+        # install_dir is used.
         rm -f -- "${isofs_dir}/${install_dir}/grubenv"
         printf '%.1024s' "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\n%s' \
             "${iso_name}" "${iso_version}" "$(printf '%0.1s' "#"{1..1024})")" \
@@ -2905,8 +2505,7 @@ _build_iso_base() {
         _run_once _make_boot_on_iso9660
     else
         _make_bootmodes
-        _run_once _make_ia32_uefi_default_bootloader
-        _run_once _make_x64_uefi_default_bootloader
+        _run_once _make_uefi_default_bootloader
     fi
     _run_once _cleanup_pacstrap_dir
     _run_once _make_drive

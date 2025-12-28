@@ -9,21 +9,12 @@ iso_application="Archuseriso ${desktop} Live/Rescue medium"
 iso_version=""
 install_dir="arch"
 buildmodes=('iso')
-bootmodes=('bios.syslinux.mbr'
-           'bios.syslinux.eltorito'
-           'uefi-ia32.grub.eltorito'
-           'uefi-ia32.grub.esp'
-           'uefi-x64.grub.eltorito'
-           'uefi-x64.grub.esp'
-           'uefi-x64.refind.eltorito'
-           'uefi-x64.refind.esp'
-           'uefi-ia32.systemd-boot.eltorito'
-           'uefi-ia32.systemd-boot.esp'
-           'uefi-x64.systemd-boot.esp'
-           'uefi-x64.systemd-boot.eltorito'
+bootmodes=('bios.syslinux'
+           'uefi.grub'
+           'uefi.refind.esp'
+           'uefi.systemd-boot'
            )
-ia32_uefi_default_bootloader="uefi-ia32.systemd-boot.esp"
-x64_uefi_default_bootloader="uefi-x64.systemd-boot.esp"
+uefi_default_bootloader="uefi.systemd-boot"
 arch="x86_64"
 pacman_conf="pacman.conf"
 pacman_testing_conf="pacman-testing.conf"
