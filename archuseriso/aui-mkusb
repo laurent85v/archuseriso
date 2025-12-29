@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Copyright (C) 2024 Laurent Jourden <laurent85@enarel.fr>
+# Copyright (C) 2026 Laurent Jourden <laurent85@enarel.fr>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Make a live usb drive with persistence
+# Make a bootable live usb disk with persistence
 # using an Archuseriso iso image.
 
 set -e -u
@@ -29,21 +29,20 @@ img_label=""
 install_dir=""
 iso_label=""
 iso_file=""
-iso_ize=0
+iso_size=0
 medium_version=""
 partition_table="gpt"
 raw_write="no"
 rootfs="ext4"
 usb_device=""
-ia32_uefi_default_bootloader=""
-x64_uefi_default_bootloader=""
+uefi_default_bootloader=""
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v13"
+valid_medium_version="v14"
 
 _usage() {
     echo
-    echo "${appname}: make a bootable usb drive with persistence."
+    echo "${appname}: make a bootable usb disk with persistence."
     echo
     echo 'Synopsis:'
     echo "${appname} [options] <archuseriso iso image> <usb device>"
@@ -55,7 +54,7 @@ _usage() {
 
 _help() {
     echo
-    echo "${appname}: make a bootable usb drive with persistence."
+    echo "${appname}: make a bootable usb disk with persistence."
     echo
     echo 'Synopsis:'
     echo "${appname} [options] <archuseriso iso image> <usb device>"
@@ -113,23 +112,23 @@ _cleanup() {
 
 _unmount() {
     echo
-    _msg_info "Unmount working directories, may take some time"
+    _msg_info "Unmounting working directories"
     _cleanup
     _msg_info "Done!"
 }
 
 _luks_format() {
     echo
-    _msg_info "Disk encryption setup, type in a passphrase of your choice"
+    _msg_info "Type in a passphrase of your choice"
     if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}3" > /dev/null; then
         echo 'Disk encryption setup failed, exiting!'
         exit 1
     fi
     _msg_info "Done!"
     echo
-    _msg_info "Type in your passphrase to unlock partition"
+    _msg_info "Type in your passphrase to unlock disk"
     if ! cryptsetup -- open "${usb_device}3" "${crypt_mapper:-auicrypt}"; then
-        echo 'Error: Could not unlock partition! Exiting.'
+        echo 'Error: Could not unlock disk! Exiting.'
         exit 1
     fi
     _msg_info "Done!"
@@ -139,7 +138,7 @@ _luks_format() {
 
 _encryption_setup_mount_overlay() {
     echo
-    _msg_info "Disk encryption setup"
+    _msg_info "Setting up disk encryption"
     mkdir -p -- "${WD}/${workdir}/"{overlay,squashfs}
     mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
     mkdir -p -- "${WD}/${workdir}/usbrw/persistent_${img_label}/x86_64/workdir"
@@ -156,20 +155,20 @@ _encryption_setup_unmount_overlay() {
 _luks_encryption_setup() {
     _encryption_setup_mount_overlay
     sed -i -- "s|block|& encrypt|" "${WD}/${workdir}/overlay/etc/mkinitcpio.conf"
-    _msg_info "initramfs update"
+    _msg_info "Updading initramfs"
     arch-chroot -- "${WD}/${workdir}/overlay" mkinitcpio -P &> /dev/null
     _msg_info "Done!"
-    if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'uefi.grub' ]]; then
         sed -i -- "s|: persistence|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/grub/grub.cfg"
     fi
-    if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'uefi.systemd-boot' ]]; then
         sed -i -- "s|persistence$|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/loader/entries/"*.conf
     fi
-    if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'bios.syslinux' ]]; then
         sed -i -- "s|persistence$|& \& encryption|;
                    s|overlay|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/overlay/boot/syslinux/archiso_sys-linux.cfg"
@@ -275,7 +274,7 @@ _check() {
     fi
     if [[ "${raw_write}" == "yes" ]]; then
         echo
-        echo 'raw_write option set. Ignoring other options!'
+        echo 'raw_write option was set. Size options and encryption options are disabled in this mode!'
         cow_size=""
         encryption="no"
         esp_size=""
@@ -283,7 +282,7 @@ _check() {
     # Set efi boot partition size in MiB
     if [[ -n "${esp_size}" ]]; then
         if ! [[ "${esp_size}" =~ ^[1-9][0-9]?+$ ]]; then
-            echo "FAT partition size error: Invalid size argument (GiB): ${esp_size}"
+            echo "FAT partition: Invalid size argument (GiB): ${esp_size}"
             _usage 1
         fi
         esp_size=$(( esp_size * 1024 ))
@@ -293,7 +292,7 @@ _check() {
     # Set persistent partition size in MiB, free space left by default
     if [[ -n "${cow_size}" ]]; then
         if ! [[ "${cow_size}" =~ ^[1-9][0-9]?+$ ]]; then
-            echo "Persistent partition size error: Invalid size argument (GiB): ${cow_size}"
+            echo "Persistent partition: Invalid size argument (GiB): ${cow_size}"
             _usage 1
         fi
         cow_size=$(( cow_size * 1024 ))
@@ -333,7 +332,7 @@ _init() {
         echo 'Storage capacity error!'
         exit 1
     fi
-    # check partitions size don't exceed drive's capacity
+    # check partition size capacity
     _esp_size=$(( esp_size * 1048576 )) # Bytes
     if [[ -n "${cow_size}" ]]; then
         _cow_size=$(( cow_size * 1048576 )) # Bytes
@@ -341,7 +340,7 @@ _init() {
         _cow_size=0
     fi
     if [[ ! ${drivesize} -gt $(( iso_size + _esp_size + _cow_size )) ]]; then
-        echo "Size settings error: exceeds drive storage capacity!"
+        echo "Size settings error: exceeds disk size!"
         exit 1
     fi
     # ISO size in MiB
@@ -364,7 +363,7 @@ _confirm_write() {
 
 _raw_write() {
     echo
-    _msg_info "Raw copy to usb drive (dd like mode), no persistence"
+    _msg_info "Copying iso image to usb drive (dd like mode), raw copy, no persistence"
     if ! cp -v -- "${iso_file}" "${usb_device}"; then
         echo 'Write failed!'
         exit 1
@@ -376,35 +375,35 @@ _usb_prepare() {
     # Check & prepare working directory
     for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{ro,esp,rw}; do
         if findmnt -nr -- "${mountpoint}" > /dev/null; then
-            echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
+            echo "Error: mount point ${mountpoint} appears in active mounts, please unmount mount point before proceeding!"
             exit 1
         fi
     done
     for mountpoint in "${workdir}" "${workdir}/"{iso,overlay,squashfs} "${workdir}/usb"{ro,esp,rw}; do
         if [[ -e "${WD}/${mountpoint}" ]]; then
-            echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
+            echo "Error: mount point ${mountpoint} exists in working directory! please delete or rename mount point before proceeding!"
             exit 1
         fi
     done
     if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
-        echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
+        echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} already exists! aborting."
         exit 1
     fi
     mkdir -p -- "${WD}/${workdir}/iso" "${WD}/${workdir}/usb"{ro,esp,rw}
 
     # Mount iso
     echo
-    _msg_info 'Mount iso'
-    _msg_info "mountpoint: ${WD}/${workdir}/iso"
+    _msg_info 'Mounting iso image'
+    _msg_info "mount point: ${WD}/${workdir}/iso"
     if ! mount -o ro -- "${iso_file}" "${WD}/${workdir}/iso"; then
-        echo "Error: mount iso failed!"
+        echo "Error: mounting iso failed!"
         rmdir -- "${WD}/${workdir}/usb"{ro,esp,rw} "${WD}/${workdir}/iso" "${WD}/${workdir}"
         exit 1
     fi
 
     # check iso
     if [[ ! -e "${WD}/${workdir}/iso/.drive/mediumdef.sh" ]]; then
-        echo "Error: ${iso_file} is not a compatible iso image!"
+        echo "Error: ${iso_file} is not a compatible Archuserio iso image!"
         echo
         _usage 1
     fi
@@ -412,7 +411,7 @@ _usb_prepare() {
     # source medium def variables
     source "${WD}/${workdir}/iso/.drive/mediumdef.sh"
     if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-        echo -e "Error: ${medium_version} gen iso image, gen version mismatch. ${appname} requires gen ${valid_medium_version}!"
+        echo -e "Error: ${medium_version} iso image version mismatch. ${appname} requires a ${valid_medium_version} version!"
         echo
         _usage 1
     fi
@@ -423,7 +422,7 @@ _usb_prepare() {
     fi
 
     if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
-        echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
+        echo "Error: missing EFI directory, ${iso_file} is not a compatible Archuseriso iso image!"
         echo
         _usage 1
     fi
@@ -458,11 +457,11 @@ _partitions() {
     echo
 
     # New gpt partition table
-    _msg_info "Drive partitions"
+    _msg_info "Partitioning disk"
     _msg_info "New ${partition_table} partition table"
     if ! echo "label: ${_partition_table_layout}" | udevadm lock --device="${usb_device}" -- \
             sfdisk -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create new gpt partition table!'
+        echo 'Creating new gpt partition table failed!'
         exit 1
     fi
     sleep 3
@@ -476,7 +475,7 @@ _partitions() {
                   ,${esp_size}M,${_part_type_msft},\n\
                   ,${cow_size:+${cow_size}M},${_part_type_linux},\n" | \
             udevadm lock --device="${usb_device}" -- sfdisk --append -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create partitions!'
+        echo 'Disk partitioning failed!'
         exit 1
     fi
     sleep 3
@@ -490,11 +489,11 @@ _format_bcachefs() {
     _msg_info "partition #3: type Bcachefs, label ${cow_label}"
     if ! udevadm lock --device="${cow_device}" -- \
             mkfs.bcachefs -L "${cow_label}" ${bcachefs_options[*]} "${cow_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     if bcachefs unlock -c "${cow_device}" > /dev/null; then
-        _msg_info "Type in your passphrase to unlock partition"
+        _msg_info "Type in your passphrase to unlock disk"
         bcachefs unlock -k session "${cow_device}"
     fi
 }
@@ -503,7 +502,7 @@ _format_btrfs() {
     _msg_info "partition #3: type Btrfs, label ${cow_label}"
     if ! udevadm lock --device="${cow_device}" -- \
             mkfs.btrfs -L "${cow_label}" -- "${cow_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
 }
@@ -512,7 +511,7 @@ _format_f2fs() {
     _msg_info "partition #3: type F2FS, label ${cow_label}"
     if ! udevadm lock --device="${cow_device}" -- \
             mkfs.f2fs -l "${cow_label}" -O encrypt,extra_attr,compression -- "${cow_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
 }
@@ -521,12 +520,11 @@ _format_ext4() {
     _msg_info "partition #3: type Ext4, label ${cow_label}"
     if ! udevadm lock --device="${cow_device}" -- \
             mkfs.ext4 -L "${cow_label}" -O encrypt -q -- "${cow_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     # disable ext4 journal
     if [[ "${ext4_journal}" == "no" ]]; then
-        _msg_info "Ext4 partitions: disable journal"
         tune2fs -O '^has_journal' -- "${usb_device}1" &> /dev/null
         tune2fs -O '^has_journal' -- "${cow_device}" &> /dev/null
     fi
@@ -534,17 +532,17 @@ _format_ext4() {
 
 _format() {
     echo
-    _msg_info "Format partitions"
+    _msg_info "Formating partitions"
     _msg_info "partition #1: type Ext4, label ${img_label}"
     if ! udevadm lock --device="${usb_device}1" -- \
             mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usb_device}1" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     _msg_info "partition #2: type FAT, label ${esp_label}"
     if ! udevadm lock --device="${usb_device}2" -- \
             mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}2" &> /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     cow_device="${usb_device}3"
@@ -570,13 +568,13 @@ _btrfs_subvolumes() {
 _mount() {
     # Mount usb device
     echo
-    _msg_info "Mount partitions"
-    _msg_info "device: ${usb_device}1, mountpoint: ${WD}/${workdir}/usbro"
+    _msg_info "Mounting disk partitions"
+    _msg_info "device: ${usb_device}1, mount point: ${WD}/${workdir}/usbro"
     mount -- "${usb_device}1" "${WD}/${workdir}/usbro"
     install -m 0755 -d -- "${WD}/${workdir}/usbro/${install_dir}"
-    _msg_info "device: ${usb_device}2, mountpoint: ${WD}/${workdir}/usbesp"
+    _msg_info "device: ${usb_device}2, mount point: ${WD}/${workdir}/usbesp"
     mount -- "${usb_device}2" "${WD}/${workdir}/usbesp"
-    _msg_info "device: ${cow_device}, mountpoint: ${WD}/${workdir}/usbrw"
+    _msg_info "device: ${cow_device}, mount point: ${WD}/${workdir}/usbrw"
     mount -- "${cow_device}" "${WD}/${workdir}/usbrw"
     if [[ "${rootfs}" == "btrfs" ]]; then
         _btrfs_subvolumes
@@ -591,7 +589,7 @@ _mount() {
 _copy() {
     # Copy iso to partition #1
     echo
-    _msg_info "Copy live image to ${WD}/${workdir}/usbro"
+    _msg_info "Copying live image to ${WD}/${workdir}/usbro"
     cp -r -- "${WD}/${workdir}/iso/${install_dir}/${arch}" "${WD}/${workdir}/usbro/${install_dir}"
     _msg_info "Done!"
 }
@@ -636,50 +634,40 @@ EOF
                        "boot/grub/grub.cfg=${WD}/${workdir}/grub-embed.cfg"
 }
 
-_esp_bootloader_cfg_uefi-ia32.grub.esp() {
+_esp_bootloader_cfg_uefi.grub() {
     # Copy new GRUB cfg
     cp -rT -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/grub"
-
+    _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
+    cp -rT -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/grub"
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
 }
 
-_esp_bootloader_cfg_uefi-x64.grub.esp() {
-    # Copy new GRUB cfg
-    cp -rT -- "${WD}/${workdir}/iso/.drive/liveusb/grub" "${WD}/${workdir}/usbesp/grub"
-
-    _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
-}
-
-_esp_bootloader_cfg_uefi-x64.refind.esp() {
+_esp_bootloader_cfg_uefi.refind(){ 
     # Copy new rEFInd config
     cp -- "${WD}/${workdir}/iso/.drive/liveusb/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
     esp_files_settings+=('EFI/refind/refind.conf')
 }
 
-_esp_bootloader_cfg_uefi-x64.systemd-boot.esp() {
+_esp_bootloader_cfg_uefi.systemd-boot() {
     # Copy new systemd-boot config
     cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/loader" "${WD}/${workdir}/usbesp/"
 }
 
-_esp_default_bootloader_uefi-ia32.grub.esp() {
+_esp_default_bootloader_uefi.grub() {
+    # Move EFI binary to ESP /EFI/BOOT
+    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubx64.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.EFI"
     # Move ia32 EFI binary to ESP /EFI/BOOT
     mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubia32.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTIA32.EFI"
 }
 
-_esp_default_bootloader_uefi-x64.grub.esp() {
-    # Move EFI binary to ESP /EFI/BOOT
-    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubx64.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.EFI"
-}
-
-_esp_default_bootloader_uefi-x64.refind.esp() {
+_esp_default_bootloader_uefi.refind() {
     mv -- "${WD}/${workdir}/usbesp/EFI/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
 }
 
 # Make ESP for usb device
 _esp() {
     echo
-    _msg_info "ESP setup"
-    _msg_info "Copy to ${WD}/${workdir}/usbesp"
+    _msg_info "Setting up EFI System Partition"
     cp -LrT -- "${WD}/${workdir}/iso/.drive/liveusb/esp" "${WD}/${workdir}/usbesp"
     cp -r -- "${WD}/${workdir}/iso/.drive/liveusb/syslinux" "${WD}/${workdir}/usbesp/"
 
@@ -708,17 +696,14 @@ _esp() {
     done
 
     # Set default EFI boot loader
-    if typeset -f "_esp_default_bootloader_${ia32_uefi_default_bootloader}" &> /dev/null; then
+    if typeset -f "_esp_default_bootloader_${uefi_default_bootloader}" &> /dev/null; then
         _esp_default_bootloader_${ia32_uefi_default_bootloader}
-    fi
-    if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
-        _esp_default_bootloader_${x64_uefi_default_bootloader}
     fi
     _msg_info "Done!"
 }
 
 _persistence_btrfs_home() {
-    _msg_info "Copy home files to btrfs home subvolume"
+    _msg_info "Copying home files to btrfs home subvolume"
     # copy squashfs home to btrfs home subvolume
     mkdir -p -- "${WD}/${workdir}/"{squashfs,home}
     mount -o ro -- "${WD}/${workdir}/iso/${install_dir}/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
@@ -730,8 +715,7 @@ _persistence_btrfs_home() {
 
 _persistence() {
     echo
-    _msg_info "Persistence setup"
-    _msg_info "Copy persistence config to ${WD}/${workdir}/usbrw"
+    _msg_info "Setting up persistence"
     cp -a -- "${WD}/${workdir}/iso/.drive/liveusb/persistent_${iso_label}" "${WD}/${workdir}/usbrw/persistent_${img_label}"
     for mediumfile in "${cow_files_settings[@]}"; do
         if [[ -f "${WD}/${workdir}/usbrw/${mediumfile}" ]]; then
@@ -757,31 +741,31 @@ _persistence() {
 
 _biosbootloader_gpt(){
     if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usb_device}" 2> /dev/null; then
-        echo 'Bootloader installation failed!'
+        echo 'Installing bootloader failed!'
         exit 1
     fi
     if ! sfdisk --lock --part-attrs "${usb_device}" 2 LegacyBIOSBootable &> /dev/null; then
-        echo 'Bootloader installation failed!'
+        echo 'Installing bootloader failed!'
         exit 1
     fi
 }
 
 _biosbootloader_mbr(){
     if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/mbr.bin of="${usb_device}" 2> /dev/null; then
-        echo 'Bootloader installation failed!'
+        echo 'Installing bootloader failed!'
         exit 1
     fi
     if ! sfdisk --lock --activate "${usb_device}" 2 &> /dev/null; then
-        echo 'Bootloader installation failed!'
+        echo 'Installing bootloader failed!'
         exit 1
     fi
 }
 
 _biosbootloader() {
     echo
-    _msg_info "Install boot loader"
+    _msg_info "Installing boot loader"
     if ! syslinux --directory syslinux --install -- "${usb_device}2" &> /dev/null; then
-        echo 'Bootloader installation failed!'
+        echo 'Installing bootloader failed!'
         exit 1
     fi
     if ! [[ "${partition_table}" == 'mbr' ]]; then
@@ -847,7 +831,7 @@ while true; do
                 'bcachefs'|'f2fs'|'ext4')
                     rootfs="${2}" ;;
                 *)
-                    echo "${2} is not a valid filesystem type option"
+                    echo "${2} is not a valid filesystem option"
                     _usage 1 ;;
             esac
             shift 2 ;;
@@ -881,10 +865,11 @@ else
     _biosbootloader
 fi
 echo
-_msg_info "Success!"
+_msg_info "Work done successfully!"
 echo
-echo "IMPORTANT NOTICE REGARDING PERSISTENCE !!!"
-echo "- The root account and the live user account have no password !!!"
-echo "- You must set a root and a user password by yourself after the first boot !!!"
+echo "IMPORTANT NOTICE !!!"
+echo "- No password was set for the root account!"
+echo "- No password was set for the live user account!"
+echo "- You need to configure the passwords yourself!"
 
 # vim:ts=4:sw=4:et:

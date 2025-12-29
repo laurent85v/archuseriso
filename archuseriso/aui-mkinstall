@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Copyright (C) 2024 Laurent Jourden <laurent85@enarel.fr>
+# Copyright (C) 2026 Laurent Jourden <laurent85@enarel.fr>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Install Arch Linux on a usb drive using an
-# Archuseriso iso image.
+# Make stardard installation on a bootable usb disk
+# using an Archuseriso iso image.
 
 set -e -u
 
@@ -38,12 +38,12 @@ usb_device=""
 username="archie"
 WD="${PWD}"
 workdir="$(mktemp -u auiwork.XXXXXXXX)"
-valid_medium_version="v13"
+valid_medium_version="v14"
 zroot=""
 
 _usage() {
     echo
-    echo "${appname}, make a standard installation on a usb drive."
+    echo "${appname}, make a standard installation on a bootable usb disk."
     echo
     echo 'Synopsis:'
     echo "${appname} [options] <archuseriso iso image> <usb device>"
@@ -55,7 +55,7 @@ _usage() {
 
 _help() {
     echo
-    echo "${appname}, make a standard installaiton on a usb drive."
+    echo "${appname}, make a standard installaiton on a bootable usb disk."
     echo
     echo 'Synopsis:'
     echo "${appname} [options] <archuseriso iso image> <usb device>"
@@ -127,23 +127,23 @@ _cleanup() {
 
 _unmount() {
     echo
-    _msg_info "Unmount working directories, may take some time"
+    _msg_info "Unmounting working directories"
     _cleanup
     _msg_info "Done!"
 }
 
 _luks_format() {
     echo
-    _msg_info "Disk encryption setup, type in a passphrase of your choice"
+    _msg_info "Type in a passphrase of your choice"
     if ! cryptsetup --type=luks2 --label="${crypt_label:-AUI_LUKS}" --uuid="${crypt_uuid:=$(uuidgen)}" -q luksFormat -- "${usb_device}2" > /dev/null; then
         echo 'Encryption setup failed!'
         exit 1
     fi
     _msg_info "Done!"
     echo
-    _msg_info "Type in your passphrase to unlock partition"
+    _msg_info "Type in your passphrase to unlock disk"
     if ! cryptsetup -- open "${usb_device}2" "${crypt_mapper:-auicrypt}"; then
-        echo 'Error: Could not unlock partition! Exiting.'
+        echo 'Error: Could not unlock disk! Exiting.'
         exit 1
     fi
     root_device="/dev/mapper/${crypt_mapper:-auicrypt}"
@@ -153,24 +153,24 @@ _luks_format() {
 
 _luks_encryption_setup() {
     echo
-    _msg_info "Disk encryption setup"
+    _msg_info "Setting up disk encryption"
     sed -i -- "s|^HOOKS=(.*block|& encrypt|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
-    _msg_info "initramfs update"
+    _msg_info "Updating initramfs"
     arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
     _msg_info "Done!"
-    if [[ "${bootmodes[*]}" =~ 'grub.esp' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'uefi.grub' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usbrw/boot/grub/grub.cfg"
     fi
-    if [[ "${bootmodes[*]}" =~ 'uefi-x64.refind.esp' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'uefi.refind' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usbrw/boot/refind_linux.conf"
     fi
-    if [[ "${bootmodes[*]}" =~ 'uefi-x64.systemd-boot.esp' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'uefi.systemd-boot' ]]; then
         sed -i -- "s|root=|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usbrw/boot/loader/entries/"*.conf
     fi
-    if [[ "${bootmodes[*]}" =~ 'bios.syslinux.mbr' ]]; then
+    if [[ "${bootmodes[*]}" =~ 'bios.syslinux' ]]; then
         sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
     fi
@@ -179,9 +179,9 @@ _luks_encryption_setup() {
 
 _bcachefs_encryption_setup() {
     echo
-    _msg_info "Disk encryption setup"
+    _msg_info "Setting up disk encryption"
     sed -i -- "s|\(^HOOKS=(.*filesystems \)fsck|\1bcachefs|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
-    _msg_info "initramfs update"
+    _msg_info "Updating initramfs"
     arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
     _msg_info "Done!"
 }
@@ -279,7 +279,7 @@ _check() {
     # Set efi boot partition size in MiB
     if [[ -n "${esp_size}" ]]; then
         if ! [[ "${esp_size}" =~ ^[1-9][0-9]?+$ ]]; then
-            echo "FAT partition size error: Invalid size argument (GiB): ${esp_size}"
+            echo "FAT partition: Invalid size argument (GiB): ${esp_size}"
             _usage 1
         fi
         esp_size=$(( esp_size * 1024 ))
@@ -289,7 +289,7 @@ _check() {
     # Set root partition size in MiB
     if [[ -n "${root_size}" ]]; then
         if ! [[ "${root_size}" =~ ^[1-9][0-9]?+$ ]]; then
-            echo "Persistent partition size error: Invalid size argument (GiB): ${root_size}"
+            echo "Persistent partition: Invalid size argument (GiB): ${root_size}"
             _usage 1
         fi
         root_size=$(( root_size * 1024 ))
@@ -318,12 +318,12 @@ _init() {
     local _esp_size _root_size
     drivesize=$(blockdev --getsize64 "${usb_device}") # Bytes
     # Logical sector size
-    # Check usb drive capacity
+    # Check usb disk capacity
     if [[ ${drivesize} -lt $(( MINCAPACITY * 1048576 )) ]]; then
         echo 'Storage capacity error!'
         exit 1
     fi
-    # check partitions size don't exceed drive's capacity
+    # check partition size capacity
     _esp_size=$(( esp_size * 1048576 )) # Bytes
     if [[ -n "${root_size}" ]]; then
         _root_size=$(( root_size * 1048576 )) # Bytes
@@ -331,7 +331,7 @@ _init() {
         _root_size=0
     fi
     if [[ ! ${drivesize} -gt $(( _esp_size + _root_size )) ]]; then
-        echo "Size settings error: exceeds drive storage capacity!"
+        echo "Size settings error: exceeds disk size!"
         exit 1
     fi
 }
@@ -339,8 +339,6 @@ _init() {
 _confirm_write() {
     # Confim write
     echo
-    _msg_info "The process may take a long time depending on the drive's speed, be patient!"
-    _msg_info ""
     _msg_info "ISO file:   ${iso_file}"
     _msg_info "USB device: ${usb_device}"
     _msg_info "Username:   ${username}"
@@ -357,34 +355,34 @@ _usb_prepare() {
     # Check & prepare working directory
     for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
         if findmnt -nr -- "${mountpoint}" > /dev/null; then
-            echo "Error: ${mountpoint} appears in active mounts, unmount before proceeding!"
+            echo "Error: mount point ${mountpoint} appears in active mounts, please unmount mount point before proceeding!"
             exit 1
         fi
     done
     for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
         if [[ -e "${WD}/${mountpoint}" ]]; then
-            echo "Error: ${mountpoint} exists in working directory! Delete or rename before proceeding!"
+            echo "Error: mount point ${mountpoint} exists in working directory! Please delete or rename moint point before proceeding!"
             exit 1
         fi
     done
     if [[ -e "/dev/mapper/${crypt_mapper:-auicrypt}" ]]; then
-        echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} exists! cannot proceed."
+        echo "Error: cryptsetup mapping /dev/mapper/${crypt_mapper:-auicrypt} already exists! aborting."
         exit 1
     fi
     mkdir -p -- "${WD}/${workdir}"/{iso,squashfs} "${WD}/${workdir}/usb"{esp,rw}
 
     # Mount iso
     echo
-    _msg_info 'Mount iso'
-    _msg_info "mountpoint: ${WD}/${workdir}/iso"
+    _msg_info 'Mounting iso image'
+    _msg_info "mount point: ${WD}/${workdir}/iso"
     if ! mount -o ro -- "${iso_file}" "${WD}/${workdir}/iso"; then
-        echo "Error: mount iso failed!"
+        echo "Error: mounting iso image failed!"
         exit 1
     fi
 
     # check iso
     if [[ ! -e "${WD}/${workdir}/iso/.drive/mediumdef.sh" ]]; then
-        echo "Error: ${iso_file} is not a compatible iso image!"
+        echo "Error: ${iso_file} is not a compatible Archuseriso iso image!"
         echo
         _usage 1
     fi
@@ -392,7 +390,7 @@ _usb_prepare() {
     # source medium def variables
     source "${WD}/${workdir}/iso/.drive/mediumdef.sh"
     if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-        echo -e "Error: ${medium_version} gen iso image, gen version mismatch. ${appname} requires gen ${valid_medium_version}!"
+        echo -e "Error: ${medium_version} iso image version mismatch. ${appname} requires a ${valid_medium_version} version!"
        echo
        _usage 1
     fi
@@ -401,13 +399,13 @@ _usb_prepare() {
     if [[ "${rootfs}" == "zfs" ]]; then
         if ! grep -q 'zfs-utils ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt" && \
            ! grep -q 'zfs-linux ' "${WD}/${workdir}/iso/.drive/pkglist.${arch}.txt"; then
-            echo "Error: ZFS support is missing in this ISO image ${iso_file}!"
+            echo "Error: iso image not supported! ZFS support is missing in ${iso_file}!"
             _usage 1
         fi
     fi
 
     if [[ ! -d "${WD}/${workdir}/iso/EFI/" ]]; then
-        echo "Error: missing EFI directory, ${iso_file} is not a compatible iso image!"
+        echo "Error: missing EFI directory, ${iso_file} is not a compatible Archuseriso iso image!"
         echo
         _usage 1
     fi
@@ -442,11 +440,11 @@ _partitions() {
     echo
 
     # New gpt partition table
-    _msg_info "Drive partitions"
+    _msg_info "Partitioning disk"
     _msg_info "New gpt label"
     if ! echo 'label: gpt' | udevadm lock --device="${usb_device}" -- \
             sfdisk -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create new gpt partition table!'
+        echo 'Creating new gpt partition table failed!'
         exit 1
     fi
     sleep 3
@@ -458,7 +456,7 @@ _partitions() {
     if ! echo -e ",${esp_size}M,${_part_type_msft},\n\
                   ,${root_size:+${root_size}M},${_part_type_linux_or_solaris},\n" | \
             udevadm lock --device="${usb_device}" -- sfdisk --append -W always -- "${usb_device}" > /dev/null; then
-        echo 'Failed to create partitions!'
+        echo 'Disk partitioning failed!'
         exit 1
     fi
     sleep 3
@@ -471,11 +469,11 @@ _format_bcachefs() {
     _msg_info "partition #2: type Bcachefs, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
             mkfs.bcachefs -L "${root_label}" ${bcachefs_options[*]} "${root_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     if bcachefs unlock -c "${root_device}"; then
-        _msg_info "Type in your passphrase to unlock partition"
+        _msg_info "Type in your passphrase to unlock disk"
         bcachefs unlock -k session "${root_device}"
     fi
 }
@@ -493,7 +491,7 @@ _format_f2fs() {
     _msg_info "partition #2: type F2FS, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
             mkfs.f2fs -l "${root_label}" -O encrypt,extra_attr,compression -- "${root_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
 }
@@ -502,12 +500,11 @@ _format_ext4() {
     _msg_info "partition #2: type Ext4, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
             mkfs.ext4 -L "${root_label}" -O encrypt -q -- "${root_device}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     # disable ext4 journal
     if [[ "${ext4_journal}" == "no" ]]; then
-        _msg_info "Ext4 partitions: disable journal"
         tune2fs -O '^has_journal' -- "${root_device}" &> /dev/null
     fi
 }
@@ -530,7 +527,7 @@ _format_zfs() {
             -O compression=lz4          \
             -R "${WD}/${workdir}/usbrw" \
             "${zroot}" "${partuuid}" > /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     zfs create -o mountpoint=none "${zroot}/data"
@@ -545,11 +542,11 @@ _format_zfs() {
 
 _format() {
     echo
-    _msg_info "Format partitions"
+    _msg_info "Formating partitions"
     _msg_info "partition #1: type FAT, label ${esp_label}"
     if ! udevadm lock --device="${usb_device}1" -- \
             mkfs.fat -F32 -n "${esp_label}" -- "${usb_device}1" &> /dev/null; then
-        echo 'Failed to format partition!'
+        echo 'Formating partition failed!'
         exit 1
     fi
     root_device="${usb_device}2"
@@ -573,11 +570,11 @@ _format() {
 _mount() {
     # Mount usb device
     echo
-    _msg_info "Mount usb partitions"
-    _msg_info "device: ${usb_device}1, mountpoint: ${WD}/${workdir}/usbesp"
+    _msg_info "Mounting disk partitions"
+    _msg_info "device: ${usb_device}1, mount point: ${WD}/${workdir}/usbesp"
     mount -- "${usb_device}1" "${WD}/${workdir}/usbesp"
 
-    _msg_info "device: ${root_device}, mountpoint: ${WD}/${workdir}/usbrw"
+    _msg_info "device: ${root_device}, mount point: ${WD}/${workdir}/usbrw"
     case "${rootfs}" in
         'btrfs')
             mount -t btrfs -- "${root_device}" "${WD}/${workdir}/usbrw"
@@ -607,16 +604,16 @@ _mount() {
     _msg_info "Done!"
 
     # Mount squashfs
-    _msg_info "Mount live image: mountpoint ${WD}/${workdir}/squashfs"
+    _msg_info "Mounting live image: mount point ${WD}/${workdir}/squashfs"
     mount -o ro -- "${WD}/${workdir}/iso/arch/x86_64/airootfs.sfs" "${WD}/${workdir}/squashfs"
     _msg_info "Done!"
 }
 
 _copy() {
     echo
-    _msg_info "Install to ${WD}/${workdir}/usbrw, may take some time"
+    _msg_info "Installing to ${WD}/${workdir}/usbrw"
     cp -aT -- "${WD}/${workdir}/squashfs" "${WD}/${workdir}/usbrw"
-    # Copy install setup
+    # Install setup
     cp -aT -- "${WD}/${workdir}/iso/.drive/install/auirootfs" "${WD}/${workdir}/usbrw"
     mount -o bind -- "${WD}/${workdir}/usbesp" "${WD}/${workdir}/usbrw/boot"
     _msg_info "Done!"
@@ -662,21 +659,16 @@ printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
                       "boot/grub/grub.cfg=${WD}/${workdir}/grub-embed.cfg"
 }
 
-_esp_bootloader_cfg_uefi-ia32.grub.esp() {
+_esp_bootloader_cfg_uefi.grub() {
     # Copy new GRUB cfg
+    cp -rT -- "${WD}/${workdir}/iso/.drive/install/grub/" "${WD}/${workdir}/usbesp/grub"
     cp -rT -- "${WD}/${workdir}/iso/.drive/install/grub" "${WD}/${workdir}/usbesp/grub"
 
+    _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
     _make_grub_efi_binary "i386-efi" "grubia32.efi"
 }
 
-_esp_bootloader_cfg_uefi-x64.grub.esp() {
-    # Copy new GRUB cfg
-    cp -rT -- "${WD}/${workdir}/iso/.drive/install/grub/" "${WD}/${workdir}/usbesp/grub"
-
-    _make_grub_efi_binary "x86_64-efi" "grubx64.efi"
-}
-
-_esp_bootloader_cfg_uefi-x64.refind.esp() {
+_esp_bootloader_cfg_uefi.refind() {
 # Copy new rEFInd config
     cp -- "${WD}/${workdir}/iso/.drive/install/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/refind/"
     cp -- "${WD}/${workdir}/iso/.drive/install/refind/refind_linux.conf" "${WD}/${workdir}/usbesp/"
@@ -687,29 +679,25 @@ _esp_bootloader_cfg_uefi-x64.refind.esp() {
                          'refind_linux.conf')
 }
 
-_esp_bootloader_cfg_uefi-x64.systemd-boot.esp() {
+_esp_bootloader_cfg_uefi.systemd-boot() {
     # Remove live config
     [[ -d "${WD}/${workdir}/usbesp/loader/" ]] && rm -r -- "${WD}/${workdir}/usbesp/loader/"
     # Copy new systemd-boot config
     cp -rT -- "${WD}/${workdir}/iso/.drive/install/loader" "${WD}/${workdir}/usbesp/loader"
 }
 
-_esp_bootloader_cfg_bios.syslinux.mbr() {
+_esp_bootloader_cfg_bios.syslinux() {
     # Copy new syslinux config
     cp -rT -- "${WD}/${workdir}/iso/.drive/install/syslinux" "${WD}/${workdir}/usbesp/syslinux"
 }
 
-_esp_default_bootloader_uefi-ia32.grub.esp() {
+_esp_default_bootloader_uefi.grub() {
     # Move EFI binary to ESP /EFI/BOOT
+    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubx64.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.EFI"
     mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubia32.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTIA32.EFI"
 }
 
-_esp_default_bootloader_uefi-x64.grub.esp() {
-    # Move EFI binary to ESP /EFI/BOOT
-    mv -- "${WD}/${workdir}/usbesp/EFI/grub/grubx64.efi" "${WD}/${workdir}/usbesp/EFI/BOOT/BOOTx64.EFI"
-}
-
-_esp_default_bootloader_uefi-x64.refind.esp() {
+_esp_default_bootloader_uefi.refind() {
 mv -- "${WD}/${workdir}/usbesp/EFI/refind/refind.conf" "${WD}/${workdir}/usbesp/EFI/BOOT/"
     if [[ -f "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" ]]; then
         cp -- "${WD}/${workdir}/iso/EFI/BOOT/icons/os_arch.png" "${WD}/${workdir}/usbesp/vmlinuz-linux.png"
@@ -719,8 +707,7 @@ mv -- "${WD}/${workdir}/usbesp/EFI/refind/refind.conf" "${WD}/${workdir}/usbesp/
 _esp() {
     # ESP setup
     echo
-    _msg_info "ESP setup"
-    _msg_info "Copy to ${WD}/${workdir}/usbesp"
+    _msg_info "Setting up EFI System Partition"
     cp -LrT -- "${WD}/${workdir}/iso/.drive/install/esp" "${WD}/${workdir}/usbesp"
     cp -r -- "${WD}/${workdir}/iso/.drive/install/syslinux" "${WD}/${workdir}/usbesp/"
 
@@ -755,11 +742,8 @@ _esp() {
     fi
 
     # Set default EFI boot loader
-    if typeset -f "_esp_default_bootloader_${ia32_uefi_default_bootloader}" &> /dev/null; then
-        _esp_default_bootloader_${x64_uefi_default_bootloader}
-    fi
-    if typeset -f "_esp_default_bootloader_${x64_uefi_default_bootloader}" &> /dev/null; then
-        _esp_default_bootloader_${x64_uefi_default_bootloader}
+    if typeset -f "_esp_default_bootloader_${uefi_default_bootloader}" &> /dev/null; then
+        _esp_default_bootloader_${uefi_default_bootloader}
     fi
     _msg_info "Done!"
 }
@@ -770,7 +754,7 @@ _rootfs() {
     # * fstab
     # * live user renamed 'archie', no password set
 
-    _msg_info "Remove live settings"
+    _msg_info "Removing live settings"
 
     # fstab
     for _mediumfile in "${root_files_settings[@]}"; do
@@ -812,21 +796,21 @@ _rootfs() {
     _msg_info "Done!"
 
     # Arch keyring
-    _msg_info "Initialize pacman keys"
+    _msg_info "Initializing pacman keys"
     arch-chroot -- "${WD}/${workdir}/usbrw" pacman-key --init &> /dev/null
     arch-chroot -- "${WD}/${workdir}/usbrw" pacman-key --populate archlinux &> /dev/null
     _msg_info "Done!"
 
     # username
     if [[ -d "${WD}/${workdir}/usbrw/home/live" ]]; then
-        _msg_info "User setup ${username}"
+        _msg_info "Setting up user account for ${username}"
         mv -- "${WD}/${workdir}/usbrw/home/live" "${WD}/${workdir}/usbrw/home/${username}"
         sed -i -- "s/live/${username}/g" "${WD}/${workdir}/usbrw/etc/"{passwd,group,shadow,gshadow}
         if [[ -e "${WD}/${workdir}/usbrw/etc/samba/smb.conf" ]]; then
             sed -i -- "s/live/${username}/g" "${WD}/${workdir}/usbrw/etc/samba/smb.conf"
         fi
     else
-        _msg_info "no user account found on the live image!"
+        _msg_info "No user account was found on the live image!"
         username="root"
     fi
     _msg_info "Done!"
@@ -842,7 +826,7 @@ _rootfs() {
     fi
 
     # initramfs
-    _msg_info "initramfs update"
+    _msg_info "Updating initramfs"
     arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
     _msg_info "Done!"
 
@@ -852,18 +836,18 @@ _rootfs() {
 }
 
 _biosbootloader() {
-    _msg_info "Install boot loader"
+    _msg_info "Installing boot loader"
     if ! syslinux --directory syslinux --install -- "${usb_device}1" &> /dev/null; then
-        echo 'Boot loader installation failed!'
+        echo 'Installing boot loader failed!'
         exit 1
     fi
     if ! dd bs=440 count=1 conv=notrunc if=/usr/lib/syslinux/bios/gptmbr.bin of="${usb_device}" 2> /dev/null; then
-        echo 'Boot loader installation failed!'
+        echo 'Installing boot loader failed!'
         exit 1
      fi
      if ! udevadm lock --device="${usb_device}" -- \
              sfdisk --part-attrs "${usb_device}" 1 LegacyBIOSBootable &> /dev/null; then
-         echo 'Boot loader installation failed!'
+         echo 'Installing boot loader failed!'
          exit 1
      fi
      _msg_info "Done!"
@@ -923,7 +907,7 @@ while true; do
                         rootfs="${2}"
                         encryption="no" ;;
                     *)
-                        echo "${2} is not a valid file system type option"
+                        echo "${2} is not a valid file system option"
                         _usage 1 ;;
                 esac
             fi
@@ -961,11 +945,11 @@ _rootfs
 _unmount
 _biosbootloader
 echo
-_msg_info "Success!"
+_msg_info "Work done successfully!"
 echo
 echo "IMPORTANT NOTICE !!!"
-echo "- The root account has no password !!!"
-echo "- The user account name is ${username} and no password was set !!!"
-echo "- You must set a root and a user password by yourself after the first boot !!!"
+echo "- No password was set for the root account!"
+echo "- No password was set for user ${username}!"
+echo "- You need to configure the passwords yourself!"
 
 # vim:ts=4:sw=4:et:
