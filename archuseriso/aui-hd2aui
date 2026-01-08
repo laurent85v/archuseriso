@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Compress an Arch Linux system to a bootable disk image.
+# Migrate an installed Arch Linux system to a compressed bootable disk image.
 
 set -e -u
 
@@ -26,7 +26,7 @@ auiwork="$(mktemp -u auiwork.XXXXXXXX)"
 
 _help() {
     echo
-    echo "${appname}: Compress an Arch Linux system to a bootable disk image."
+    echo "${appname}: Migrate an installed Arch Linux system to a compressed bootable disk image."
     echo
     echo 'Synopsis:'
     echo "${appname} [options] <path to root filesystem>"
@@ -82,7 +82,7 @@ _cleanup() {
 
 _unmount() {
     echo
-    _msg_info "Unmount working directories, may take some time"
+    _msg_info "Unmounting working directories"
     _cleanup
     _msg_info "Done!"
 }
@@ -92,7 +92,7 @@ _check() {
         _msg_error 'Error: Invalid arguments!' 1
     fi
     if [[ ${EUID} -ne 0 ]]; then
-        _msg_error 'This script must be run as root!' 1
+        _msg_error 'The script must be run as root!' 1
     fi
     rootfs_path="${1}"
 
@@ -124,29 +124,29 @@ _check() {
        _msg_error "The root filesystem path argument is the running system! Cannot proceed, aborting." 1
 
     # Set hd2aui profile path
-    [[ -d "${profile}" ]] || _msg_error "Some Archuseriso files are missing. Install Archuseriso! Aborting." 1
+    [[ -d "${profile}" ]] || _msg_error "Some Archuseriso files are missing, please install Archuseriso! Aborting." 1
     [[ -d "${profile}/airootfs" ]] || _msg_error "${profile} is not a valid hd2aui configuration path! Aborting." 1
     [[ -d "${profile}/esp" ]] || _msg_error "${profile} is not a valid hd2aui configuration path! Aborting." 1
 
     # check linux package is installed
     if ! eval -- env -u TMPDIR arch-chroot "${rootfs_path}" pacman -Q linux &> /dev/null; then
-        _msg_error "linux package not installed! Aborting." 1
+        _msg_error "The linux package is not installed! Aborting." 1
     fi
     linux_release="$(eval -- env -u TMPDIR arch-chroot "${rootfs_path}" pacman -Q linux 2> /dev/null | awk '{print $2}' | sed 's|.arch|-arch|')"
     grep -q -E -- '^[[:digit:]]{1,2}\.[[:digit:]]{1,}\.[[:digit:]]{1,3}' <<< "${linux_release}" ||
         linux_release="${linux_release%arch*}.0-${linux_release##*-}"
 
-    # calculate filesystem size, set limit to 20G
-    if (( $(du -B1G -s "${rootfs_path}" | awk '{print $1}') > 20 )); then
-        _msg_error "Filesystem size exceeds 20G limit! aborting." 1
+    # calculate filesystem size, set limit size to 25G
+    if (( $(du -B1G -s "${rootfs_path}" | awk '{print $1}') > 25 )); then
+        _msg_error "The filesystem size exceeds the 25 GB script limit! aborting." 1
     fi
 }
 
 _confirm() {
     echo
-    _msg_info "Path to root filesystem:   ${rootfs_path}"
+    _msg_info "Path to the root filesystem:   ${rootfs_path}"
     echo
-    read -r -n1 -p "Confirm operation (N/y)? "
+    read -r -n1 -p "Ready to proceed. Please confirm (N/y)? "
     echo
     if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
         echo 'Operation canceled by user!'
@@ -164,25 +164,25 @@ _overlayfs() {
     # check & prepare working directory
     for mountpoint in "${auiwork}/"{rootfsbind,overlay}; do
         if findmnt -nr -- "${mountpoint}" > /dev/null; then
-            _msg_error "${mountpoint} appears in active mounts, unmount before proceeding!" 1
+            _msg_error "${mountpoint} appears in active mounts, please unmount before proceeding!" 1
         fi
     done
     for mountpoint in "${auiwork}/"{rootfsbind,overlay}; do
         if [[ -e "${mountpoint}" ]]; then
-            _msg_error "${mountpoint} exists in working directory! Delete or rename before proceeding!" 1
+            _msg_error "${mountpoint} exists in working directory! Please delete or rename before proceeding!" 1
         fi
     done
     install -d -m 0755 -- "${auiwork}/"{rootfsbind,esp,overlay,overlayup,overlaywork}
 
     # bind mount read-only the rootfs 
     if ! mount --options=bind,ro -- "${rootfs_path}" "${auiwork}/rootfsbind"; then
-        _msg_error "Bind mount of root filesystem failed! Aborting." 1
+        _msg_error "Mounting with option bind the root filesystem failed! Aborting." 1
     fi
     # Mount overlay filesystem
     if ! mount --types=overlay overlay \
                --options=lowerdir="${auiwork}/rootfsbind",upperdir="${auiwork}/overlayup",workdir="${auiwork}/overlaywork" -- \
                "${auiwork}/overlay"; then
-        _msg_error "Mounting overlay filesystem failed! Aborting." 1
+        _msg_error "Mounting the overlay filesytem failed! Aborting." 1
     fi
     _msg_info "Done!"
 
@@ -191,7 +191,7 @@ _overlayfs() {
                       grep -v -- "${rootfs_path}$"); do
         rsync -SHAXax -- "${submount}/" "${auiwork}/overlay${submount#${rootfs_path}}"
     done
-    _msg_info "Configuring overlay filesystem for live startup"
+    _msg_info "Configuring the overlay filesystem for live startup"
     # copy linux kernel to /boot overlay
     if [[ ! -f "${auiwork}/overlay/boot/vmlinuz-linux" ]]; then
         install -m 0644 -- "${auiwork}/overlay/usr/lib/modules/${linux_release}/vmlinuz" "${auiwork}/overlay/boot/vmlinuz-linux"
@@ -199,7 +199,7 @@ _overlayfs() {
  
     # add archiso hooks to mkinitcpio.conf
     _lines=$(sed -n -- '/^HOOKS=/p' "${auiwork}/overlay/etc/mkinitcpio.conf" | wc -l)
-    (( _lines > 1 || _lines == 0 )) && _msg_error 'Invalid mkinitcpio.conf! HOOKS line missing or duplicates. Aborting.' 1
+    (( _lines > 1 || _lines == 0 )) && _msg_error 'Invalid mkinitcpio.conf! The HOOKS line is missing or duplicates found. Aborting.' 1
 
     # shellcheck source=/dev/null
     source "${auiwork}/overlay/etc/mkinitcpio.conf"
@@ -215,7 +215,7 @@ _overlayfs() {
     sed -i -- "s/^HOOKS=.*/HOOKS=(${_hooks[*]})/" "${auiwork}/overlay/etc/mkinitcpio.conf"
     _msg_info "Done!"
 
-    _msg_info "Installing necessary packages to overlay filesystem"
+    _msg_info "Installing the necessary packages to the overlay filesystem"
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q mkinitcpio-archiso &> /dev/null || _packages+=('mkinitcpio-archiso')
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q nbd &> /dev/null || _packages+=('nbd')
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q mkinitcpio-nfs-utils &> /dev/null || _packages+=('mkinitcpio-nfs-utils')
@@ -224,7 +224,7 @@ _overlayfs() {
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q limine &> /dev/null || _packages+=('limine')
     eval -- env -u TMPDIR arch-chroot "${auiwork}/overlay" pacman -Q cryptsetup &> /dev/null || _packages+=('cryptsetup')
     eval -- env -u TMPDIR pacstrap -c -G -M -- "${auiwork}/overlay" "${_packages[@]}" &> /dev/null || \
-        _msg_error "Could not install ${_packages[@]} to overlay! Aborting." 1
+        _msg_error "Could not install ${_packages[@]} to the overlay filesystem! Aborting." 1
     _msg_info "Done!"
 
     _msg_info "Configuring boot files"
@@ -232,7 +232,7 @@ _overlayfs() {
     if [[ -d "${profile}/airootfs" ]]; then
         cp -af --no-preserve=ownership -- "${profile}/airootfs/." "${auiwork}/overlay/"
     else
-        _msg_error "Some Archuseriso files are missing. Install Archuseriso! Aborting." 1
+        _msg_error "Some Archuseriso files are missing. Please install Archuseriso! Aborting." 1
     fi
 
     # Set archiso cow_spacesize to 50% ram size
@@ -249,7 +249,7 @@ _overlayfs() {
     if [[ -d "${profile}/esp" ]]; then
         cp -af --no-preserve=ownership -- "${profile}/esp/." "${auiwork}/esp/"
     else
-        _msg_error "Some Archuseriso files are missing. Install Archuseriso! Aborting." 1
+        _msg_error "Some Archuseriso files are missing. Please install Archuseriso! Aborting." 1
     fi
 
     # copy limine bootloader files to esp
@@ -259,9 +259,9 @@ _overlayfs() {
 
     # set boot parameters
     sed -i -- "s|%RO_LABEL%|${ro_label}|;s|%COW_LABEL%|${cow_label}|" "${auiwork}/esp/limine.conf" || \
-       _msg_error "Limine configuration file setup failed! Aborting." 1
+       _msg_error "Setting up the Limine configuration file failed! Aborting." 1
     sed -i -- "s|%ESP_LABEL%|${esp_label}|" "${auiwork}/overlay/etc/fstab" || \
-       _msg_error "fstab configuration file setup failed! Aborting." 1
+       _msg_error "Setting up the fstab configuration file failed! Aborting." 1
  
     # copy linux kernel and initramfs to esp
     install -d -m 0755 -- "${auiwork}/esp/arch/boot/x86_64/"
@@ -284,10 +284,10 @@ _overlayfs() {
     printf 'uninitialized\n' > "${auiwork}/overlay/etc/machine-id"
     _msg_info "Done!"
 
-    _msg_info "Creating the compressed filesystem image"
+    _msg_info "Compressing the filesystem image"
     # make squashfs image
     mksquashfs "${auiwork}/overlay/" "${auiwork}/airootfs.sfs" -noappend -comp zstd -quiet 2> /dev/null || \
-        _msg_error "Making squashfs image failed! Aborting." 1
+        _msg_error "The squashfs image compression failed! Aborting." 1
     _msg_info "Done!"
 }
 
@@ -316,18 +316,18 @@ _diskimage() {
     # IMG size = LIM + ESP + RO + COW
     # Create IMG file
     truncate -s $(( _liminelegacy + _espsize + _rosize + _cowsize + 2 ))M -- "${outdir}/${image_name}" || \
-        _msg_error "Disk image creation failed! Aborting." 1
+        _msg_error "Setting up the disk image failed! Aborting." 1
 
     # GPT partitions
     loopdevice=$(losetup -f --show "${outdir}/${image_name}" 2> /dev/null || \
-                _msg_error "Loop device setup failed! Aborting" 1)
+                _msg_error "Setting up the loop device failed! Aborting" 1)
     if ! echo 'label: gpt' | udevadm lock --device="${loopdevice}" -- \
        sfdisk -W always -- "${loopdevice}" &> /dev/null; then
-        _msg_error "GPT partition table setup failed! Aborting" 1
+        _msg_error "Setting up the GPT partition table failed! Aborting" 1
     fi
     if ! echo -e ",${_liminelegacy}MiB,L,\n,${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7,\n,${_rosize}MiB,L,\n,+,L,\n" | \
             udevadm lock --device="${loopdevice}" -- sfdisk --append  -W always -- "${loopdevice}" &> /dev/null; then
-        _msg_error "Partitionning the disk image failed! Aborting." 1
+        _msg_error "Setting up the Partitionning of the disk image failed! Aborting." 1
     fi
     sleep 3
     partprobe -- "${loopdevice}"
@@ -407,7 +407,7 @@ _overlayfs
 _diskimage
 _biosbootloader
 echo
-_msg_info "Success!"
+_msg_info "Work done successfully!"
  echo
 _msg_info "$(du -BM -s -- "${outdir}/${image_name}")"
 
