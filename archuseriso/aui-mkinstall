@@ -10,7 +10,6 @@
 set -e -u
 
 appname="${0##*/}"
-bcachefs_options=('--compression=lz4')
 btrfs_compress=""
 btrfs_subvol_home=""
 btrfs_subvol_root=""
@@ -24,7 +23,6 @@ ext4_journal="yes"
 img_label=""
 iso_label=""
 iso_file=""
-lock_fs_options="no"
 medium_version=""
 # Drive min size in GiB
 MINCAPACITY="16"
@@ -62,12 +60,11 @@ _help() {
     echo
     echo 'Options:'
     echo '-h, --help                  Command line help'
-    echo '--bcachefs-compress=algo    Bcachefs compression algorithm: gzip, lz4 (default), none, zstd'
     echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo, none, zlib, zstd (Default)'
     echo '--encrypt                   Disk encryption, encrypt the root partition'
     echo '                            Option not applying to zfs filesystem'
     echo '--ext4-no-journal           Disable ext4 journal'
-    echo '--rootfs=fstype             Root filesystem type: bcachefs, btrfs, ext4 (default), f2fs, zfs'
+    echo '--rootfs=fstype             Root filesystem type: btrfs, ext4 (default), f2fs, zfs'
     echo '                            type zfs requires an iso image with zfs support' 
     echo '--size-esp=integer[g|G]     EFI System Partition size in GiB (ESP)'
     echo '--size-rootfs=integer[g|G]  Root file system partition size in GiB'
@@ -177,16 +174,6 @@ _luks_encryption_setup() {
     _msg_info "Done!"
 }
 
-_bcachefs_encryption_setup() {
-    echo
-    _msg_info "Setting up disk encryption"
-    sed -i -- "s|\(^HOOKS=(.*filesystems \)fsck|\1bcachefs|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
-    _msg_info "Updating initramfs"
-    arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
-    _msg_info "Done!"
-}
-
-
 _check() {
     if [[ $# -ne 2 ]]; then
         echo 'Error: Invalid arguments!'
@@ -293,12 +280,6 @@ _check() {
             _usage 1
         fi
         root_size=$(( root_size * 1024 ))
-    fi
-    if [[ "${rootfs}" == "bcachefs" ]]; then
-        if ! pacman -Q bcachefs-tools &> /dev/null; then
-            echo 'bcachefs-tools package not installed, aborting!'
-            exit 0
-        fi
     fi
     if [[ "${rootfs}" == "btrfs" ]]; then
         if ! pacman -Q btrfs-progs &> /dev/null; then
@@ -465,19 +446,6 @@ _partitions() {
     _msg_info "Done!"
 }
 
-_format_bcachefs() {
-    _msg_info "partition #2: type Bcachefs, label ${root_label}"
-    if ! udevadm lock --device="${root_device}" -- \
-            mkfs.bcachefs -L "${root_label}" ${bcachefs_options[*]} "${root_device}" > /dev/null; then
-        echo 'Formating partition failed!'
-        exit 1
-    fi
-    if bcachefs unlock -c "${root_device}"; then
-        _msg_info "Type in your passphrase to unlock disk"
-        bcachefs unlock -k session "${root_device}"
-    fi
-}
-
 _format_btrfs() {
     _msg_info "partition #2: type Btrfs, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
@@ -551,13 +519,7 @@ _format() {
     fi
     root_device="${usb_device}2"
     if [[ "${encryption}" == "yes" ]]; then
-        case "${rootfs}" in
-            'btrfs'|'f2fs'|'ext4')
-                _luks_format;;
-            'bcachefs')
-                encryption_type="bcachefs"
-                bcachefs_options+=('--encrypted');;
-        esac
+        _luks_format
     fi
 
     # format root partition
@@ -587,7 +549,7 @@ _mount() {
             mkdir -p -- "${WD}/${workdir}/usbrw/home"
             mount -o subvol="${btrfs_subvol_home}" -- "${root_device}" "${WD}/${workdir}/usbrw/home"
             ;;
-        'bcachefs' | 'ext4' | 'f2fs')
+        'ext4' | 'f2fs')
             mount -t "${rootfs}" -- "${root_device}" "${WD}/${workdir}/usbrw"
             ;;
         'zfs')
@@ -854,8 +816,7 @@ _biosbootloader() {
 }
 
 # arguments
-OPTS=$(getopt -o 'h' --long 'bcachefs-compress:'                           \
-                     --long 'btrfs-compress:,encrypt,ext4-no-journal,help' \
+OPTS=$(getopt -o 'h' --long 'btrfs-compress:,encrypt,ext4-no-journal,help' \
                      --long 'rootfs:,size-esp:,size-rootfs:,username:'     \
                      --long 'zfsonroot'                                    \
                      -n "${appname}" -- "$@")
@@ -868,14 +829,6 @@ while true; do
     case "$1" in
         '-h'|'--help')
             _help 0 ;;
-        '--bcachefs-compress')
-            if [[ "${2}" == 'gzip' || \
-                  "${2}" == 'lz4'  || \
-                  "${2}" == 'none' || \
-                  "${2}" == 'zstd' ]]; then
-                 bcachefs_options+=("--compression=${2}")
-            fi
-            shift 2 ;;
         '--btrfs-compress')
             if [[ "${2}" == 'lzo'  || \
                   "${2}" == 'no'   || \
@@ -901,7 +854,7 @@ while true; do
                         btrfs_subvol_root="/rootfs"
                         root_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-zstd}"
                         rootfs="${2}" ;;
-                    'bcachefs'|'f2fs'|'ext4')
+                    'f2fs'|'ext4')
                         rootfs="${2}" ;;
                     'zfs')
                         rootfs="${2}"

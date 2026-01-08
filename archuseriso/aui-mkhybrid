@@ -10,7 +10,6 @@
 set -e -u
 
 appname="${0##*/}"
-bcachefs_options=('--compression=lz4')
 btrfs_compress=""
 btrfs_subvol_home=""
 btrfs_subvol_root=""
@@ -61,11 +60,10 @@ _help() {
     echo
     echo 'Options:'
     echo '-h, --help                  Command line help'
-    echo '--bcachefs-compress=algo    Bcachefs compression algorithm: gzip, lz4 (default), none, zstd'
     echo '--btrfs-compress=algo       Btrfs compression algorithm: lzo (default), none, zlib, zstd'
     echo '--encrypt                   Disk encryption, encrypt the root partition'
     echo '--ext4-no-journal           Disable ext4 journal'
-    echo '--rootfs=fstype             Root filesystem type: bcachefs, btrfs, ext4 (default), f2fs'
+    echo '--rootfs=fstype             Root filesystem type: btrfs, ext4 (default), f2fs'
     echo '--size-esp=integer[g|G]     EFI System Parition size in GiB (ESP)'
     echo '--size-rootfs=integer[g|G]  Root file system partition size in GiB'
     echo "--username <user>           Custom username, defaults to ${username}"
@@ -154,15 +152,6 @@ _luks_encryption_setup() {
         sed -i -- "s|rw$|cryptdevice=UUID=${crypt_uuid}:${crypt_mapper:-auicrypt} &|" \
                   "${WD}/${workdir}/usbrw/boot/syslinux/archiso_sys-linux.cfg"
     fi
-    _msg_info "Done!"
-}
-
-_bcachefs_encryption_setup() {
-    echo
-    _msg_info "Setting up disk encryption"
-    sed -i -- "s|\(^HOOKS=(.*filesystems \)fsck|\1bcachefs|" "${WD}/${workdir}/usbrw/etc/mkinitcpio.conf"
-    _msg_info "Updating initramfs"
-    arch-chroot -- "${WD}/${workdir}/usbrw" mkinitcpio -P &> /dev/null
     _msg_info "Done!"
 }
 
@@ -272,12 +261,6 @@ _check() {
             _usage 1
         fi
         root_size=$(( root_size * 1024 ))
-    fi
-    if [[ "${rootfs}" == "bcachefs" ]]; then
-        if ! pacman -Q bcachefs-tools &> /dev/null; then
-            echo 'bcachefs-tools package not installed, aborting!'
-            exit 0
-        fi
     fi
     if [[ "${rootfs}" == "btrfs" ]]; then
         if ! pacman -Q btrfs-progs &> /dev/null; then
@@ -432,19 +415,6 @@ _partitions() {
     _msg_info "Done!"
 }
 
-_format_bcachefs() {
-    _msg_info "partition #2: type Bcachefs, label ${root_label}"
-    if ! udevadm lock --device="${root_device}" -- \
-            mkfs.bcachefs -L "${root_label}" ${bcachefs_options[*]} "${root_device}" > /dev/null; then
-        echo 'Formating partition failed!'
-        exit 1
-    fi
-    if bcachefs unlock -c "${root_device}"; then
-        _msg_info "Type in your passphrase to unlock disk"
-        bcachefs unlock -k session "${root_device}"
-    fi
-}
-
 _format_btrfs() {
     _msg_info "partition #3: type Btrfs, label ${root_label}"
     if ! udevadm lock --device="${root_device}" -- \
@@ -494,13 +464,7 @@ _format() {
     fi
     root_device="${usb_device}3"
     if [[ "${encryption}" == "yes" ]]; then
-        case "${rootfs}" in
-            'btrfs'|'f2fs'|'ext4')
-                _luks_format;;
-            'bcachefs')
-                encryption_type="bcachefs"
-                bcachefs_options+=('--encrypted');;
-        esac
+        _luks_format
     fi
     # Format root partition
     _format_"${rootfs}"
@@ -529,7 +493,7 @@ _mount() {
             mkdir -p -- "${WD}/${workdir}/usbrw/home"
             mount -o subvol="${btrfs_subvol_home}" -- "${root_device}" "${WD}/${workdir}/usbrw/home"
             ;;
-        'bcachefs' | 'ext4' | 'f2fs')
+        'ext4' | 'f2fs')
             mount -t "${rootfs}" -- "${root_device}" "${WD}/${workdir}/usbrw"
             ;;
         *)
@@ -804,7 +768,7 @@ while true; do
                     btrfs_subvol_home="/home"
                     btrfs_subvol_root="/rootfs"
                     cow_flags="subvol=${btrfs_subvol_root},compress=${btrfs_compress:-lzo}" ;;
-                'bcachefs'|'f2fs'|'ext4')
+                'f2fs'|'ext4')
                     rootfs="${2}" ;;
                 *)
                     echo "${2} is not a valid filesystem option"
