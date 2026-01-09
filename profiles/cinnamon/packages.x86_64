@@ -134,7 +134,7 @@ adwaita-icon-theme
 adapta-gtk-theme
 alsa-firmware
 aspell-en
-blueberry
+blueman
 cinnamon
 cinnamon-translations
 feh
@@ -210,8 +210,8 @@ jre-openjdk
 #mesa-demos
 mesa-utils
 nemo-image-converter
-nemo-preview
-nemo-seahorse
+#nemo-preview
+#nemo-seahorse
 networkmanager-openvpn
 networkmanager-openconnect
 openpgp-card-tools
