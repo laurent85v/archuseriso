@@ -2,7 +2,7 @@
 
 pkgname=aui-ipxe
 pkgbase=ipxe
-pkgver=v1.21.1.r626.g5a9f476
+pkgver=v1.21.1.r1180.g49f700a
 pkgrel=1
 pkgdesc="Archuseriso Network Bootloader"
 arch=(x86_64)
@@ -35,7 +35,7 @@ sha512sums=('SKIP'
             'e3a8c74dcf95cb4b77ed379d2185ef56b6ab2f4c7bdaf5a68876d21aca4d7961b0d8090da7132c6f1797bdca24014dfea032129ee207282797b91e31b6dc4d48'
             'c3e591abf4efc0a7eeaf0dd77e03d4c4d483439fc47dea230dc2abaf173cdbebe02839134733ffd9cc52fd2a3392a5f41a6110877b2efed845e538d35cab688d'
             'fd4bd2037ec19ac481c8a90f43bd4f29aa8404d263f441e9e05f3e37c84b73ce5eda447d6665c842c3ed5c855ebd442df64821428abcf678f25fd87415ef1eb4'
-            'c4c40d5a09dda4dddb9ded7a375371f2ba3fcf669640b81270ce08e079eef461cd1d90871521ec9833be5d4365e5b7d2fa977a3e4c67fed3dd3ac3e13e4a2541')
+            '589ac01326554cf6b1a3803b3a23d6f24e495713efcc9ba3d7a6943a029480f770d22abc457dc1575649489905b4895d69816e8597ecbfd26faf8eb32c111650')
 b2sums=('SKIP'
         '264077fd3d5341a85d11d8f0013d580b4a6e0304417e8dc9b748fce4504306d6cea79f455c5af00495b00be9c7136f46a8c87de7bc1beb4fefa4fdd1b1011386'
         '6d02d871afa45caaa2b22ea2ed48217012aeeb61c50b28e82cc0750344719bdb9ef4b0100abc524b12ec6cb2b1c0084f4d24ce480af87b52aa39d4d3714467ca'
@@ -43,7 +43,7 @@ b2sums=('SKIP'
         'a61f76a2ecbf344bb26e064146e4c6821ee195c7b7579cbf8c61d60ded3c3946d53329a8c2e795435ef5498bec97042472f186c13b4e0dc274da34d047f8f326'
         '867ea1848d4ea69f830d6fff106e7eda38a539e9ded419b077e32fc552f0fd7ff4f737dc1e68f00b080e61a35b733741d37924ad1e41dcb109588e2c2ac1c052'
         'e073ce5d37160c7c9ae09e1a5a1474c2297ab1c746fda28b8b67ec7f71a859ab992eda2ef415ef821a7b4f066da37f757b6e8de44ce8db370523e546803c3af7'
-        'ff3ad3af7b925f18306ab6661faefc56f10735ae9b0e0a79449bc920e6eee43a6d89de6b415fbd6a6c8dfc607154a23199c2057faf12a873315cb502cc3345bd')
+        '2de66e67afa5497d713fcb5b060a1bd7f6b80e8dfbb929968eec9b57a22df0fe16bf26ad808f3e1f93051f504a70b642004c0b03b51aaae0d7bb39591206ea55')
 pkgver() {
   cd "$pkgbase/src"
   git describe --long --tags --abbrev=7 | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
@@ -61,6 +61,7 @@ build() {
   local _file _certs=""
   local _options=(
     NO_WERROR=1
+    #DEBUG=cms,x509,validator,image,imgtrust
     bin/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.iso
     bin/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.usb
     bin-x86_64-efi/ipxe--usb--acm--axge--dm96xx--ecm--iphone--lan78xx--ncm--smsc75xx--smsc95xx--smscusb.iso
