@@ -14,7 +14,7 @@ bootmodes=('bios.syslinux'
            'uefi.refind'
            'uefi.systemd-boot'
            )
-uefi_default_bootloader="uefi.systemd-boot.esp"
+uefi_default_bootloader="uefi.systemd-boot"
 arch="x86_64"
 pacman_conf="pacman.conf"
 pacman_testing_conf="pacman-testing.conf"
