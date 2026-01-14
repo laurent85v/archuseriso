@@ -135,7 +135,7 @@ bluez-tools
 bluez-utils
 deepin
 deepin-account-faces
-deepin-album
+#deepin-album
 deepin-anything
 deepin-api
 deepin-appearance
@@ -199,8 +199,8 @@ file-roller
 gnome-themes-extra
 gparted
 gst-libav
-gtk-engines
-gtk-engine-murrine
+#gtk-engines
+#gtk-engine-murrine
 gvfs-afc
 gvfs-mtp
 gvfs-smb

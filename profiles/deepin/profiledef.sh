@@ -11,7 +11,7 @@ install_dir="arch"
 buildmodes=('iso')
 bootmodes=('bios.syslinux'
            'uefi.grub'
-           'uefi.refind.esp'
+           'uefi.refind'
            'uefi.systemd-boot'
            )
 uefi_default_bootloader="uefi.systemd-boot"
