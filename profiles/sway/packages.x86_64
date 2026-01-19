@@ -185,7 +185,7 @@ firefox
 ### Nvidia graphics
 ##
 # Proprietary drivers not supported by Sway
-#nvidia nvidia-settings bbswitch
+#nvidia-open nvidia-settings bbswitch
 
 ### Office
 ##

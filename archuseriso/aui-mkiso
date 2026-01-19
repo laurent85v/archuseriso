@@ -122,18 +122,17 @@ usage: ${app_name} [options] <profile_dir>
      -G, --gpgsender <mbox>             Set the PGP signer (must include an email address)
                                         Passed to gpg as the value for --sender
      --graphics=<option>                Graphics driver options:
-               =nvidia                  Install Nvidia proprietary driver.
-               =nvidia-open             Install Nvidia open source driver.
+               =nvidia                  Install Nvidia open kernel driver.
                                         Nvidia Optimus on laptops (Intel iGPU & Nvidia dGPU):
-               =optimus-nvidia          Install Nvidia proprietary driver, set Nvidia dGPU the
+               =optimus-nvidia          Install Nvidia open kernel driver, set Nvidia dGPU the
                                         default rendering provider
-               =optimus-prime           Install Nvidia proprietary driver in PRIME render offload mode 
+               =optimus-prime           Install Nvidia open kernel driver in PRIME render offload mode 
      -h                                 This message
      -L <label>                         Set the ISO volume label
                                         Default: '${iso_label}'
      -l, --language <lang>              Set default language, select one from:
                                         cz, de, es, fr, gr, hu, it, nl, pl, pt, ro, rs, ru, tr, ua
-     --lts                              Replace the linux package and the nvidia package with the long
+     --lts                              Replace the linux package and the nvidia-open package with the long
                                         term support version. Only available for the default iso build mode.
      -m, --build-modes [build modes]    Build modes, comma separeted list. Valid modes are: 'bootstrap', 'img'
                                         and 'iso'. Default build mode is 'iso'.
@@ -431,9 +430,6 @@ _make_custom_airootfs() {
         if [[ "${iso_version_options[@]}" =~ 'nvidia-open' ]]; then
             [[ -d "${profile}/airootfs-options/graphics/nvidia-open" ]] && \
                 cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/nvidia-open/." "${pacstrap_dir}"
-        elif [[ "${iso_version_options[@]}" =~ 'nvidia' ]]; then
-            [[ -d "${profile}/airootfs-options/graphics/nvidia" ]] && \
-                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/nvidia/." "${pacstrap_dir}"
         elif [[ "${iso_version_options[@]}" =~ 'optimus-nvidia' ]]; then
             [[ -d "${profile}/airootfs-options/graphics/optimus-nvidia" ]] && \
                 cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/optimus-nvidia/." "${pacstrap_dir}"
@@ -1758,15 +1754,15 @@ _validate_common_requirements_buildmode_iso_netboot() {
         _msg_error "Packages file '${packages}' does not exist." 0
     fi
 
-    # Change to linux-lts and nvidia-lts packages if '--lts' option is used
+    # Change to linux-lts and nvidia-open-lts packages if '--lts' option is used
     # Remove broadcom-wl virtualbox-host-modules-arch from the package list because that would install 
     # the linux package as a dependency
     if [[ -n "${lts}" ]]; then
         for i in "${!pkg_list[@]}"; do
             if [[ "${pkg_list[$i]}" == "linux" ]]; then
                 pkg_list[$i]="linux-lts"
-            elif [[ "${pkg_list[$i]}" == "nvidia" ]]; then
-                pkg_list[$i]="nvidia-lts"
+            elif [[ "${pkg_list[$i]}" == "nvidia-open" ]]; then
+                pkg_list[$i]="nvidia-open-lts"
             elif [[ "${pkg_list[$i]}" == "broadcom-wl" ]]; then
                 pkg_list[$i]="linux-lts"
             elif [[ "${pkg_list[$i]}" == "virtualbox-guest-utils-nox" ]]; then
@@ -2643,16 +2639,13 @@ while true; do
         '--graphics')
             case "${2}" in
                 'nvidia')
-                    pkg_list_additions+=(nvidia nvidia-settings)
-                    iso_version_options+=(nvidia);;
-                'nvidia-open')
                     pkg_list_additions+=(nvidia-open nvidia-settings)
                     iso_version_options+=(nvidia-open);;
                 'optimus-nvidia')
-                    pkg_list_additions+=(nvidia nvidia-settings bbswitch)
+                    pkg_list_additions+=(nvidia-open nvidia-settings bbswitch)
                     iso_version_options+=(optimus-nvidia);;
                 'optimus-prime')
-                    pkg_list_additions+=(nvidia nvidia-settings nvidia-prime)
+                    pkg_list_additions+=(nvidia-open nvidia-settings nvidia-prime)
                     iso_version_options+=(optimus-prime);;
                 *)
                    echo "${2}: invalid argument!"
