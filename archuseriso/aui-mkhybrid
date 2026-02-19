@@ -279,7 +279,7 @@ _check() {
 _init() {
     local _esp_size _root_size
     drivesize=$(blockdev --getsize64 "${usb_device}")
-    iso_size=$(stat -c %s -- "${iso_file}")
+    #iso_size=$(stat -c %s -- "${iso_file}")
     # Check usb disk capacity
     if [[ ! ${drivesize} -gt $(( iso_size + FREESPACE * 1024 * 1024 )) ]]; then
         echo 'Storage capacity error!'
@@ -296,8 +296,8 @@ _init() {
         echo "Size settings error: exceeds disk size!"
         exit 1
     fi
-    # ISO size in MiB
-    iso_size=$(( iso_size / 1048576 ))
+    # ISO size in MiB, round up
+    #iso_size=$(( (iso_size + 1048575) / 1048576 ))
 }
 
 _confirm_write() {
@@ -360,7 +360,8 @@ _usb_prepare() {
     fi
 
     if [[ -f "${WD}/${workdir}/iso/${install_dir}/${arch}/airootfs.sfs" ]]; then
-        iso_size=$(( $(du -bs "${WD}/${workdir}/iso/${install_dir}/${arch}" | awk '{print $1}') / 1048576 * 108 / 100 ))
+        iso_size=$(( ($(du -bs "${WD}/${workdir}/iso/${install_dir}/${arch}" | awk '{print $1}') + 1048575) / 1048576 ))
+        iso_size=$(( iso_size * 103 / 100 ))
         copytoram_size=$(( $(stat -c %s "${WD}/${workdir}/iso/${install_dir}/${arch}/airootfs.sfs") + 1024 * 64 ))
     fi
 
@@ -452,7 +453,7 @@ _format() {
     _msg_info "Formating partitions"
     _msg_info "partition #1: type Ext4, label ${img_label}"
     if ! udevadm lock --device="${usb_device}1" -- \
-            mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -q -- "${usb_device}1" > /dev/null; then
+            mkfs.ext4 -L "${img_label}" -O encrypt -m 0 -T largefile4 -J size=16 -q -- "${usb_device}1" > /dev/null; then
         echo 'Formating partition failed!'
         exit 1
     fi
