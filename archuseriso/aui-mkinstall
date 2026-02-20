@@ -35,7 +35,8 @@ root_size=""
 usb_device=""
 username="archie"
 WD="${PWD}"
-workdir="$(mktemp -u auiwork.XXXXXXXX)"
+workdir="$(mktemp -d "${WD}/auiwork.XXXXXXXX")"
+workdir="${workdir##*/}"
 valid_medium_version="v14"
 zroot=""
 
@@ -340,7 +341,7 @@ _usb_prepare() {
             exit 1
         fi
     done
-    for mountpoint in "${workdir}" "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
+    for mountpoint in "${workdir}/"{iso,squashfs} "${workdir}/usb"{esp,rw}; do
         if [[ -e "${WD}/${mountpoint}" ]]; then
             echo "Error: mount point ${mountpoint} exists in working directory! Please delete or rename moint point before proceeding!"
             exit 1
@@ -524,7 +525,7 @@ _format() {
 
     # format root partition
     # Default ext4
-    _format_"${rootfs}"
+    "_format_${rootfs}"
 
     _msg_info "Done!"
 }
@@ -676,7 +677,7 @@ _esp() {
     # EFI boot loader setup
     for bootmode in "${bootmodes[@]}"; do
         if typeset -f "_esp_bootloader_cfg_${bootmode}" &> /dev/null; then
-            _esp_bootloader_cfg_${bootmode}
+            "_esp_bootloader_cfg_${bootmode}"
         fi
     done
 
@@ -705,7 +706,7 @@ _esp() {
 
     # Set default EFI boot loader
     if typeset -f "_esp_default_bootloader_${uefi_default_bootloader}" &> /dev/null; then
-        _esp_default_bootloader_${uefi_default_bootloader}
+        "_esp_default_bootloader_${uefi_default_bootloader}"
     fi
     _msg_info "Done!"
 }

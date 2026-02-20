@@ -22,7 +22,7 @@ loopdevice=""
 outdir="${PWD}/out"
 profile="/usr/share/archuseriso/hd2aui"
 workdir="${PWD}"
-auiwork="$(mktemp -u auiwork.XXXXXXXX)"
+auiwork="auiwork.pending"
 
 _help() {
     echo
@@ -104,7 +104,7 @@ _check() {
     [[ -v override_outdir ]] && outdir="${override_outdir}"
     [[ -d "${workdir}" ]] || install -d -m 0755 "${workdir}"
     [[ -d "${outdir}" ]] || install -d -m 0755 "${outdir}"
-    auiwork="${workdir}/${auiwork}"
+    auiwork="$(mktemp -d "${workdir}/auiwork.XXXXXXXX")"
 
     # check rootfs is an Arch Linux system
     if [[ ! -f "${rootfs_path}/usr/share/factory/etc/issue" ]]; then

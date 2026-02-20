@@ -12,7 +12,7 @@ set -e -u
 WD="$(pwd)"
 appname="${0##*/}"
 pkgbuild_dir="/usr/share/archuseriso/pkgbuild"
-auiwork="${WD}/$(mktemp -u auiwork.XXXXXXXX)"
+auiwork="$(mktemp -d "${WD}/auiwork.XXXXXXXX")"
 ar64="${auiwork}/archroot64"
 help="no"
 linuxtesting="no"
