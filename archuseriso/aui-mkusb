@@ -88,12 +88,12 @@ _msg_info() {
 _cleanup() {
     local _workdirs
     _workdirs=('overlay/boot' 'overlay' 'squashfs' 'home' 'iso' 'usbro' 'usbesp' 'usbrw')
-    for _workdir in ${_workdirs[*]}; do
+    for _workdir in "${_workdirs[@]}"; do
         if mountpoint -q -- "${WD}/${workdir}/${_workdir}"; then
             umount -- "${WD}/${workdir}/${_workdir}"
         fi
     done
-    for _workdir in ${_workdirs[*]}; do
+    for _workdir in "${_workdirs[@]}"; do
         if [[ -d "${WD}/${workdir}/${_workdir}" ]]; then
             rmdir -- "${WD}/${workdir}/${_workdir}"
         fi
