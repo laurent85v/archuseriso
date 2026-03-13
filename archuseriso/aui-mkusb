@@ -38,7 +38,15 @@ uefi_default_bootloader=""
 WD="${PWD}"
 workdir="$(mktemp -d "${WD}/auiwork.XXXXXXXX")"
 workdir="${workdir##*/}"
-valid_medium_version="v14"
+
+if [[ ! -r /usr/share/archuseriso/aui-lib.sh ]]; then
+    echo "Error: shared library /usr/share/archuseriso/aui-lib.sh not found!"
+    exit 1
+fi
+# shellcheck source=/usr/share/archuseriso/aui-lib.sh
+source /usr/share/archuseriso/aui-lib.sh
+
+valid_medium_version="${AUI_VALID_MEDIUM_VERSION}"
 
 _usage() {
     echo
@@ -78,11 +86,6 @@ _help() {
     echo "sudo ${appname} --size-esp=1G --size-cow=40G aui-xfce-linux_5_7_10-i3-0724-x64.iso /dev/sdc"
     echo
     exit "${1}"
-}
-
-_msg_info() {
-    local _msg="${1}"
-    printf '[%s] INFO: %s\n' "${appname}" "${_msg}"
 }
 
 _cleanup() {
@@ -478,35 +481,18 @@ _partitions() {
     _msg_info "Done!"
 }
 
-_format_btrfs() {
-    _msg_info "partition #3: type Btrfs, label ${cow_label}"
-    if ! udevadm lock --device="${cow_device}" -- \
-            mkfs.btrfs -L "${cow_label}" -- "${cow_device}" > /dev/null; then
-        echo 'Formating partition failed!'
-        exit 1
-    fi
-}
-
-_format_f2fs() {
-    _msg_info "partition #3: type F2FS, label ${cow_label}"
-    if ! udevadm lock --device="${cow_device}" -- \
-            mkfs.f2fs -l "${cow_label}" -O encrypt,extra_attr,compression -- "${cow_device}" > /dev/null; then
-        echo 'Formating partition failed!'
-        exit 1
-    fi
-}
-
 _format_ext4() {
-    _msg_info "partition #3: type Ext4, label ${cow_label}"
-    if ! udevadm lock --device="${cow_device}" -- \
-            mkfs.ext4 -L "${cow_label}" -O encrypt -q -- "${cow_device}" > /dev/null; then
+    local _label="${1}" _cow_device="${2}" _partnum="${3}"
+    _msg_info "partition #${_partnum}: type Ext4, label ${_label}"
+    if ! udevadm lock --device="${_cow_device}" -- \
+            mkfs.ext4 -L "${_label}" -O encrypt -q -- "${_cow_device}" > /dev/null; then
         echo 'Formating partition failed!'
         exit 1
     fi
     # disable ext4 journal
     if [[ "${ext4_journal}" == "no" ]]; then
         tune2fs -O '^has_journal' -- "${usb_device}1" &> /dev/null
-        tune2fs -O '^has_journal' -- "${cow_device}" &> /dev/null
+        tune2fs -O '^has_journal' -- "${_cow_device}" &> /dev/null
     fi
 }
 
@@ -530,7 +516,7 @@ _format() {
         _luks_format
     fi
     # Format persistent partition, filesystem type
-    "_format_${rootfs}"
+    "_format_${rootfs}" "${cow_label}" "${cow_device}" "3"
     _msg_info "Done!"
 }
 
@@ -567,46 +553,6 @@ _copy() {
     _msg_info "Copying live image to ${WD}/${workdir}/usbro"
     cp -r -- "${WD}/${workdir}/iso/${install_dir}/${arch}" "${WD}/${workdir}/usbro/${install_dir}"
     _msg_info "Done!"
-}
-
-# Make GRUB standalone EFI binary
-_make_grub_efi_binary() {
-    local _grub_efi_arch="${1}"
-    local _grub_efi_name="${2}"
-    local _grubmodules=()
-
-    IFS='' read -r -d '' grubembedcfg <<'EOF' || true
-regexp --set=1:archiso_bootdevice '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/?' "$cmdpath"
-if ! [ -d "$cmdpath" ]; then
-     # On some firmware, GRUB has a wrong cmdpath when booted from an optical disc.
-     # https://gitlab.archlinux.org/archlinux/archiso/-/issues/183
-     if regexp '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/[Bb][Oo][Oo][Tt]\/?$' "$cmdpath"; then
-         cmdpath="${archiso_bootdevice}/EFI/BOOT"
-     fi
-     if regexp '^\(([^)]+)\)\/?[Ee][Ff][Ii]\/[Gg][Rr][Uu][Bb]\/?$' "$cmdpath"; then
-         cmdpath="${archiso_bootdevice}/EFI/grub"
-     fi
-fi
-configfile "(${archiso_bootdevice})/grub/grub.cfg"
-EOF
-
-    printf '%s\n' "$grubembedcfg" > "${WD}/${workdir}/grub-embed.cfg"
-
-    # Create EFI binary
-    # Module list from https://bugs.archlinux.org/task/71382#comment202911
-    _grubmodules=(all_video at_keyboard boot btrfs cat chain configfile echo efifwsetup efinet ext2 f2fs fat font  \
-                  gfxmenu gfxterm gzio halt hfsplus iso9660 jpeg keylayouts linux loadenv loopback lsefi lsefimmap \
-                  minicmd normal part_apple part_gpt part_msdos png read reboot regexp search search_fs_file       \
-                  search_fs_uuid search_label serial sleep tpm usb usbserial_common usbserial_ftdi                 \
-                  usbserial_pl2303 usbserial_usbdebug video xfs zstd)
-     grub-mkstandalone -O "${_grub_efi_arch}"                                  \
-                       --modules="${_grubmodules[*]}"                          \
-                       --locales="en@quot"                                     \
-                       --themes=""                                             \
-                       --sbat=/usr/share/grub/sbat.csv                         \
-                       --disable-shim-lock                                     \
-                       -o "${WD}/${workdir}/usbesp/EFI/grub/${_grub_efi_name}" \
-                       "boot/grub/grub.cfg=${WD}/${workdir}/grub-embed.cfg"
 }
 
 _esp_bootloader_cfg_uefi.grub() {

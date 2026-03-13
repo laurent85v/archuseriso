@@ -20,6 +20,7 @@ install-scripts:
 	install -vD -m 755 archuseriso/aui-mkinstall          -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-run                -t $(BIN_DIR)/
 	install -vD -m 755 archuseriso/aui-buildzfs           -t $(BIN_DIR)/
+	install -vD -m 644 archuseriso/aui-lib.sh             -t $(PROFILE_DIR)/
 
 install-hd2aui:
 	install -d -m 755 $(PROFILE_DIR)
