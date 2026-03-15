@@ -137,8 +137,15 @@ _run() {
         device="${device#*usb}"
         device="${device#*\/}"
         device="${device%%/*}"
-        device="$(grep -- DEVNAME /sys/bus/usb/devices/"${device}"/uevent)"
+        if ! device="$(grep -- DEVNAME /sys/bus/usb/devices/"${device}"/uevent 2>/dev/null)"; then
+            echo "Error: DEVNAME not found in /sys/bus/usb/devices/${device}/uevent, aborting!"
+            exit 1
+        fi
         device="${device/DEVNAME=//dev/}"
+        if [[ -z "${device}" ]]; then
+            echo "Error: could not resolve USB device path, aborting!"
+            exit 1
+        fi
         qemu_options+=('-device' 'qemu-xhci,id=xhci'
                        '-device' "usb-host,bus=xhci.0,hostdevice=${device}")
     fi
