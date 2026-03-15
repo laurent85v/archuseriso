@@ -14,7 +14,7 @@
 # - edk2-ovmf (when UEFI booting)
 
 
-set -eu
+set -e -u -o pipefail
 
 isoimage=''
 ramsize=''

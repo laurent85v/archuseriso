@@ -7,7 +7,7 @@
 # Script to build the ZFS packages against the linux kernel 
 # for Arch Linux.
 
-set -e -u
+set -e -u -o pipefail
 
 WD="$(pwd)"
 appname="${0##*/}"

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-set -e -u
+set -e -u -o pipefail
 shopt -s extglob
 
 # Control the environment

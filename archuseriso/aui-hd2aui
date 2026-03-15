@@ -6,7 +6,7 @@
 #
 # Migrate an installed Arch Linux system to a compressed bootable disk image.
 
-set -e -u
+set -e -u -o pipefail
 
 # Control the environment
 umask 0022

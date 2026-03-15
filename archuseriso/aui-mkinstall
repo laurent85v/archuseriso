@@ -7,7 +7,7 @@
 # Make stardard installation on a bootable usb disk
 # using an Archuseriso iso image.
 
-set -e -u
+set -e -u -o pipefail
 
 appname="${0##*/}"
 btrfs_compress=""

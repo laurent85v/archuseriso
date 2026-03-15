@@ -7,7 +7,7 @@
 # Make a bootable live usb disk and a standard installation on a 
 # bootable usb disk from an archuseriso iso image.
 
-set -e -u
+set -e -u -o pipefail
 
 appname="${0##*/}"
 btrfs_compress=""
