@@ -86,17 +86,22 @@ _init () {
         pkgdest_makepkg="$(grep -s '^PKGDEST=' /etc/makepkg.conf || true)"
         pkgdest_makepkg="${pkgdest_makepkg#PKGDEST=}"
     fi
+    if ! pacman -Q jq &> /dev/null; then
+        echo 'jq package not installed, aborting!'
+        exit 0
+    fi
     pkgdest_makepkg="${pkgdest_makepkg:-"${WD}/out"}"
     pkgdest="${pkgdest:-${pkgdest_makepkg}}"
     mkdir -p -- "${ar64}" "${pkgdest}"
     if [[ -z "${release}" ]]; then
         mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
-                                  "${_link}"/latest |                                   \
-                                  grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+                                  "${_link}"/latest | \
+                                  jq -r '.assets[].browser_download_url')
     else
         mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
-                                  "${_link}" | grep "${release}" | \
-                                  grep browser_download_url | cut -d':' -f2- | sed 's/\"//g; s/^[[:blank:]]*//')
+                                  "${_link}" | \
+                                  jq -r --arg release "${release}" \
+                                     '.[] | select(.tag_name == $release) | .assets[].browser_download_url')
         if [[ -z "${zfssources:-}" ]]; then 
             echo "release ${release} not found, aborting!"
             exit 0

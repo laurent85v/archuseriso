@@ -137,7 +137,7 @@ _run() {
         device="${device#*usb}"
         device="${device#*\/}"
         device="${device%%/*}"
-        device="$(grep DEVNAME /sys/bus/usb/devices/"${device}"/uevent)"
+        device="$(grep -- DEVNAME /sys/bus/usb/devices/"${device}"/uevent)"
         device="${device/DEVNAME=//dev/}"
         qemu_options+=('-device' 'qemu-xhci,id=xhci'
                        '-device' "usb-host,bus=xhci.0,hostdevice=${device}")
