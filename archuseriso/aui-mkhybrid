@@ -358,7 +358,7 @@ _usb_prepare() {
     # source medium def variables
     source "${WD}/${workdir}/iso/.drive/mediumdef.sh"
     if [[ ! "${medium_version}" == "${valid_medium_version}" ]]; then
-        echo -e "Error: ${medium_version} iso image version mismatch. ${appname} requires a ${valid_medium_version} version!"
+        echo "Error: ${medium_version} iso image version mismatch. ${appname} requires a ${valid_medium_version} version!"
         echo
         _usage 1
     fi
@@ -407,9 +407,9 @@ _partitions() {
     _msg_info "Partition #1 in MiB: ${iso_size}"
     _msg_info "Partition #2 in MiB: ${esp_size}"
     _msg_info "Partition #3 in MiB: ${root_size:-All Free Space}"
-    if ! echo -e ",${iso_size}M,${_part_type_linux},\n\
-                  ,${esp_size}M,${_part_type_msft},\n\
-                  ,${root_size:+${root_size}M},\n" | \
+    if ! printf '%s\n' ",${iso_size}M,${_part_type_linux}," \
+                       ",${esp_size}M,${_part_type_msft}," \
+                       ",${root_size:+${root_size}M}," | \
             udevadm lock --device="${usb_device}" -- sfdisk -W always --append -- "${usb_device}" > /dev/null; then
         echo 'Partitioning disk Failed!'
         exit 1

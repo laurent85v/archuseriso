@@ -2105,7 +2105,9 @@ _build_img_image() {
     sleep 3
     partprobe -- "${_loopdevice}"
 
-    if ! echo -e ",${_rosize}MiB,L,\n,${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7,\n,+,L,\n" | \
+    if ! printf '%s\n' ",${_rosize}MiB,L," \
+                       ",${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7," \
+                       ",+,L," | \
             udevadm lock --device="${_loopdevice}" -- sfdisk --append  -W always -- "${_loopdevice}" &> /dev/null; then
         echo 'Failed to create partitions!'
         exit 1

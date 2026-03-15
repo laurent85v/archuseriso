@@ -325,7 +325,10 @@ _diskimage() {
        sfdisk -W always -- "${loopdevice}" &> /dev/null; then
         _msg_error "Setting up the GPT partition table failed! Aborting" 1
     fi
-    if ! echo -e ",${_liminelegacy}MiB,L,\n,${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7,\n,${_rosize}MiB,L,\n,+,L,\n" | \
+    if ! printf '%s\n' ",${_liminelegacy}MiB,L," \
+                       ",${_espsize}MiB,EBD0A0A2-B9E5-4433-87C0-68B6B72699C7," \
+                       ",${_rosize}MiB,L," \
+                       ",+,L," | \
             udevadm lock --device="${loopdevice}" -- sfdisk --append  -W always -- "${loopdevice}" &> /dev/null; then
         _msg_error "Setting up the Partitionning of the disk image failed! Aborting." 1
     fi
