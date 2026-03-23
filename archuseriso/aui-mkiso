@@ -1021,8 +1021,6 @@ _make_bootmode_bios.syslinux() {
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/lpxelinux.0" "${isofs_dir}/boot/syslinux/"
     install -m 0644 -- "${work_dir}/x86_64/airootfs/usr/lib/syslinux/bios/memdisk" "${isofs_dir}/boot/syslinux/"
 
-    _run_once _make_boot_on_iso9660
-
     if [[ -e "${isofs_dir}/boot/syslinux/hdt.c32" ]]; then
         install -d -m 0755 -- "${isofs_dir}/boot/syslinux/hdt"
         if [[ -e "${pacstrap_dir}/usr/share/hwdata/pci.ids" ]]; then
@@ -2499,9 +2497,10 @@ _build_iso_base() {
     _run_once _make_setup_mkinitcpio
     _run_once _make_pkglist
     _run_once _check_if_initramfs_has_ucode
-    if [[ "${buildmode}" == 'netboot' ]]; then
-        _run_once _make_boot_on_iso9660
-    else
+    # Copy the kernel and initramfs to ISO 9660 for boot loaders that can read the ISO 9660 file system and also for
+    # UEFI-bootable installation medium creation via file system transposition.
+    _run_once _make_boot_on_iso9660
+    if [[ "${buildmode}" != 'netboot' ]]; then
         _make_bootmodes
         _run_once _make_uefi_default_bootloader
     fi
