@@ -7,7 +7,7 @@ set -e -u
 sed -i 's/#\(en_US\.UTF-8\)/\1/' /etc/locale.gen
 locale-gen
 
-sed -i "s/#Server/Server/g" /etc/pacman.d/mirrorlist
+sed -E -i 's/#(Server = https:)/\1/g' /etc/pacman.d/mirrorlist
 
 # nsswitch.conf settings
 # * Avahi : add 'mdns_minimal'
