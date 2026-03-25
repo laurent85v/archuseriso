@@ -2249,11 +2249,7 @@ _read_profile() {
             packages="$(realpath -- "${profile}/packages")"
         fi
         packages="$(realpath -- "${packages:-${profile}/packages.${arch}}")"
-        # Use "bootstrap_packages" if it exists but "bootstrap_packages.${arch}" does not
-        if [[ -z "${bootstrap_packages}" && ! -e "${profile}/bootstrap_packages.${arch}" && -e "${profile}/bootstrap_packages" ]]; then
-            bootstrap_packages="$(realpath "${profile}/bootstrap_packages")"
-        fi
-        bootstrap_packages="$(realpath -- "${bootstrap_packages:-${profile}/bootstrap_packages.${arch}}")"
+        bootstrap_packages="$(realpath -- "${bootstrap_packages:-${profile}/bootstrap_packages}")"
         if [[ -n "${lang}" ]]; then
           packages_locales="$(realpath -- "${profile}/lang/${lang}/packages.${arch}")"
         fi
