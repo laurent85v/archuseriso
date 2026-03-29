@@ -176,10 +176,12 @@ secure_boot='off'
 working_dir="$(mktemp -dt auirun.XXXXXXXX)"
 trap cleanup_working_dir EXIT
 
-OPTS=$(getopt -o     'abd:hi:r:suv' \
-              --long 'bios,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
-              -n 'aui-run' -- "$@")
-[[ $? -eq 0 ]] || { print_help; exit 1; }
+if ! OPTS=$(getopt -o     'abd:hi:r:suv' \
+                   --long 'bios,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
+                   -n 'aui-run' -- "$@"); then
+    print_help
+    exit 1
+fi
 eval set -- "${OPTS}"
 
 unset OPTS
