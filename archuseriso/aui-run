@@ -19,6 +19,19 @@ set -e -u -o pipefail
 isoimage=''
 ramsize=''
 usbdrive=''
+declare -i accessibility=0
+readonly app_name="${0##*/}"
+boot_type='uefi'
+console=''
+display='sdl'
+image=''
+mediatype='cdrom'
+declare -i secure_boot=0
+declare -i use_vnc=0
+vga='virtio'
+working_dir="$(mktemp -dt auirun.XXXXXXXX)"
+trap cleanup_working_dir EXIT
+
 
 print_help() {
     local usagetext
@@ -104,26 +117,55 @@ _checks() {
 }
 
 _run() {
+    local -a qemu_options
+    local serial_option=()
+
+    # Set default qemu options
+    qemu_options=(
+        -boot 'menu=on,reboot-timeout=5000'
+        -m "${ramsize}"
+        -cpu max
+        -smp 4
+        -name 'archiso,process=archiso_0'
+        -display "${display}"
+        -device 'virtio-net-pci,romfile=,netdev=net0'
+        -netdev 'user,id=net0,hostfwd=tcp::60022-:22'
+        -device qemu-xhci
+        -device usb-kbd
+        -device usb-mouse
+        -device usb-tablet
+        -vga "${vga}"
+        -global ICH9-LPC.disable_s3=1
+        -no-reboot
+    )
+
+    if (( secure_boot )); then
+        printf '[%s] %s\n' "${app_name}" 'Using Secure Boot'
+        local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd'
+        qemu_options+=('-global' 'driver=cfi.pflash01,property=secure,value=on')
+    else
+        local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.4m.fd'
+        qemu_options+=('-global' 'driver=cfi.pflash01,property=secure,value=off')
+    fi
+
     if [[ "$boot_type" == 'uefi' ]]; then
         if ! pacman -Q edk2-ovmf &> /dev/null; then
             printf '[%s] ERROR: %s\n' "${app_name}" 'edk2-ovmf not installed, aborting!'
             exit 1
         fi
         copy_ovmf_vars
-        if [[ "${secure_boot}" == 'on' ]]; then
-            printf '[%s] %s\n' "${app_name}" 'Using Secure Boot'
-            local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd'
-        else
-            local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.4m.fd'
-        fi
         qemu_options+=('-drive' "if=pflash,format=raw,unit=0,file=${ovmf_code},read-only=on"
-                       '-drive' "if=pflash,format=raw,unit=1,file=${working_dir}/OVMF_VARS.4m.fd"
-                       '-global' "driver=cfi.pflash01,property=secure,value=${secure_boot}")
+                       '-drive' "if=pflash,format=raw,unit=1,file=${working_dir}/OVMF_VARS.4m.fd")
     fi
 
-    if [[ "${accessibility}" == 'on' ]]; then
+    if (( accessibility )); then
         qemu_options+=('-chardev' 'braille,id=brltty'
                        '-device' 'usb-braille,id=usbbrl,chardev=brltty')
+    fi
+
+    if (( use_vnc )); then
+        qemu_options+=('-device' 'virtio-gpu'
+                       -vnc 'vnc=0.0.0.0:0,vnc=[::]:0')
     fi
 
     if [[ "${isoimage}" == 'yes' ]]; then
@@ -151,34 +193,21 @@ _run() {
                        '-device' "usb-host,bus=xhci.0,hostdevice=${device}")
     fi
 
-    local serial_opt=()
-    [[ "${console}" == 'on' ]] && serial_opt=('-serial' 'stdio')
+    if (( EUID != 0 )); then
+        # Enable sound
+        qemu_options+=('-audiodev' 'pa,id=snd0'
+                       '-device' 'ich9-intel-hda'
+                       '-device' 'hda-output,audiodev=snd0'
+                       '-machine' 'type=q35,smm=on,accel=kvm,usb=on,pcspk-audiodev=snd0')
+    else
+        qemu_options+=('-machine' 'type=q35,smm=on,accel=kvm,usb=on')
+    fi
 
-    qemu-system-x86_64 \
-        -boot menu=on,reboot-timeout=5000 \
-        -m "${ramsize}" \
-        -name archiso,process=archiso_0 \
-        -display "${display}" \
-        -vga "${vga}" \
-        -device virtio-net-pci,romfile=,netdev=net0 -netdev user,id=net0 \
-        -global ICH9-LPC.disable_s3=1 \
-        "${qemu_options[@]}" \
-        "${serial_opt[@]}" \
-        -no-reboot
+    [[ "${console}" == 'on' ]] && serial_option=('-serial' 'stdio')
+    qemu_options+=("${serial_option[@]}")
+
+    qemu-system-x86_64 "${qemu_options[@]}"
 }
-
-accessibility=''
-readonly app_name="${0##*/}"
-boot_type='uefi'
-console=''
-display='sdl'
-image=''
-mediatype='cdrom'
-qemu_options=()
-secure_boot='off'
-vga='virtio'
-working_dir="$(mktemp -dt auirun.XXXXXXXX)"
-trap cleanup_working_dir EXIT
 
 if ! OPTS=$(getopt -o     'abcd:hi:r:suv' \
                    --long 'bios,console,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
@@ -194,7 +223,7 @@ unset OPTS
 while true; do
     case "${1}" in
         '-a')
-            accessibility='on'
+            accessibility=1
             shift ;;
         '-b'|'--bios')
             boot_type='bios'
@@ -221,7 +250,7 @@ while true; do
             ramsize="${2/[gG]}"
             shift 2 ;;
         '-s'|'--sb')
-            secure_boot='on'
+            secure_boot=1
             shift ;;
         '-u'|'--uefi')
             boot_type='uefi'
@@ -229,23 +258,13 @@ while true; do
         '-v'|'--vnc')
             display='none'
             vga='none'
-            qemu_options+=(-vnc 'vnc=0.0.0.0:0,vnc=[::]:0' '-device' 'virtio-gpu')
+            use_vnc=1
             shift ;;
         '--')
             shift
             break ;;
     esac
 done
-
-if (( EUID != 0 )); then
-    # Enable sound
-    qemu_options+=('-audiodev' 'pa,id=snd0'
-                   '-device' 'ich9-intel-hda'
-                   '-device' 'hda-output,audiodev=snd0'
-                   '-machine' 'type=q35,smm=on,accel=kvm,usb=on,pcspk-audiodev=snd0')
-else
-    qemu_options+=('-machine' 'type=q35,smm=on,accel=kvm,usb=on')
-fi
 
 _checks
 _run
