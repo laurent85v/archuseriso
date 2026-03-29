@@ -24,7 +24,7 @@ print_help() {
     local usagetext
     IFS='' read -r -d '' usagetext <<EOF || true
 Usage:
-    aui-run [options]
+    "${app_name}" [options]
 
 Options:
     -a                         set accessibility support using brltty (console profile only)
@@ -55,7 +55,7 @@ cleanup_working_dir() {
 
 copy_ovmf_vars() {
     if [[ ! -f '/usr/share/edk2/x64/OVMF_VARS.4m.fd' ]]; then
-        printf 'ERROR: %s\n' "OVMF_VARS.4m.fd not found. Install edk2-ovmf."
+        printf '[%s] ERROR: %s\n' "${app_name}" "OVMF_VARS.4m.fd not found. Install edk2-ovmf."
         exit 1
     fi
     cp -av -- '/usr/share/edk2/x64/OVMF_VARS.4m.fd' "${working_dir}/"
@@ -63,37 +63,37 @@ copy_ovmf_vars() {
 
 _checks() {
     if [[ -z "${isoimage}" && -z "${usbdrive}" ]]; then
-        printf 'ERROR: %s\n' "No iso image or usb device specified!"
+        printf '[%s] ERROR: %s\n' "${app_name}" "No iso image or usb device specified!"
         exit 1
     fi
     if [[ -n "${isoimage}" && -n "${usbdrive}" ]]; then
-        printf 'ERROR: %s\n' "iso image and usb device are mutually exclusive!"
+        printf '[%s] ERROR: %s\n' "${app_name}" "iso image and usb device are mutually exclusive!"
         exit 1
     fi
     if [[ -n "${isoimage}" && ! -f "$image" ]]; then
-        printf 'ERROR: %s\n' "Image file (${image}) does not exist."
+        printf '[%s] ERROR: %s\n' "${app_name}" "Image file (${image}) does not exist."
         exit 1
     fi
     if [[ -n "${usbdrive}" && ! $(stat -c %t "${device}" 2> /dev/null) -eq 8 ]]; then
-        echo "Error: ${device} is not a block device!"
+        printf '[%s] ERROR: %s\n' "${app_name}" "${device} is not a block device!"
         exit 1
     fi
     if [[ -n "${usbdrive}" && ! ( $(lsblk -dnro rm      "${device}" 2> /dev/null) -eq 1 || \
                                   $(lsblk -dnro hotplug "${device}" 2> /dev/null) -eq 1    ) ]]; then
-        echo "Error: ${device} is not a removable block device!"
+        printf '[%s] ERROR: %s\n' "${app_name}" "${device} is not a removable block device!"
         exit 1
     fi
     if [[ -n "${usbdrive}" && ! "$(lsblk -dnro tran "${device}" 2> /dev/null)" == 'usb' ]]; then
-        echo "Error: ${device} is not a usb device!"
+        printf '[%s] ERROR: %s\n' "${app_name}" "${device} is not a usb device!"
         exit 1
     fi
     if ! pacman -Q qemu &> /dev/null; then
-        echo 'qemu not installed, aborting!'
+        printf '[%s] ERROR: %s\n' "${app_name}" 'qemu not installed, aborting!'
         exit 0
     fi
     if [[ -n "${ramsize}" ]]; then
         if ! [[ "${ramsize}" =~ ^[1-9][0-9]?+$ ]]; then
-            echo "RAM size invalid argument (GiB): ${ramsize}"
+            printf '[%s] ERROR: %s\n' "${app_name}" "RAM size invalid argument (GiB): ${ramsize}"
             exit 1
         fi
         ramsize=$(( ramsize * 1024 ))
@@ -105,12 +105,12 @@ _checks() {
 _run() {
     if [[ "$boot_type" == 'uefi' ]]; then
         if ! pacman -Q edk2-ovmf &> /dev/null; then
-            echo 'edk2-ovmf not installed, aborting!'
+            printf '[%s] ERROR: %s\n' "${app_name}" 'edk2-ovmf not installed, aborting!'
             exit 0
         fi
         copy_ovmf_vars
         if [[ "${secure_boot}" == 'on' ]]; then
-            printf '%s\n' 'Using Secure Boot'
+            printf '[%s] %s\n' "${app_name}" 'Using Secure Boot'
             local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd'
         else
             local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.4m.fd'
@@ -138,12 +138,12 @@ _run() {
         device="${device#*\/}"
         device="${device%%/*}"
         if ! device="$(grep -- DEVNAME /sys/bus/usb/devices/"${device}"/uevent 2>/dev/null)"; then
-            echo "Error: DEVNAME not found in /sys/bus/usb/devices/${device}/uevent, aborting!"
+            printf '[%s] ERROR: %s\n' "${app_name}" "DEVNAME not found in /sys/bus/usb/devices/${device}/uevent, aborting!"
             exit 1
         fi
         device="${device/DEVNAME=//dev/}"
         if [[ -z "${device}" ]]; then
-            echo "Error: could not resolve USB device path, aborting!"
+            printf '[%s] ERROR: %s\n' "${app_name}" 'could not resolve USB device path, aborting!'
             exit 1
         fi
         qemu_options+=('-device' 'qemu-xhci,id=xhci'
@@ -166,6 +166,7 @@ _run() {
 }
 
 accessibility=''
+readonly app_name="${0##*/}"
 boot_type='uefi'
 display='sdl'
 image=''
