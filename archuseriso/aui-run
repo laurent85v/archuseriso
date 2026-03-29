@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # A simple script to run a bootable iso image or a bootable
-# usb drive using qemu. Both BIOS and UEFI booting is 
+# usb drive using qemu. Both BIOS and UEFI booting is
 # supported.
 #
 # Requirements:
@@ -40,7 +40,7 @@ Options:
 
 Examples:
     Run an image using UEFI:
-    $ aui-run --uefi --iso aui-xfce-linux_5_10_5-0108-x64.iso 
+    $ aui-run --uefi --iso aui-xfce-linux_5_10_5-0108-x64.iso
     Run a bootable usb drive using UEFI:
     $ sudo aui-run --uefi --device /dev/sdc
 EOF
@@ -58,7 +58,7 @@ copy_ovmf_vars() {
         printf '[%s] ERROR: %s\n' "${app_name}" "OVMF_VARS.4m.fd not found. Install edk2-ovmf."
         exit 1
     fi
-    cp -av -- '/usr/share/edk2/x64/OVMF_VARS.4m.fd' "${working_dir}/"
+    cp -a -- '/usr/share/edk2/x64/OVMF_VARS.4m.fd' "${working_dir}/"
 }
 
 _checks() {
@@ -70,7 +70,7 @@ _checks() {
         printf '[%s] ERROR: %s\n' "${app_name}" "iso image and usb device are mutually exclusive!"
         exit 1
     fi
-    if [[ -n "${isoimage}" && ! -f "$image" ]]; then
+    if [[ -n "${isoimage}" && ! -f "${image}" ]]; then
         printf '[%s] ERROR: %s\n' "${app_name}" "Image file (${image}) does not exist."
         exit 1
     fi
@@ -89,10 +89,10 @@ _checks() {
     fi
     if ! pacman -Q qemu &> /dev/null; then
         printf '[%s] ERROR: %s\n' "${app_name}" 'qemu not installed, aborting!'
-        exit 0
+        exit 1
     fi
     if [[ -n "${ramsize}" ]]; then
-        if ! [[ "${ramsize}" =~ ^[1-9][0-9]?+$ ]]; then
+        if ! [[ "${ramsize}" =~ ^[1-9][0-9]*$ ]]; then
             printf '[%s] ERROR: %s\n' "${app_name}" "RAM size invalid argument (GiB): ${ramsize}"
             exit 1
         fi
@@ -106,7 +106,7 @@ _run() {
     if [[ "$boot_type" == 'uefi' ]]; then
         if ! pacman -Q edk2-ovmf &> /dev/null; then
             printf '[%s] ERROR: %s\n' "${app_name}" 'edk2-ovmf not installed, aborting!'
-            exit 0
+            exit 1
         fi
         copy_ovmf_vars
         if [[ "${secure_boot}" == 'on' ]]; then
@@ -152,7 +152,7 @@ _run() {
 
     qemu-system-x86_64 \
         -boot order=d,menu=on,reboot-timeout=5000 \
-        -m "size=${ramsize},slots=0,maxmem=$((ramsize*1024*1024))" \
+        -m "${ramsize}" \
         -k en-us \
         -name archiso,process=archiso_0 \
         -display "${display}" \
@@ -225,8 +225,7 @@ while true; do
             shift ;;
         '--')
             shift
-            break 
-            exit 1 ;;
+            break ;;
     esac
 done
 
