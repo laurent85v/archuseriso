@@ -29,6 +29,7 @@ Usage:
 Options:
     -a                         set accessibility support using brltty (console profile only)
     -b, --bios                 set boot type to 'BIOS'
+    -c, --console              enable serial console output on stdio
     -d, --device device_name   set usb block device to boot from
     -h, --help                 print help
     -i, --iso image_name       image to boot into
@@ -150,34 +151,37 @@ _run() {
                        '-device' "usb-host,bus=xhci.0,hostdevice=${device}")
     fi
 
+    local serial_opt=()
+    [[ "${console}" == 'on' ]] && serial_opt=('-serial' 'stdio')
+
     qemu-system-x86_64 \
-        -boot order=d,menu=on,reboot-timeout=5000 \
+        -boot menu=on,reboot-timeout=5000 \
         -m "${ramsize}" \
-        -k en-us \
         -name archiso,process=archiso_0 \
         -display "${display}" \
-        -vga virtio \
+        -vga "${vga}" \
         -device virtio-net-pci,romfile=,netdev=net0 -netdev user,id=net0 \
         -global ICH9-LPC.disable_s3=1 \
-        -enable-kvm \
         "${qemu_options[@]}" \
-        -serial stdio \
+        "${serial_opt[@]}" \
         -no-reboot
 }
 
 accessibility=''
 readonly app_name="${0##*/}"
 boot_type='uefi'
+console=''
 display='sdl'
 image=''
 mediatype='cdrom'
 qemu_options=()
 secure_boot='off'
+vga='virtio'
 working_dir="$(mktemp -dt auirun.XXXXXXXX)"
 trap cleanup_working_dir EXIT
 
-if ! OPTS=$(getopt -o     'abd:hi:r:suv' \
-                   --long 'bios,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
+if ! OPTS=$(getopt -o     'abcd:hi:r:suv' \
+                   --long 'bios,console,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
                    -n 'aui-run' -- "$@"); then
     print_help
     exit 1
@@ -194,6 +198,9 @@ while true; do
             shift ;;
         '-b'|'--bios')
             boot_type='bios'
+            shift ;;
+        '-c'|'--console')
+            console='on'
             shift ;;
         '-d'|'--device')
             usbdrive='yes'
@@ -221,7 +228,8 @@ while true; do
             shift ;;
         '-v'|'--vnc')
             display='none'
-            qemu_options+=(-vnc 'vnc=0.0.0.0:0,vnc=[::]:0')
+            vga='none'
+            qemu_options+=(-vnc 'vnc=0.0.0.0:0,vnc=[::]:0' '-device' 'virtio-gpu')
             shift ;;
         '--')
             shift
