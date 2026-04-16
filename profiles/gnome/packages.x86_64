@@ -213,7 +213,6 @@ gnome-weather
 gsmartcontrol
 gvfs-dnssd
 gvfs-goa
-gvfs-google
 gvfs-gphoto2
 gvfs-nfs
 gvfs-onedrive
@@ -297,7 +296,6 @@ vulkan-tools
 # Optional
 bash-completion
 binutils
-byobu
 cpio
 cpupower
 cryfs

@@ -184,7 +184,6 @@ xterm
 ## Optional
 cryfs
 fprintd
-gvfs-google
 gvfs-gphoto2
 gvfs-nfs
 jre-openjdk
@@ -266,7 +265,6 @@ vulkan-tools
 # Optional
 bash-completion
 binutils
-byobu
 cpio
 cpupower
 fakeroot

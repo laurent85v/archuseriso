@@ -183,7 +183,6 @@ binutils
 cryfs
 fprintd
 gsmartcontrol
-gvfs-google
 gvfs-gphoto2
 gvfs-nfs
 jre-openjdk
@@ -260,7 +259,6 @@ vulkan-tools
 # Required
 #
 # Optional
-byobu
 cpio
 cpupower
 fakeroot

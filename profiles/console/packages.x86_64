@@ -136,7 +136,6 @@ zsh
 # Optional
 bash-completion
 binutils
-byobu
 cpio
 cpupower
 cryfs

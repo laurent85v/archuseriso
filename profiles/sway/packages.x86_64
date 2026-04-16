@@ -215,7 +215,6 @@ vulkan-tools
 # Optional
 bash-completion
 binutils
-byobu
 cpio
 cpupower
 fakeroot

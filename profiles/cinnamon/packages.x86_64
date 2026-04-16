@@ -203,7 +203,6 @@ gnome-remote-desktop
 #gnome-software-packagekit-plugin
 gnote
 gsmartcontrol
-gvfs-google
 gvfs-gphoto2
 gvfs-nfs
 jre-openjdk
@@ -286,7 +285,6 @@ vulkan-tools
 # Optional
 bash-completion
 binutils
-byobu
 cpio
 cpupower
 cryfs
