@@ -2,7 +2,7 @@
 
 pkgname=aui-ipxe
 pkgbase=ipxe
-pkgver=v1.21.1.r1180.g49f700a
+pkgver=v2.0.0.r53.gae8defc
 pkgrel=1
 pkgdesc="Archuseriso Network Bootloader"
 arch=(x86_64)
