@@ -78,7 +78,7 @@ ndisc6
 nfs-utils
 nilfs-utils
 nmap
-ntfs-3g
+ntfsprogs
 nvme-cli
 open-iscsi
 open-vm-tools
