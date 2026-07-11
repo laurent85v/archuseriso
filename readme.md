@@ -24,7 +24,6 @@ Based on [Archiso](https://wiki.archlinux.org/title/Archiso).
 
 - Console
 - Cinnamon
-- Cutefish
 - GNOME
 - i3
 - KDE Plasma
