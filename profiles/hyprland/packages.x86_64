@@ -1,0 +1,244 @@
+### Archiso packages
+##
+#
+alsa-utils
+amd-ucode
+arch-install-scripts
+archinstall
+b43-fwcutter
+base
+bcachefs-tools
+bind
+bolt
+btrfs-progs
+clonezilla
+cryptsetup
+darkhttpd
+ddrescue
+dhcpcd
+diffutils
+dmidecode
+dmraid
+dnsmasq
+dosfstools
+e2fsprogs
+edk2-shell
+efibootmgr
+ethtool
+exfatprogs
+f2fs-tools
+fatresize
+foot-terminfo
+fsarchiver
+ghostty-terminfo
+gpart
+gpm
+gptfdisk
+grml-zsh-config
+grub
+hdparm
+hyperv
+intel-ucode
+irssi
+iw
+iwd
+jfsutils
+kitty-terminfo
+kmscon-terminfo
+ldns
+less
+lftp
+libfido2
+libusb-compat
+linux
+linux-atm
+linux-firmware
+linux-firmware-marvell
+lsscsi
+lvm2
+lynx
+man-db
+man-pages
+mc
+mdadm
+memtest86+
+memtest86+-efi
+mkinitcpio
+mkinitcpio-archiso
+mkinitcpio-nfs-utils
+mmc-utils
+modemmanager
+mtools
+nano
+nbd
+ndisc6
+nfs-utils
+nilfs-utils
+nmap
+ntfsprogs
+nvme-cli
+open-iscsi
+open-vm-tools
+openbsd-netcat
+openconnect
+openpgp-card-tools
+openssh
+openvpn
+partclone
+parted
+partimage
+pcsclite
+ppp
+pptpclient
+pv
+qemu-guest-agent
+refind
+reflector
+rsync
+rxvt-unicode-terminfo
+screen
+sdparm
+sequoia-sq
+sg3_utils
+smartmontools
+sof-firmware
+squashfs-tools
+sudo
+syslinux
+systemd-resolvconf
+tcpdump
+terminus-font
+testdisk
+tmux
+tpm2-tools
+tpm2-tss
+udftools
+usb_modeswitch
+usbmuxd
+usbutils
+vim
+virtualbox-guest-utils-nox
+vpnc
+wireless-regdb
+wireless_tools
+wpa_supplicant
+wvdial
+xdg-utils
+xfsprogs
+xl2tpd
+zsh
+
+### Desktop packages
+##
+## Required or recommended
+acpi
+alsa-firmware
+foot
+intel-media-driver
+libcanberra
+libva-intel-driver
+libva-nvidia-driver
+libva-utils
+lsb-release
+mesa
+mobile-broadband-provider-info
+network-manager-applet
+noto-fonts
+pipewire-alsa
+pipewire-pulse
+hypridle
+hyprland
+hyprlock
+hyprpaper
+otf-font-awesome
+ttf-droid
+ttf-hack
+vdpauinfo
+waybar
+wireplumber
+weechat
+wmenu
+xdg-desktop-portal-hyprland
+xorg-xwayland
+
+## Optional
+aspell-en
+fuzzel
+jre-openjdk
+mako
+mesa-demos
+mesa-utils
+networkmanager-openconnect
+openpgp-card-tools
+networkmanager-openvpn
+networkmanager-pptp
+networkmanager-vpnc
+ranger
+slurp
+
+### Browser
+##
+# Recommended
+#chromium
+firefox
+
+### Printing
+##
+# Optional
+#cups-pdf cups-pk-helper
+
+### Nvidia graphics
+##
+# Proprietary drivers, experimental support, requires extra env variables
+#nvidia-open nvidia-settings bbswitch
+
+### Office
+##
+# Optional
+#abiword
+#gnumeric
+#hunspell-en_US libreoffice-fresh
+#hunspell-en_US libreoffice-still
+
+### Virtualbox guest
+##
+# Optional
+#virtualbox-guest-modules-arch virtualbox-guest-utils
+
+### Vulkan
+##
+# Optional
+vulkan-intel
+vulkan-mesa-layers
+vulkan-radeon
+vulkan-tools
+
+### Additional packages
+##
+# Required
+#
+# Optional
+bash-completion
+binutils
+cpio
+cpupower
+fakeroot
+fastfetch
+git
+grsync
+hddtemp
+hwinfo
+net-tools
+os-prober
+p7zip
+pacman-contrib
+powertop
+pwgen
+strace
+tree
+unrar
+wget
+whois
+wireguard-tools
+zip
+zsh-autosuggestions

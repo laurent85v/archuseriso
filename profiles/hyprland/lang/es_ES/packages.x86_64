@@ -1,0 +1,16 @@
+aspell-es
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-es-es
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-es hunspell-es_es
+#libreoffice-still-es hunspell-es_es

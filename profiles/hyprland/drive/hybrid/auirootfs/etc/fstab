@@ -1,0 +1,2 @@
+LABEL=%ESP_LABEL%   /boot   vfat   rw,relatime,fmask=0022,dmask=0022,codepage=437,iocharset=iso8859-1,shortname=mixed,utf8,errors=remount-ro   0   2
+LABEL=%ROOT_LABEL%  /home   btrfs  defaults,subvol=%BTRFS_SUBVOL_HOME%   0   0

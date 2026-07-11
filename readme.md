@@ -25,6 +25,7 @@ Based on [Archiso](https://wiki.archlinux.org/title/Archiso).
 - Console
 - Cinnamon
 - GNOME
+- Hyprland
 - i3
 - KDE Plasma
 - LXQt

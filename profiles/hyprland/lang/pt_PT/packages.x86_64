@@ -1,0 +1,16 @@
+aspell-pt
+
+### Extra packages for installation
+### * uncomment line to install package
+### * you may add new packages to the list
+
+### Browser
+##
+#
+firefox-i18n-pt-pt
+
+### Libreoffice
+##
+#
+#libreoffice-fresh-pt
+#libreoffice-still-pt
