@@ -1,0 +1,8 @@
+
+Archuseriso \S Hyprland Live on \l
+
+Two accounts are available (no password required):
+
+  * live  - regular user; logging in starts Hyprland automatically
+  * root  - administrator; drops to a shell
+
