@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Capture a screenshot on Hyprland: save under Pictures, copy to clipboard,
+# and show a desktop notification when possible.
+
+set -euo pipefail
+
+outdir="${XDG_PICTURES_DIR:-${HOME}/Pictures}"
+mkdir -p -- "${outdir}"
+
+file="${outdir}/screenshot-$(date +%Y%m%d-%H%M%S).png"
+
+if [[ "${1:-}" == "--region" || "${1:-}" == "-g" ]]; then
+    geom="$(slurp)" || exit 1
+    grim -g "${geom}" -- "${file}"
+else
+    grim -- "${file}"
+fi
+
+if command -v wl-copy >/dev/null 2>&1; then
+    wl-copy < "${file}"
+fi
+
+if command -v notify-send >/dev/null 2>&1; then
+    notify-send -a aui-screenshot -i "${file}" "Screenshot saved" "${file}"
+fi
+
+printf '%s\n' "${file}"

@@ -26,9 +26,9 @@ sed -i '/^hosts:/ {
 } > /dev/null 2>&1
 
 # Add live user
-# * groups member
+# * groups for desktop hardware access on the live medium
 # * user without password
 # * sudo no password settings
-useradd -m -G 'wheel' -s /bin/zsh live
+useradd -m -G 'wheel,audio,video,storage,optical,network,rfkill,input,lp,uucp' -s /bin/zsh live
 sed -i 's/^\(live:\)!:/\1:/' /etc/shadow
 sed -i 's/^#\s\(%wheel\s.*NOPASSWD\)/\1/' /etc/sudoers

@@ -2,6 +2,9 @@
 -- Returned as a table so other modules can reuse these values.
 
 return {
-    term = "foot",
+    term = "kitty",
     menu = "wmenu-run",
+    file_manager = "thunar",
+    browser = "firefox",
+    editor = "mousepad",
 }

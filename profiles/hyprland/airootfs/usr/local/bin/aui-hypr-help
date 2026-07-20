@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Show Archuseriso Hyprland keyboard shortcuts in a floating terminal.
+
+set -euo pipefail
+
+show_help() {
+    cat <<'EOF' | less -R
+Archuseriso Hyprland — keyboard shortcuts
+=========================================
+
+Session
+  Super + Shift + E     Exit Hyprland (return to login console)
+  Super + L             Lock screen (hyprlock)
+  Super + F1            This help
+
+Applications
+  Super + Return        Terminal (kitty)
+  Super + D             Application launcher (wmenu)
+  Super + E             File manager (Thunar)
+  Super + B             Web browser (Firefox)
+  Super + N             Text editor (Mousepad)
+
+Windows
+  Super + Q             Close focused window
+  Super + F             Toggle fullscreen
+  Super + V             Toggle floating
+  Super + arrows        Move focus
+  Super + Shift + arrows  Move window
+  Super + LMB drag      Move window
+  Super + RMB drag      Resize window
+
+Workspaces
+  Super + 1..5          Switch workspace (physical keys; AZERTY-safe)
+  Super + Shift + 1..5  Move window to workspace
+
+Screenshots & clipboard
+  Print                 Fullscreen screenshot → ~/Pictures + clipboard
+  Super + Shift + S     Region screenshot → ~/Pictures + clipboard
+  Super + Shift + V     Clipboard history (cliphist)
+
+Audio / brightness (hardware keys)
+  XF86Audio*            Volume / mute / media
+  XF86MonBrightness*    Brightness
+
+Tray / bar
+  Network applet        nm-applet (system tray)
+  Bluetooth             blueman-applet
+  Volume click (bar)    pavucontrol
+  Power icon (bar)      Exit Hyprland (with confirmation)
+
+Accounts (no password)
+  live                  Desktop user (starts Hyprland on tty1)
+  root                  Administrator shell
+
+Tips
+  nmtui                 Wi-Fi / WWAN from a terminal
+  Installation_guide    Open the Arch wiki install guide
+  gparted               Partition disks (needs root/sudo)
+
+Press q to close this window.
+EOF
+}
+
+# Nested invocation from a terminal emulator.
+if [[ "${1:-}" == "--pager" ]]; then
+    show_help
+    exit 0
+fi
+
+self="$(readlink -f -- "$0" 2>/dev/null || printf '%s' "$0")"
+
+# When already in a graphical session, open a dedicated floating terminal.
+if [[ -n ${WAYLAND_DISPLAY:-} || -n ${DISPLAY:-} ]]; then
+    if command -v kitty >/dev/null 2>&1; then
+        exec kitty --class aui-help -e "${self}" --pager
+    elif command -v foot >/dev/null 2>&1; then
+        exec foot -a aui-help "${self}" --pager
+    elif command -v alacritty >/dev/null 2>&1; then
+        exec alacritty -e "${self}" --pager
+    fi
+fi
+
+show_help

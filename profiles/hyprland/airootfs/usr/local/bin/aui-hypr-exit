@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Confirm, then exit Hyprland and return to the login console.
+# Used by the Waybar power button.
+
+set -euo pipefail
+
+prompt='Exit Hyprland and return to the console?'
+choice="$(printf 'Yes\nNo\n' | wmenu -i -p "${prompt}" -l 2)" || exit 0
+
+case "${choice}" in
+    Yes|yes|Y|y)
+        # Lua config (Hyprland >= 0.55): legacy "dispatch exit" is rejected.
+        hyprctl dispatch 'hl.dsp.exit()'
+        ;;
+    *)
+        exit 0
+        ;;
+esac

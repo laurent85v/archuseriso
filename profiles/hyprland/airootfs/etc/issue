@@ -3,6 +3,9 @@ Archuseriso \S Hyprland Live on \l
 
 Two accounts are available (no password required):
 
-  * live  - regular user; logging in starts Hyprland automatically
+  * live  - regular user; logging in on tty1 starts Hyprland
   * root  - administrator; drops to a shell
+
+Once in Hyprland: Super+F1 shows keyboard shortcuts.
+Wi-Fi / WWAN: use the network tray applet or run nmtui.
 

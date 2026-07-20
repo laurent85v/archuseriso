@@ -16,5 +16,6 @@ package.path = this_dir .. "?.lua;" .. this_dir .. "?/init.lua;" .. package.path
 require("config.monitors")     -- Display outputs
 require("config.looknfeel")    -- General appearance
 require("config.input")        -- Keyboard and touchpad
+require("config.windows")      -- Window rules
 require("config.autostart")    -- Programs started with the session
 require("config.keybindings")  -- Keyboard shortcuts

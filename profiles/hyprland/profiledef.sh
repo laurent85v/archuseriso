@@ -28,4 +28,7 @@ file_permissions=(
   ["/root/.gnupg"]="0:0:700"
   ["/usr/local/bin/choose-mirror"]="0:0:755"
   ["/usr/local/bin/Installation_guide"]="0:0:755"
+  ["/usr/local/bin/aui-screenshot"]="0:0:755"
+  ["/usr/local/bin/aui-hypr-help"]="0:0:755"
+  ["/usr/local/bin/aui-hypr-exit"]="0:0:755"
 )
