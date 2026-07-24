@@ -52,8 +52,8 @@ Tray / bar
   Power icon (bar)      Exit Hyprland (with confirmation)
 
 Accounts (no password)
-  live                  Desktop user (starts Hyprland on tty1)
-  root                  Administrator shell
+  live                  Default user (autologin on tty1; run start-hyprland)
+  root                  Administrator shell (other TTYs, or use sudo as live)
 
 Tips
   nmtui                 Wi-Fi / WWAN from a terminal
