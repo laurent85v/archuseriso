@@ -1456,7 +1456,7 @@ _validate_common_requirements_bootmode_uefi() {
     fi
 }
 
-_validate_requirements_bootmode.systemd-boot() {
+_validate_requirements_bootmode_uefi.systemd-boot() {
     # Check if mkfs.fat is available
     if ! command -v mkfs.fat &> /dev/null; then
         (( validation_error=validation_error+1 ))
@@ -1492,7 +1492,7 @@ _validate_requirements_bootmode.systemd-boot() {
     _run_once _validate_common_requirements_bootmode_uefi
 }
 
-_validate_requirements_bootmode.refind() {
+_validate_requirements_bootmode_uefi.refind() {
     # Check if mkfs.fat is available
     if ! command -v mkfs.fat &> /dev/null; then
         (( validation_error=validation_error+1 ))
