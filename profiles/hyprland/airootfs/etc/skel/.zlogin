@@ -14,9 +14,8 @@ if [[ -z ${DISPLAY:-} && -z ${WAYLAND_DISPLAY:-} && "$(tty)" == "/dev/tty1" ]]; 
   Run administrative commands with sudo (no password required):
     sudo <command>
 
-  Examples:
+  Example:
     sudo pacman -Syu
-    sudo gparted
 
   After exiting Hyprland you return to this console.
   Super+F1 inside Hyprland shows keyboard shortcuts.

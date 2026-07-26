@@ -14,11 +14,13 @@ hl.bind(mod .. " + E",         hl.dsp.exec_cmd(file_manager))
 hl.bind(mod .. " + B",         hl.dsp.exec_cmd(browser))
 hl.bind(mod .. " + N",         hl.dsp.exec_cmd(editor))
 hl.bind(mod .. " + Q",         hl.dsp.window.close())
--- Exit Hyprland and return to the login console (same as the Waybar power button).
-hl.bind(mod .. " + SHIFT + E", hl.dsp.exit())
+-- Alias matching the official Hyprland example (Super+C closes the active window).
+hl.bind(mod .. " + C",         hl.dsp.window.close())
+-- Confirm then exit (same path as the Waybar power button).
+hl.bind(mod .. " + SHIFT + E", hl.dsp.exec_cmd("aui-hypr-exit"))
 hl.bind(mod .. " + F",         hl.dsp.window.fullscreen({ action = "toggle" }))
 hl.bind(mod .. " + V",         hl.dsp.window.float({ action = "toggle" }))
-hl.bind(mod .. " + L",         hl.dsp.exec_cmd("hyprlock"))
+hl.bind(mod .. " + J",         hl.dsp.layout("togglesplit"))
 hl.bind(mod .. " + F1",        hl.dsp.exec_cmd("aui-hypr-help"))
 
 -- Clipboard history (cliphist)
@@ -40,13 +42,13 @@ hl.bind(mod .. " + SHIFT + right", hl.dsp.window.move({ direction = "r" }))
 hl.bind(mod .. " + SHIFT + up",    hl.dsp.window.move({ direction = "u" }))
 hl.bind(mod .. " + SHIFT + down",  hl.dsp.window.move({ direction = "d" }))
 
--- Workspaces
--- Bind by physical key code (code:10 = key "1" ... code:14 = key "5") instead of
--- the keysym, so switching works on any layout. On AZERTY (fr) the digits require
--- Shift, so a keysym bind like "SUPER + 1" would never trigger.
-for i = 1, 5 do
-    hl.bind(mod .. " + code:" .. (i + 9),         hl.dsp.focus({ workspace = i }))
-    hl.bind(mod .. " + SHIFT + code:" .. (i + 9), hl.dsp.window.move({ workspace = i }))
+-- Workspaces 1-10
+-- Bind by physical key code so switching works on any layout (e.g. AZERTY needs
+-- Shift for digit keysyms). code:10 = "1" ... code:18 = "9", code:19 = "0".
+for i = 1, 10 do
+    local code = (i == 10) and 19 or (i + 9)
+    hl.bind(mod .. " + code:" .. code,         hl.dsp.focus({ workspace = i }))
+    hl.bind(mod .. " + SHIFT + code:" .. code, hl.dsp.window.move({ workspace = i }))
 end
 
 -- Screenshots (grim + slurp + clipboard + notification)

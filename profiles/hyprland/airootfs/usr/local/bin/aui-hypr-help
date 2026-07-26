@@ -12,29 +12,29 @@ Archuseriso Hyprland — keyboard shortcuts
 =========================================
 
 Session
-  Super + Shift + E     Exit Hyprland (return to login console)
-  Super + L             Lock screen (hyprlock)
+  Super + Shift + E     Exit Hyprland (confirmation, then login console)
   Super + F1            This help
 
 Applications
   Super + Return        Terminal (kitty)
-  Super + D             Application launcher (wmenu)
+  Super + D             Application launcher (fuzzel)
   Super + E             File manager (Thunar)
   Super + B             Web browser (Firefox)
   Super + N             Text editor (Mousepad)
 
 Windows
-  Super + Q             Close focused window
+  Super + Q / Super + C Close focused window
   Super + F             Toggle fullscreen
   Super + V             Toggle floating
+  Super + J             Toggle dwindle split
   Super + arrows        Move focus
   Super + Shift + arrows  Move window
   Super + LMB drag      Move window
   Super + RMB drag      Resize window
 
 Workspaces
-  Super + 1..5          Switch workspace (physical keys; AZERTY-safe)
-  Super + Shift + 1..5  Move window to workspace
+  Super + 1..0          Switch workspace 1-10 (physical keys; AZERTY-safe)
+  Super + Shift + 1..0  Move window to workspace
 
 Screenshots & clipboard
   Print                 Fullscreen screenshot → ~/Pictures + clipboard

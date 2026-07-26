@@ -3,7 +3,7 @@
 
 return {
     term = "kitty",
-    menu = "wmenu-run",
+    menu = "fuzzel",
     file_manager = "thunar",
     browser = "firefox",
     editor = "mousepad",

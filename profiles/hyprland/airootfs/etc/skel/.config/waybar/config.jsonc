@@ -30,7 +30,7 @@
         "on-click": "activate",
         "format": "{name}",
         "persistent-workspaces": {
-            "*": 5
+            "*": 10
         }
     },
     "hyprland/window": {

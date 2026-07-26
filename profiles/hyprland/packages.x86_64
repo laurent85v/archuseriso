@@ -140,6 +140,7 @@ bluez-utils
 brightnessctl
 cliphist
 file-roller
+fuzzel
 gparted
 grim
 gvfs
@@ -169,6 +170,7 @@ noto-fonts
 noto-fonts-emoji
 otf-font-awesome
 pavucontrol
+pipewire
 pipewire-alsa
 pipewire-pulse
 playerctl
@@ -191,12 +193,12 @@ wmenu
 xdg-desktop-portal-gtk
 xdg-desktop-portal-hyprland
 xdg-user-dirs
+xorg-xhost
 xorg-xwayland
 
 
 ## Optional
 aspell-en
-fuzzel
 gvfs-smb
 jre-openjdk
 mesa-demos
