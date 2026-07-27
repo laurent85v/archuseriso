@@ -1,298 +1,267 @@
 # Archuseriso
 
-A collection of Bash scripts for creating bootable Arch Linux images and USB drives with desktop environments. Also includes tools to compress an installed Arch Linux system into a bootable disk image.
+Bash toolkit for building **Arch Linux live ISO/IMG** media and **USB** layouts from [archiso](https://wiki.archlinux.org/title/Archiso)-style profiles, plus utilities for persistence, full install-to-USB, hybrid media, ZFS package builds, and packing a running system into a bootable image.
 
-- [AUR Repository](https://aur.archlinux.org/packages/archuseriso)
-- [ISO Images](http://dl.gnutux.fr/archuseriso/iso)
-- [IMG Disk Images](http://dl.gnutux.fr/archuseriso/img)
-- [iPXE Network Bootloader Images](http://dl.gnutux.fr/archuseriso/ipxe)
-- [ZFS Packages](http://dl.gnutux.fr/archuseriso/zfsonlinux)
+| | |
+|---|---|
+| AUR | [archuseriso](https://aur.archlinux.org/packages/archuseriso) |
+| ISO | <http://dl.gnutux.fr/archuseriso/iso> |
+| IMG | <http://dl.gnutux.fr/archuseriso/img> |
+| iPXE | <http://dl.gnutux.fr/archuseriso/ipxe> |
+| ZFS pkgs | <http://dl.gnutux.fr/archuseriso/zfsonlinux> |
+| License | GPL-3.0-or-later |
 
-Based on [Archiso](https://wiki.archlinux.org/title/Archiso).
+Requires root for image/USB operations. Targets **x86_64**. Host needs a working Arch (or archuseriso-in-container) toolset: `pacstrap`, `mksquashfs`/`mkfs.erofs`, `xorriso`, firmware packages as for archiso.
 
-## Features
+## Scope
 
-- Desktop profiles
-- Language configuration
-- Data persistence
-- Filesystem choices: Ext4, Btrfs, F2FS, ZFS
-- Data encryption
-- ISO and IMG images
-- ZFS support
+- Multi-desktop **profiles** (package lists + `airootfs` overlays + bootloader fragments)
+- Live **ISO** and sparse **IMG** (`aui-mkiso`)
+- USB: **persistent live** (`aui-mkusb`), **install** (`aui-mkinstall`), **hybrid** (`aui-mkhybrid`)
+- Optional **encryption**, **Ext4 / Btrfs / F2FS** (and ZFS where scripted)
+- **ZFS** live support via in-tree package build (`aui-buildzfs` / `--zfs-support`)
+- **hd2aui**: squash a mounted installed system into an AUI-style bootable image
+- QEMU helper: `aui-run` (BIOS / UEFI)
+
+Boot modes are profile-defined (`profiledef.sh` → `bootmodes`). Typical combo: **BIOS `syslinux`**, **UEFI `systemd-boot`** (default), optional `uefi.grub` / `uefi.refind` (rEFInd as chainload entry, not sole primary on all firmware).
 
 ## Profiles
 
-- Console
-- Cinnamon
-- GNOME
-- Hyprland
-- i3
-- KDE Plasma
-- LXQt
-- MATE
-- Sway
-- Xfce
+| Profile | Session |
+|---------|---------|
+| `console` | Text-only rescue |
+| `cinnamon` | Cinnamon |
+| `gnome` | GNOME |
+| `hyprland` | Hyprland (Wayland compositor) |
+| `i3` | i3 (X11) |
+| `kde` | KDE Plasma |
+| `lxqt` | LXQt |
+| `mate` | MATE |
+| `sway` | Sway |
+| `xfce` | Xfce |
 
-## Installation
+Removed from the tree: **Cutefish**, **Deepin**.
 
-Archuseriso is available on the AUR: [archuseriso](https://aur.archlinux.org/packages/archuseriso/).
+Profiles live under `profiles/<name>/` (installed as `$PREFIX/share/archuseriso/profiles/`). Important files:
 
-Online images at [http://dl.gnutux.fr/archuseriso](http://dl.gnutux.fr/archuseriso) include archuseriso.
+| Path | Role |
+|------|------|
+| `profiledef.sh` | ISO metadata, `bootmodes`, permissions |
+| `packages.x86_64` | pacstrap set |
+| `airootfs/` | Rootfs overlay |
+| `lang/<locale>/` | Extra packages / locale bits |
+| `syslinux/`, `efiboot/`, `drive/` | Bootloader + USB helper trees |
 
-## Building ISO and Disk Images
+### Hyprland
 
-### Synopsis
+Wayland tiling compositor, not a full DE. Config is **Lua** (`hyprland.lua`, Hyprland ≥ 0.55). Live session: autologin as `live` on tty1, desktop started with **`start-hyprland`** (console remains usable after exit). Stack includes kitty, waybar, fuzzel, mako, thunar, hyprpaper/hyprlock/hypridle/hyprpolkitagent, portals. Super+F1 → shortcut help (`aui-hypr-help`).
 
+Sway follows a similar manual-session live pattern.
+
+## Install
+
+**AUR:** [archuseriso](https://aur.archlinux.org/packages/archuseriso)
+
+**From git:**
+
+```bash
+sudo make install          # scripts + profiles + docs; PREFIX=/usr/local by default
+sudo make install-scripts  # binaries only
 ```
-aui-mkiso [options] <profile path>
+
+Published ISOs at dl.gnutux.fr already ship the tools in the live environment.
+
+## Tools
+
+| Tool | Role |
+|------|------|
+| `aui-mkiso` | Build ISO / IMG / bootstrap from a profile |
+| `aui-mkusb` | Partition USB: live RO + ESP + persistence |
+| `aui-mkinstall` | Full system install onto USB from ISO |
+| `aui-mkhybrid` | Hybrid layout (live + installed root) |
+| `aui-hd2aui` | Compress mounted root → bootable AUI image |
+| `aui-buildzfs` | Build OpenZFS packages for the running kernel |
+| `aui-run` | QEMU boot of ISO or block device |
+
+Shared helpers: `aui-lib.sh`.
+
+---
+
+## aui-mkiso
+
+```text
+aui-mkiso [options] <profile_dir|profile_name>
 ```
 
-### Examples
+Profile name resolves under the installed profiles path (e.g. `xfce` → `…/profiles/xfce`).
 
-Xfce ISO with default options (both commands work):
+Notable options (non-exhaustive; see `aui-mkiso -h`):
 
-```
+| Option | Effect |
+|--------|--------|
+| `-m, --build-modes` | `iso` (default), `img`, `bootstrap` |
+| `-l, --language` | `cz de es fr gr hu it nl pl pt ro rs ru tr ua` |
+| `-p, --add-pkg` | Extra packages (comma-separated) |
+| `--pkg-dir` | Local package directory |
+| `--lts` | linux-lts (+ nvidia-open-lts when applicable) |
+| `--graphics=` | `nvidia` / `optimus-nvidia` / `optimus-prime` |
+| `--zfs-support` | Build/include ZFS packages |
+| `--embed-dir` | Embed tree on the medium |
+| `-o` | Output directory |
+
+Examples:
+
+```bash
 sudo aui-mkiso xfce
 sudo aui-mkiso /usr/share/archuseriso/profiles/xfce/
-```
 
-KDE Plasma ISO with German language:
-
-```
 sudo aui-mkiso --language=de kde
-```
-
-GNOME ISO with additional packages and custom package directory:
-
-```
 sudo aui-mkiso --add-pkg=firefox-ublock-origin,ntop --pkg-dir=~/mypackages gnome
-```
-
-Xfce disk image:
-
-```
-sudo aui-mkiso -m 'img' xfce
-```
-
-See [Writing Disc Images](https://wiki.archlinux.org/title/USB_flash_installation_medium#Using_basic_command_line_utilities) and [Burning DVDs](https://wiki.archlinux.org/title/Optical_disc_drive#Burning).
-
-## Creating a Bootable USB Drive with Persistence
-
-### Synopsis
-
-```
-aui-mkusb [options] <archuseriso iso image> <usb device>
-```
-
-### Example
-
-```
-sudo aui-mkusb aui-xfce-linux_5_7_10-0724-x64.iso /dev/sdc
-```
-
-### Disk Partitioning
-
-GPT layout:
-
-| Partition | Filesystem | Content          |
-|-----------|------------|------------------|
-| #1        | Ext4       | Squashfs image   |
-| #2        | EFI FAT    | Boot             |
-| #3        | Ext4/Btrfs/F2FS | Persistence |
-
-#### Btrfs Details
-
-Two subvolumes for persistence: `rootfs` and `home`.
-
-## Installing to a USB Drive
-
-### Synopsis
-
-```
-aui-mkinstall [options] <archuseriso iso image> <usb device>
-```
-
-### Example
-
-```
-sudo aui-mkinstall aui-xfce-linux_5_10_9-0121-x64.iso /dev/sdc
-```
-
-### Disk Partitioning
-
-GPT layout:
-
-| Partition | Filesystem | Content |
-|-----------|------------|---------|
-| #1        | EFI FAT    | Boot    |
-| #2        | Ext4/Btrfs/F2FS | System |
-
-The systemd journal is configured in volatile mode to reduce disk I/O.
-
-## Disk Image
-
-Bootable disk image with persistence.
-
-Write to USB device (e.g., /dev/sdc):
-
-```
-cat aui-xfce-linux_6_2_8-fr_FR-0327-x64.img > /dev/sdc
-```
-
-**Important:** Resize the GPT partition table on the USB drive using `parted`, `fdisk`, or `gparted`.
-
-Using `parted`:
-
-```
-echo Fix | sudo parted /dev/sdc ---pretend-input-tty print
-```
-
-The persistence partition is 128 MiB by default. Resize as needed.
-
-See [Writing Disk Images](https://wiki.archlinux.org/title/USB_flash_installation_medium#Using_basic_command_line_utilities).
-
-## iPXE Network Bootloader
-
-Network boot the latest live Xfce desktop from the Archuseriso server.
-
-Download an iPXE image from [http://dl.gnutux.fr/archuseriso/ipxe](http://dl.gnutux.fr/archuseriso/ipxe):
-
-- `aui-ipxe.iso`: CD-ROM for legacy BIOS
-- `aui-ipxe.img`: USB for legacy BIOS
-- `aui-ipxe-efi.iso`: CD-ROM for x64 UEFI
-- `aui-ipxe-efi.img`: USB for x64 UEFI
-- `aui-ipxe.efi`: x64 UEFI binary
-
-Boot the media to load the iPXE menu and start the live Xfce desktop.
-
-For wireless on laptops, use USB tethering (iPXE Wi-Fi not supported).
-
-## Adding ZFS Support
-
-Two methods:
-
-1. Use `--zfs-support` to auto-build and add ZFS packages.
-2. Use `--pkg-dir <path>` with pre-built ZFS packages.
-
-Example:
-
-```
+sudo aui-mkiso -m img xfce
+sudo aui-mkiso hyprland
 sudo aui-mkiso --zfs-support xfce
 ```
 
-### Building ZFS Packages
+Write ISO/IMG with usual block device tools; see [USB installation medium](https://wiki.archlinux.org/title/USB_flash_installation_medium#Using_basic_command_line_utilities).
 
-Build `zfs-utils`, `zfs-linux`, and `zfs-linux-headers` against the current kernel:
+---
 
-```
-sudo aui-buildzfs
-```
+## aui-mkusb
 
-### ZFS Root Filesystem
+Persistent live USB from an AUI ISO.
 
-Install to ZFS root using an ISO with ZFS support:
-
-```
-sudo aui-mkinstall --rootfs=zfs --username=foobar aui-xfce-linux_6_0_9-1123-x64.iso /dev/sdc
+```text
+aui-mkusb [options] <iso> <block-device>
 ```
 
-## Using Docker
-
-Download the `Dockerfile` from sources. Build the image:
-
-```
-sudo docker build -t archuseriso .
+```bash
+sudo aui-mkusb aui-xfce-….iso /dev/sdc
 ```
 
-Run in container:
+Default GPT layout:
 
-```
-sudo docker run --privileged --rm -it archuseriso
-[root@4dd3aab1018b /]# pacman -Q archuseriso
-```
+| # | FS | Role |
+|---|-----|------|
+| 1 | Ext4 | Squashfs / live payload |
+| 2 | FAT | ESP + bootloaders |
+| 3 | Ext4/Btrfs/F2FS | Persistence (optional LUKS) |
 
-**Limitation:** Building ZFS packages in Docker does not work.
+Btrfs persistence: subvolumes `rootfs` and `home`. Options cover ESP/COW size, rootfs type, encryption, MBR vs GPT (see `aui-mkusb -h`).
 
-## Compressing an Installed Arch Linux System
+---
 
-Mount the root filesystem (and home if separate) under a mount point.
+## aui-mkinstall
 
-### Synopsis
+Install the live system onto USB (writable root).
 
-```
-aui-hd2aui [options] <path to root filesystem>
-```
-
-### Example
-
-For system on /dev/sdc2 (root) and /dev/sdc3 (home):
-
-```
-sudo mount /dev/sdc2 /mnt/rootfs
-sudo mount /dev/sdc3 /mnt/rootfs/home
-sudo aui-hd2aui /mnt/rootfs/
+```text
+aui-mkinstall [options] <iso> <block-device>
 ```
 
-### Disk Partitioning
+```bash
+sudo aui-mkinstall aui-xfce-….iso /dev/sdc
+```
 
 GPT layout:
 
-| Partition | Filesystem | Content                      |
-|-----------|------------|------------------------------|
-| #1        | -          | Stage 2 bootloader (Legacy)  |
-| #2        | EFI FAT    | Boot                         |
-| #3        | Ext4       | Squashfs image               |
-| #4        | Ext4       | Persistence                  |
+| # | FS | Role |
+|---|-----|------|
+| 1 | FAT | ESP |
+| 2 | Ext4/Btrfs/F2FS/ZFS | Root |
 
-## Testing
+Journal is typically volatile to cut USB wear. ZFS root example:
 
-Use `aui-run` to test ISOs or USB drives in QEMU.
-
-### Examples
-
-Test ISO in BIOS legacy mode:
-
-```
-aui-run -i aui-xfce-linux_5_10_7-0116-x64.iso
+```bash
+sudo aui-mkinstall --rootfs=zfs --username=foobar aui-xfce-….iso /dev/sdc
 ```
 
-Test ISO in UEFI mode:
+(ISO must include ZFS packages.)
 
+---
+
+## aui-mkhybrid
+
+Combines live payload + installed system on one USB (see tool help for layout and options).
+
+---
+
+## IMG images
+
+`aui-mkiso -m img` produces a bootable disk image with a small default COW partition (~128 MiB). After writing to a stick, fix/resize GPT as needed:
+
+```bash
+cat aui-….img > /dev/sdc
+echo Fix | sudo parted /dev/sdc ---pretend-input-tty print
 ```
-aui-run -u -i aui-xfce-linux_5_10_7-0116-x64.iso
+
+---
+
+## ZFS
+
+```bash
+sudo aui-buildzfs                    # zfs-utils + zfs-linux(+headers) for current kernel
+sudo aui-mkiso --zfs-support xfce    # or --pkg-dir with prebuilt packages
 ```
 
-Test USB /dev/sdc in BIOS legacy mode:
+Docker: ZFS package builds are **not** supported inside the provided container workflow.
 
+---
+
+## aui-hd2aui
+
+Pack a mounted installed system into an AUI-style bootable image.
+
+```text
+aui-hd2aui [options] <mounted-root>
 ```
-sudo aui-run -d /dev/sdc
+
+```bash
+sudo mount /dev/sdc2 /mnt/rootfs
+sudo mount /dev/sdc3 /mnt/rootfs/home   # if separate
+sudo aui-hd2aui /mnt/rootfs/
 ```
 
-Test USB /dev/sdc in UEFI mode:
+Typical resulting GPT sketch: BIOS boot partition, ESP, squashfs RO, persistence.
 
+---
+
+## aui-run
+
+QEMU smoke tests (no automated suite).
+
+```bash
+aui-run -i path/to.iso          # BIOS
+aui-run -u -i path/to.iso       # UEFI
+sudo aui-run -d /dev/sdc        # USB, BIOS
+sudo aui-run -u -d /dev/sdc     # USB, UEFI
 ```
-sudo aui-run -u -d /dev/sdc
+
+---
+
+## Docker
+
+```bash
+sudo docker build -t archuseriso .
+sudo docker run --privileged --rm -it archuseriso
 ```
 
-## Programs
+Privileged + bind mounts as needed for ISO output. ZFS builds in Docker: unsupported.
 
-- `aui-hd2aui`: Compress an Arch Linux system to a bootable disk image.
-- `aui-mkiso`: Build bootable ISO or disk images.
-- `aui-mkusb`: Create bootable USB with persistence from ISO.
-- `aui-mkinstall`: Install to USB from ISO.
-- `aui-mkhybrid`: Create hybrid bootable USB (combines `aui-mkusb` without persistence and `aui-mkinstall`).
-- `aui-buildzfs`: Build ZFS packages from upstream OpenZFS sources.
-- `aui-run`: Test ISOs and USB drives in QEMU.
+---
+
+## iPXE
+
+Prebuilt loaders at <http://dl.gnutux.fr/archuseriso/ipxe> (`aui-ipxe*.iso|img|efi`) pull a live Xfce-class session from the project server. Wi-Fi under iPXE itself is not available; tether if required.
+
+---
+
+## Known issues
+
+- **rEFInd** as primary can fail on some UEFI firmwares; prefer systemd-boot + rEFInd chainload when both are present.
+- **Hyprland + Waybar** `hyprland/workspaces` click-to-switch can break with Hyprland ≥ 0.55 / protocol mismatch ([Waybar#5198](https://github.com/Alexays/Waybar/issues/5198)); keyboard workspace binds remain valid. Workaround: `ext/workspaces` + persistent workspace rules, or a fixed Waybar release when available.
+
+---
 
 ## Documentation
 
-Limited to this README. Refer to [Archiso documentation](https://wiki.archlinux.org/title/Archiso).
-
-Key files:
-
-- `profiles/<profile name>/packages.x86_64`: Package list
-- `profiles/<profile name>/profiledef.sh`: Profile configuration
-
-## Known Issues
-
-rEFInd Boot Manager may fail on some firmware.
+This file is the main doc. Profile and archiso conventions apply. Archiso reference: [Arch Wiki — Archiso](https://wiki.archlinux.org/title/Archiso).
