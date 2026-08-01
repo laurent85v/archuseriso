@@ -203,8 +203,6 @@ sudo aui-buildzfs                    # zfs-utils + zfs-linux(+headers) for curre
 sudo aui-mkiso --zfs-support xfce    # or --pkg-dir with prebuilt packages
 ```
 
-Docker: ZFS package builds are **not** supported inside the provided container workflow.
-
 ---
 
 ## aui-hd2aui
@@ -235,17 +233,6 @@ aui-run -u -i path/to.iso       # UEFI
 sudo aui-run -d /dev/sdc        # USB, BIOS
 sudo aui-run -u -d /dev/sdc     # USB, UEFI
 ```
-
----
-
-## Docker
-
-```bash
-sudo docker build -t archuseriso .
-sudo docker run --privileged --rm -it archuseriso
-```
-
-Privileged + bind mounts as needed for ISO output. ZFS builds in Docker: unsupported.
 
 ---
 
