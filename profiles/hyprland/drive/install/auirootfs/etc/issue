@@ -1,0 +1,14 @@
+
+Archuseriso \S Hyprland on \l
+
+Installed system (aui-mkinstall / aui-mkhybrid). No autologin.
+
+  Default user: archie
+  Passwords: none until you run passwd (user and root)
+
+  start-hyprland     Hyprland desktop
+  passwd             set your password
+  sudo <command>     wheel (password required after passwd)
+
+Log in as the install user or root, then start-hyprland if desired.
+
