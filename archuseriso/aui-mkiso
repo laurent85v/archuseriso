@@ -2171,7 +2171,8 @@ _build_img_image() {
 
     for _espfile in "${_esp_files_settings[@]}"; do
         if [[ -f "${work_dir}/imgp2/${_espfile}" ]]; then
-            sed -i -- "s|%DESKTOP%|${desktop}|g;
+            sed -i -- "s|%ARCH%|${arch}|g;
+                       s|%DESKTOP%|${desktop}|g;
                        s|%INSTALL_DIR%|${install_dir}|g;
                        s|%ARCHISO_LABEL%|RO${iso_label}|g;
                        s|%COW_LABEL%|COW${iso_label}|g;

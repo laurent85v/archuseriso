@@ -644,6 +644,12 @@ _settings() {
     if [[ -d "${WD}/${workdir}/usbrw/home/live" ]]; then
         _msg_info "Setting up user account ${username}"
         mv -- "${WD}/${workdir}/usbrw/home/live" "${WD}/${workdir}/usbrw/home/${username}"
+        if [[ -e "${WD}/${workdir}/usbrw/etc/skel" ]]; then
+            rsync -SHAXax --chown=$(stat -c "%u" "${WD}/${workdir}/usbrw/home/${username}")":"$(stat -c "%g" "${WD}/${workdir}/usbrw/home/${username}") "${WD}/${workdir}/usbrw/etc/skel/" "${WD}/${workdir}/usbrw/home/${username}"
+        fi
+        if [[ -e "${WD}/${workdir}/usbrw/etc/issue" ]]; then
+            sed -i -- "s/archie/${username}/g" "${WD}/${workdir}/usbrw/etc/issue"
+        fi
         sed -i -- "s/live/${username}/g" "${WD}/${workdir}/usbrw/etc/"{passwd,group,shadow,gshadow}
         if [[ -e "${WD}/${workdir}/usbrw/etc/samba/smb.conf" ]]; then
             sed -i -- "s/live/${username}/g" "${WD}/${workdir}/usbrw/etc/samba/smb.conf"

@@ -11,7 +11,7 @@
 _AUI_LIB_LOADED=1
 
 # Current supported medium version
-AUI_VALID_MEDIUM_VERSION="v14"
+AUI_VALID_MEDIUM_VERSION="v15"
 
 # ---------------------------------------------------------------------------
 # Logging
