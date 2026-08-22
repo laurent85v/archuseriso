@@ -225,14 +225,18 @@ Typical resulting GPT sketch: BIOS boot partition, ESP, squashfs RO, persistence
 
 ## aui-run
 
-QEMU smoke tests (no automated suite).
+QEMU smoke tests (BIOS SeaBIOS / UEFI OVMF). ISO is an AHCI CD with `bootindex=1`. USB sticks and IMG files should be attached as a **raw disk** (`--disk` / `-d`), not USB-host passthrough.
 
 ```bash
-aui-run -i path/to.iso          # BIOS
-aui-run -u -i path/to.iso       # UEFI
-sudo aui-run -d /dev/sdc        # USB, BIOS
-sudo aui-run -u -d /dev/sdc     # USB, UEFI
+aui-run -b -i path/to.iso                 # BIOS
+aui-run -u -i path/to.iso                 # UEFI (default)
+aui-run -b --disk path/to.img
+sudo aui-run -u --disk /dev/sdc           # USB as virtio-blk / AHCI
+aui-run -n -b -i path/to.iso              # print qemu argv
+aui-run -u -i path/to.iso -- -smp 8       # extra qemu-system-x86_64 args
 ```
+
+`--usb-host /dev/sdc` passthrough remains available (root; SeaBIOS often cannot boot it).
 
 ---
 

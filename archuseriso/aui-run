@@ -1,25 +1,22 @@
 #!/usr/bin/env bash
 #
 # Copyright (C) 2020 David Runge <dvzrv@archlinux.org>
-# Copyright (C) 2021 Laurent Jourden <laurent85@enarel.fr>
+# Copyright (C) 2021-2026 Laurent Jourden <laurent85@enarel.fr>
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# A simple script to run a bootable iso image or a bootable
-# usb drive using qemu. Both BIOS and UEFI booting is
-# supported.
-#
-# Requirements:
-# - qemu
-# - edk2-ovmf (when UEFI booting)
-
+# Run a bootable ISO, disk image, or block device in QEMU (BIOS or UEFI).
 
 set -e -u -o pipefail
 
 isoimage=''
 ramsize=''
 usbdrive=''
+usb_passthrough=''
+disk=''
 declare -i accessibility=0
+declare -i print_cmd=0
+declare -a extra_qemu=()
 readonly app_name="${0##*/}"
 boot_type='uefi'
 console=''
@@ -37,26 +34,34 @@ print_help() {
     local usagetext
     IFS='' read -r -d '' usagetext <<EOF || true
 Usage:
-    "${app_name}" [options]
+    ${app_name} [options] [-- extra qemu-system-x86_64 args]
 
-Options:
-    -a                         set accessibility support using brltty (console profile only)
-    -b, --bios                 set boot type to 'BIOS'
-    -c, --console              enable serial console output on stdio
-    -d, --device device_name   set usb block device to boot from
-    -h, --help                 print help
-    -i, --iso image_name       image to boot into
-    --hd                       set image type to hard disk instead of optical disc
-    -r, --ram integer[g/G]     set vm ram size in GiB (Default: 3)
-    -s, --sb                   use Secure Boot (only relevant when using UEFI)
-    -u, --uefi                 set boot type to 'UEFI' (default)
-    -v, --vnc                  use VNC display (instead of default SDL)
+Boot firmware:
+    -b, --bios                 SeaBIOS (legacy)
+    -u, --uefi                 OVMF (default)
+    -s, --sb                   Secure Boot (UEFI only)
+
+Medium (one of):
+    -i, --iso <file>           ISO (optical disc; use --hd to attach as disk)
+    --hd                       treat -i as a hard disk (IMG)
+    --disk <file|device>       raw disk (IMG or /dev/sdX) — preferred for USB sticks
+    -d, --device <device>      same as --disk (block device)
+    --usb-host <device>        USB passthrough of a physical stick (root; SeaBIOS often fails)
+
+Other:
+    -c, --console              serial on stdio
+    -r, --ram <integer>[gG]    RAM in GiB (default: 4)
+    -v, --vnc                  VNC :0 instead of SDL
+    -a                         brltty (console profile)
+    -n, --print-cmd            print the qemu command line before exec
+    -h, --help                 this help
 
 Examples:
-    Run an image using UEFI:
-    $ aui-run --uefi --iso aui-xfce-linux_5_10_5-0108-x64.iso
-    Run a bootable usb drive using UEFI:
-    $ sudo aui-run --uefi --device /dev/sdc
+    ${app_name} -b -i aui-xfce-….iso
+    ${app_name} -u -i aui-xfce-….iso
+    ${app_name} -b --disk aui-xfce-….img
+    sudo ${app_name} -u --disk /dev/sdc
+    ${app_name} -u -i aui-hyprland-….iso -- -smp 8
 EOF
     printf '%s' "${usagetext}"
 }
@@ -75,35 +80,52 @@ copy_ovmf_vars() {
     cp -a -- '/usr/share/edk2/x64/OVMF_VARS.4m.fd' "${working_dir}/"
 }
 
+_qemu_bin() {
+    if command -v qemu-system-x86_64 >/dev/null 2>&1; then
+        command -v qemu-system-x86_64
+        return
+    fi
+    printf '[%s] ERROR: %s\n' "${app_name}" 'qemu-system-x86_64 not found in PATH'
+    exit 1
+}
+
 _checks() {
-    if [[ -z "${isoimage}" && -z "${usbdrive}" ]]; then
-        printf '[%s] ERROR: %s\n' "${app_name}" "No iso image or usb device specified!"
+    local medium_count=0
+    [[ "${isoimage}" == 'yes' ]] && (( medium_count++ )) || true
+    [[ -n "${disk}" ]] && (( medium_count++ )) || true
+    [[ -n "${usb_passthrough}" ]] && (( medium_count++ )) || true
+
+    if (( medium_count < 1 )); then
+        printf '[%s] ERROR: %s\n' "${app_name}" "Specify -i, --disk/-d, or --usb-host."
         exit 1
     fi
-    if [[ -n "${isoimage}" && -n "${usbdrive}" ]]; then
-        printf '[%s] ERROR: %s\n' "${app_name}" "iso image and usb device are mutually exclusive!"
+    if (( medium_count > 1 )); then
+        printf '[%s] ERROR: %s\n' "${app_name}" "-i, --disk/-d, and --usb-host are mutually exclusive."
         exit 1
     fi
-    if [[ -n "${isoimage}" && ! -f "${image}" ]]; then
+    if [[ "${isoimage}" == 'yes' && ! -f "${image}" ]]; then
         printf '[%s] ERROR: %s\n' "${app_name}" "Image file (${image}) does not exist."
         exit 1
     fi
-    if [[ -n "${usbdrive}" && ! $(stat -c %t "${device}" 2> /dev/null) -eq 8 ]]; then
-        printf '[%s] ERROR: %s\n' "${app_name}" "${device} is not a block device!"
-        exit 1
+    if [[ -n "${disk}" ]]; then
+        if [[ ! -e "${disk}" ]]; then
+            printf '[%s] ERROR: %s\n' "${app_name}" "Disk (${disk}) does not exist."
+            exit 1
+        fi
+        if [[ -b "${disk}" && "${EUID}" -ne 0 ]]; then
+            printf '[%s] ERROR: %s\n' "${app_name}" "Opening a block device requires root."
+            exit 1
+        fi
     fi
-    if [[ -n "${usbdrive}" && ! ( $(lsblk -dnro rm      "${device}" 2> /dev/null) -eq 1 || \
-                                  $(lsblk -dnro hotplug "${device}" 2> /dev/null) -eq 1    ) ]]; then
-        printf '[%s] ERROR: %s\n' "${app_name}" "${device} is not a removable block device!"
-        exit 1
-    fi
-    if [[ -n "${usbdrive}" && ! "$(lsblk -dnro tran "${device}" 2> /dev/null)" == 'usb' ]]; then
-        printf '[%s] ERROR: %s\n' "${app_name}" "${device} is not a usb device!"
-        exit 1
-    fi
-    if ! pacman -Q qemu &> /dev/null; then
-        printf '[%s] ERROR: %s\n' "${app_name}" 'qemu not installed, aborting!'
-        exit 1
+    if [[ -n "${usb_passthrough}" ]]; then
+        if [[ ! -b "${usb_passthrough}" ]]; then
+            printf '[%s] ERROR: %s\n' "${app_name}" "${usb_passthrough} is not a block device."
+            exit 1
+        fi
+        if [[ "${EUID}" -ne 0 ]]; then
+            printf '[%s] ERROR: %s\n' "${app_name}" "USB passthrough requires root."
+            exit 1
+        fi
     fi
     if [[ -n "${ramsize}" ]]; then
         if ! [[ "${ramsize}" =~ ^[1-9][0-9]*$ ]]; then
@@ -112,50 +134,92 @@ _checks() {
         fi
         ramsize=$(( ramsize * 1024 ))
     else
-        ramsize=3072
+        ramsize=4096
     fi
+    if [[ "${boot_type}" == 'uefi' ]]; then
+        if [[ ! -f '/usr/share/edk2/x64/OVMF_CODE.4m.fd' ]]; then
+            printf '[%s] ERROR: %s\n' "${app_name}" 'edk2-ovmf firmware not found (OVMF_CODE.4m.fd).'
+            exit 1
+        fi
+    fi
+}
+
+# Resolve /dev/sdX (or similar) to a usb-host hostdevice path.
+_usb_hostdevice() {
+    local sysdev hostdev
+    sysdev="/sys/block/${1##*/}"
+    sysdev="$(readlink "${sysdev}")"
+    sysdev="${sysdev#*usb}"
+    sysdev="${sysdev#*/}"
+    sysdev="${sysdev%%/*}"
+    if ! hostdev="$(grep -- DEVNAME /sys/bus/usb/devices/"${sysdev}"/uevent 2>/dev/null)"; then
+        printf '[%s] ERROR: %s\n' "${app_name}" "DEVNAME not found in /sys/bus/usb/devices/${sysdev}/uevent"
+        exit 1
+    fi
+    hostdev="${hostdev/DEVNAME=//dev/}"
+    if [[ -z "${hostdev}" ]]; then
+        printf '[%s] ERROR: %s\n' "${app_name}" 'could not resolve USB device path'
+        exit 1
+    fi
+    printf '%s' "${hostdev}"
 }
 
 _run() {
     local -a qemu_options
-    local serial_option=()
+    local qemu_bin ovmf_code machine usbdev
+    qemu_bin="$(_qemu_bin)"
 
-    # Set default qemu options
+    if [[ "${boot_type}" == 'uefi' ]]; then
+        machine='type=q35,smm=on,accel=kvm:tcg,usb=on'
+    else
+        machine='type=q35,accel=kvm:tcg,usb=on'
+    fi
+    # Pulse/PipeWire needs XDG_RUNTIME_DIR; sudo typically has none (and cannot
+    # use the invoking user's session). Skip audio as root to avoid QEMU abort.
+    if [[ "${EUID}" -ne 0 ]]; then
+        if [[ -z "${XDG_RUNTIME_DIR:-}" && -n "${SUDO_UID:-}" && -d "/run/user/${SUDO_UID}" ]]; then
+            export XDG_RUNTIME_DIR="/run/user/${SUDO_UID}"
+        fi
+        if [[ -n "${XDG_RUNTIME_DIR:-}" && -d "${XDG_RUNTIME_DIR}" ]]; then
+            machine+=',pcspk-audiodev=snd0'
+        fi
+    fi
+
     qemu_options=(
         -boot 'menu=on,reboot-timeout=5000'
         -m "${ramsize}"
         -cpu max
         -smp 4
-        -name 'archiso,process=archiso_0'
+        -name 'archuseriso,process=aui_run'
+        -machine "${machine}"
         -display "${display}"
         -device 'virtio-net-pci,romfile=,netdev=net0'
         -netdev 'user,id=net0,hostfwd=tcp::60022-:22'
-        -device qemu-xhci
+        -device qemu-xhci,id=xhci
         -device usb-kbd
-        -device usb-mouse
         -device usb-tablet
         -vga "${vga}"
         -global ICH9-LPC.disable_s3=1
         -no-reboot
     )
 
-    if (( secure_boot )); then
-        printf '[%s] %s\n' "${app_name}" 'Using Secure Boot'
-        local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd'
-        qemu_options+=('-global' 'driver=cfi.pflash01,property=secure,value=on')
-    else
-        local ovmf_code='/usr/share/edk2/x64/OVMF_CODE.4m.fd'
-        qemu_options+=('-global' 'driver=cfi.pflash01,property=secure,value=off')
-    fi
-
-    if [[ "$boot_type" == 'uefi' ]]; then
-        if ! pacman -Q edk2-ovmf &> /dev/null; then
-            printf '[%s] ERROR: %s\n' "${app_name}" 'edk2-ovmf not installed, aborting!'
-            exit 1
+    if [[ "${boot_type}" == 'uefi' ]]; then
+        if (( secure_boot )); then
+            printf '[%s] %s\n' "${app_name}" 'Using Secure Boot'
+            ovmf_code='/usr/share/edk2/x64/OVMF_CODE.secboot.4m.fd'
+            qemu_options+=('-global' 'driver=cfi.pflash01,property=secure,value=on')
+        else
+            ovmf_code='/usr/share/edk2/x64/OVMF_CODE.4m.fd'
+            qemu_options+=('-global' 'driver=cfi.pflash01,property=secure,value=off')
         fi
         copy_ovmf_vars
-        qemu_options+=('-drive' "if=pflash,format=raw,unit=0,file=${ovmf_code},read-only=on"
-                       '-drive' "if=pflash,format=raw,unit=1,file=${working_dir}/OVMF_VARS.4m.fd")
+        qemu_options+=(
+            -drive "if=pflash,format=raw,unit=0,file=${ovmf_code},read-only=on"
+            -drive "if=pflash,format=raw,unit=1,file=${working_dir}/OVMF_VARS.4m.fd"
+        )
+    elif (( secure_boot )); then
+        printf '[%s] ERROR: %s\n' "${app_name}" 'Secure Boot requires UEFI (-u).'
+        exit 1
     fi
 
     if (( accessibility )); then
@@ -168,50 +232,64 @@ _run() {
                        -vnc 'vnc=0.0.0.0:0,vnc=[::]:0')
     fi
 
-    if [[ "${isoimage}" == 'yes' ]]; then
-        qemu_options+=('-device' 'virtio-scsi-pci,id=scsi0'
-                       '-device' "scsi-${mediatype%rom},bus=scsi0.0,drive=${mediatype}0"
-                       '-drive' "id=${mediatype}0,if=none,format=raw,media=${mediatype/hd/disk},read-only=on,file=${image}")
+    # ISO as AHCI optical disc (SeaBIOS + OVMF)
+    if [[ "${isoimage}" == 'yes' && "${mediatype}" == 'cdrom' ]]; then
+        qemu_options+=(
+            -device 'ich9-ahci,id=ahci'
+            -drive "id=cd0,if=none,format=raw,media=cdrom,read-only=on,file=${image}"
+            -device 'ide-cd,bus=ahci.0,drive=cd0,bootindex=1'
+        )
     fi
 
-    if [[ "${usbdrive}" == 'yes' ]]; then
-        device="/sys/block/${device##*/}"
-        device="$(readlink "${device}")"
-        device="${device#*usb}"
-        device="${device#*\/}"
-        device="${device%%/*}"
-        if ! device="$(grep -- DEVNAME /sys/bus/usb/devices/"${device}"/uevent 2>/dev/null)"; then
-            printf '[%s] ERROR: %s\n' "${app_name}" "DEVNAME not found in /sys/bus/usb/devices/${device}/uevent, aborting!"
-            exit 1
+    # IMG via -i --hd
+    if [[ "${isoimage}" == 'yes' && "${mediatype}" == 'hd' ]]; then
+        disk="${image}"
+    fi
+
+    # Raw disk (IMG or USB stick as block device)
+    if [[ -n "${disk}" ]]; then
+        qemu_options+=(
+            -drive "id=disk0,if=none,format=raw,file=${disk},cache=none"
+        )
+        if [[ "${boot_type}" == 'bios' ]]; then
+            qemu_options+=(
+                -device 'ich9-ahci,id=ahci'
+                -device 'ide-hd,bus=ahci.0,drive=disk0,bootindex=1'
+            )
+        else
+            qemu_options+=(-device 'virtio-blk-pci,drive=disk0,bootindex=1')
         fi
-        device="${device/DEVNAME=//dev/}"
-        if [[ -z "${device}" ]]; then
-            printf '[%s] ERROR: %s\n' "${app_name}" 'could not resolve USB device path, aborting!'
-            exit 1
-        fi
-        qemu_options+=('-device' 'qemu-xhci,id=xhci'
-                       '-device' "usb-host,bus=xhci.0,hostdevice=${device}")
     fi
 
-    if (( EUID != 0 )); then
-        # Enable sound
-        qemu_options+=('-audiodev' 'pa,id=snd0'
-                       '-device' 'ich9-intel-hda'
-                       '-device' 'hda-output,audiodev=snd0'
-                       '-machine' 'type=q35,smm=on,accel=kvm,usb=on,pcspk-audiodev=snd0')
-    else
-        qemu_options+=('-machine' 'type=q35,smm=on,accel=kvm,usb=on')
+    if [[ -n "${usb_passthrough}" ]]; then
+        usbdev="$(_usb_hostdevice "${usb_passthrough}")"
+        qemu_options+=(-device "usb-host,bus=xhci.0,hostdevice=${usbdev},bootindex=1")
     fi
 
-    [[ "${console}" == 'on' ]] && serial_option=('-serial' 'stdio')
-    qemu_options+=("${serial_option[@]}")
+    if [[ "${machine}" == *pcspk-audiodev* ]]; then
+        qemu_options+=(
+            -audiodev 'pa,id=snd0'
+            -device 'ich9-intel-hda'
+            -device 'hda-output,audiodev=snd0'
+        )
+    fi
 
-    qemu-system-x86_64 "${qemu_options[@]}"
+    [[ "${console}" == 'on' ]] && qemu_options+=(-serial stdio)
+
+    qemu_options+=("${extra_qemu[@]}")
+
+    if (( print_cmd )); then
+        printf '[%s] ' "${app_name}"
+        printf '%q ' "${qemu_bin}" "${qemu_options[@]}"
+        printf '\n'
+    fi
+
+    "${qemu_bin}" "${qemu_options[@]}"
 }
 
-if ! OPTS=$(getopt -o     'abcd:hi:r:suv' \
-                   --long 'bios,console,device:,hd,help,iso:,ram:,sb,uefi,vnc' \
-                   -n 'aui-run' -- "$@"); then
+if ! OPTS=$(getopt -o     'abcd:hi:nr:suv' \
+                   --long 'bios,console,device:,disk:,hd,help,iso:,print-cmd,ram:,sb,uefi,usb-host:,vnc' \
+                   -n "${app_name}" -- "$@"); then
     print_help
     exit 1
 fi
@@ -231,9 +309,9 @@ while true; do
         '-c'|'--console')
             console='on'
             shift ;;
-        '-d'|'--device')
+        '-d'|'--device'|'--disk')
+            disk="${2}"
             usbdrive='yes'
-            device="${2}"
             shift 2 ;;
         '-h'|'--help')
             print_help
@@ -246,6 +324,9 @@ while true; do
         '--hd')
             mediatype='hd'
             shift ;;
+        '-n'|'--print-cmd')
+            print_cmd=1
+            shift ;;
         '-r'|'--ram')
             ramsize="${2/[gG]}"
             shift 2 ;;
@@ -255,6 +336,9 @@ while true; do
         '-u'|'--uefi')
             boot_type='uefi'
             shift ;;
+        '--usb-host')
+            usb_passthrough="${2}"
+            shift 2 ;;
         '-v'|'--vnc')
             display='none'
             vga='none'
@@ -262,6 +346,7 @@ while true; do
             shift ;;
         '--')
             shift
+            extra_qemu=("$@")
             break ;;
     esac
 done
