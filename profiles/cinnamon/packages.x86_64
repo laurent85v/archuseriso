@@ -249,7 +249,7 @@ cups-pdf cups-pk-helper
 ### Nvidia graphics driver
 ##
 #
-#nvidia-open nvidia-settings bbswitch
+#nvidia-open nvidia-settings
 
 ### Office
 ##

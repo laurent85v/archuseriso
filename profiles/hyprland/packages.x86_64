@@ -221,7 +221,7 @@ firefox
 ### Nvidia graphics
 ##
 # Proprietary drivers, experimental support, requires extra env variables
-#nvidia-open nvidia-settings bbswitch
+#nvidia-open nvidia-settings
 
 ### Office
 ##

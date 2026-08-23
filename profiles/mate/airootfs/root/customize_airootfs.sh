@@ -17,7 +17,7 @@ sed -i '/^hosts:/ {
         s/\(dns\)$/\1 wins/ }' /etc/nsswitch.conf
 
 # Optimus setup
-if grep -q 'optimus' /version; then
+if grep -q 'optimus-nvidia' /version; then
     sed -i 's|^#\(display-setup-script=\)$|\1/etc/lightdm/display_setup.sh|' /etc/lightdm/lightdm.conf
 fi
 

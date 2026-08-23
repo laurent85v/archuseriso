@@ -121,12 +121,12 @@ usage: ${app_name} [options] <profile_dir>
                                         Passed to gpg as the value for --default-key
      -G, --gpgsender <mbox>             Set the PGP signer (must include an email address)
                                         Passed to gpg as the value for --sender
-     --graphics=<option>                Graphics driver options:
-               =nvidia                  Install Nvidia open kernel driver.
-                                        Nvidia Optimus on laptops (Intel iGPU & Nvidia dGPU):
-               =optimus-nvidia          Install Nvidia open kernel driver, set Nvidia dGPU the
-                                        default rendering provider
-               =optimus-prime           Install Nvidia open kernel driver in PRIME render offload mode 
+     --graphics=<option>                Nvidia open kernel driver (Turing+: GTX 16 / RTX 20 and newer).
+                                        Older GPUs: omit this option (nouveau).
+               =nvidia                  Dedicated Nvidia GPU.
+                                        Hybrid laptops (Intel/AMD iGPU & Nvidia dGPU):
+               =optimus-nvidia          Nvidia dGPU as the default rendering provider
+               =optimus-prime           PRIME render offload mode (prime-run) 
      -h                                 This message
      -L <label>                         Set the ISO volume label
                                         Default: '${iso_label}'
@@ -426,16 +426,10 @@ _make_custom_airootfs() {
             fi
         fi
 
-        # Nvidia airootfs tree
-        if [[ "${iso_version_options[@]}" =~ 'nvidia-open' ]]; then
-            [[ -d "${profile}/airootfs-options/graphics/nvidia-open" ]] && \
-                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/nvidia-open/." "${pacstrap_dir}"
-        elif [[ "${iso_version_options[@]}" =~ 'optimus-nvidia' ]]; then
+        # Nvidia reverse-PRIME overlay
+        if [[ "${iso_version_options[@]}" =~ 'optimus-nvidia' ]]; then
             [[ -d "${profile}/airootfs-options/graphics/optimus-nvidia" ]] && \
                 cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/optimus-nvidia/." "${pacstrap_dir}"
-        elif [[ "${iso_version_options[@]}" =~ 'optimus-prime' ]]; then
-            [[ -d "${profile}/airootfs-options/graphics/optimus-prime" ]] && \
-                cp -afL --no-preserve=ownership -- "${profile}/airootfs-options/graphics/optimus-prime/." "${pacstrap_dir}"
         fi
 
         # airootfs localization
@@ -2648,7 +2642,7 @@ while true; do
                     pkg_list_additions+=(nvidia-open nvidia-settings)
                     iso_version_options+=(nvidia-open);;
                 'optimus-nvidia')
-                    pkg_list_additions+=(nvidia-open nvidia-settings bbswitch)
+                    pkg_list_additions+=(nvidia-open nvidia-settings)
                     iso_version_options+=(optimus-nvidia);;
                 'optimus-prime')
                     pkg_list_additions+=(nvidia-open nvidia-settings nvidia-prime)

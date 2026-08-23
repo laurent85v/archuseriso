@@ -102,7 +102,7 @@ Notable options (non-exhaustive; see `aui-mkiso -h`):
 | `-p, --add-pkg` | Extra packages (comma-separated) |
 | `--pkg-dir` | Local package directory |
 | `--lts` | linux-lts (+ nvidia-open-lts when applicable) |
-| `--graphics=` | `nvidia` / `optimus-nvidia` / `optimus-prime` |
+| `--graphics=` | `nvidia` / `optimus-nvidia` / `optimus-prime` (nvidia-open, Turing+ only) |
 | `--zfs-support` | Build/include ZFS packages |
 | `--embed-dir` | Embed tree on the medium |
 | `-o` | Output directory |
