@@ -49,11 +49,9 @@ out_dir=""
 packages=""
 packages_locales=""
 pacman_conf=""
-pacman_testing_conf=""
 pacstrap_dir=""
 pkg_list=()
 pkg_list_additions=()
-pkg_testing_list=()
 profile=""
 quiet=""
 search_filename=""
@@ -102,8 +100,6 @@ usage: ${app_name} [options] <profile_dir>
      -A, --application  <application>   Set an application name for the ISO
                                         Default: '${iso_application}'
      --add-pkg, -p     PACKAGE(S)       Package(s) to install, comma seperated list
-     --add-pkg-testing PACKAGE(S)       Package(s) to install from testing repositories,
-                                        comma seperated list
      -c, --cert [cert ..]               Provide certificates for codesigning of netboot artifacts as
                                         well as the rootfs artifact.
                                         Multiple files are provided as quoted, comma delimited list.
@@ -138,8 +134,6 @@ usage: ${app_name} [options] <profile_dir>
                                         and 'iso'. Default build mode is 'iso'.
      -o <out_dir>                       Set the output directory
                                         Default: '${out_dir}'
-     --pacman-testing-conf <file>       pacman configuration file with testing repositories enabled.
-                                        Default: '${pacman_testing_conf}'
      --pkg-dir <path>                   Directory containing user packages to install,
                                         pkg.tar.xz or pkg.tar.zst package files.
      -P <publisher>                     Set the ISO publisher
@@ -183,12 +177,10 @@ _show_config() {
     _msg_info "                  Profile:   ${profile}"
     _msg_info "Code signing certificates:   ${cert_list[*]:-None}"
     _msg_info "Pacman configuration file:   ${pacman_conf}"
-    _msg_info "Pacman testing conf. file:   ${pacman_testing_conf}"
     _msg_info "         ISO volume label:   ${iso_label}"
     _msg_info "            ISO publisher:   ${iso_publisher}"
     _msg_info "          ISO application:   ${iso_application}"
     _msg_info "               Boot modes:   ${bootmodes[*]:-None}"
-    _msg_info "    Packages from testing:   ${pkg_testing_list[*]}"
     _msg_info "  User packages directory:   ${user_pkg_dir}"
     _msg_info "            Packages File:   ${buildmode_packages}"
     _msg_info "                 Packages:   ${buildmode_pkg_list[*]}"
@@ -376,36 +368,6 @@ _make_pacman_conf() {
     _msg_info "Done!"
 }
 
-# Set up custom pacman-testing.conf with custom cache and pacman hook directories.
-_make_pacman_testing_conf() {
-    local _cache_dirs _system_cache_dirs _profile_cache_dirs
-    _system_cache_dirs="$(pacman-conf CacheDir| tr '\n' ' ')"
-    _profile_cache_dirs="$(pacman-conf --config "${pacman_testing_conf}" CacheDir| tr '\n' ' ')"
-
-    # only use the profile's CacheDir, if it is not the default and not the same as the system cache dir
-    if [[ "${_profile_cache_dirs}" != "/var/cache/pacman/pkg" ]] && \
-        [[ "${_system_cache_dirs}" != "${_profile_cache_dirs}" ]]; then
-        _cache_dirs="${_profile_cache_dirs}"
-    else
-        _cache_dirs="${_system_cache_dirs}"
-    fi
-
-    _msg_info "Copying custom pacman-testing.conf to work directory..."
-    # take the profile pacman-testing.conf and strip all settings that would break in chroot when using pacman -r
-    # see `man 8 pacman` for further info
-    pacman-conf --config "${pacman_testing_conf}" | \
-        sed '/CacheDir/d;/DBPath/d;/HookDir/d;/LogFile/d;/RootDir/d' > "${work_dir}/pacman-testing.conf"
-    _msg_info "Done!"
-
-    _msg_info "Using pacman CacheDir: ${_cache_dirs}"
-    # append CacheDir and HookDir to [options] section
-    # HookDir is *always* set to the airootfs' override directory
-    sed "/\[options\]/a CacheDir = ${_cache_dirs}
-         /\[options\]/a HookDir = ${pacstrap_dir}/etc/pacman.d/hooks/" \
-        -i "${work_dir}/pacman-testing.conf"
-    _msg_info "Done!"
-}
-
 # Prepare working directory and copy custom root file system files.
 _make_custom_airootfs() {
     local passwd=()
@@ -501,33 +463,6 @@ _make_packages() {
         unset ARCHISO_TLSCA_FD
     fi
     if [[ -v gpg_publickey ]]; then
-        exec {ARCHISO_GNUPG_FD}<&-
-        unset ARCHISO_GNUPG_FD
-    fi
-
-    _msg_info "Done!"
-}
-
-# Packages in testing (airootfs)
-_make_packages_testing() {
-    _msg_info "Installing testing packages to '${pacstrap_dir}/'..."
-
-    if [[ -n "${gpg_key}" ]]; then
-        exec {ARCHISO_GNUPG_FD}<>"${work_dir}/pubkey.gpg"
-        export ARCHISO_GNUPG_FD
-    fi
-
-    # Unset TMPDIR to work around https://bugs.archlinux.org/task/70580
-    if [[ "${quiet}" = "y" ]]; then
-        env -u TMPDIR \
-          pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}" > /dev/null || \
-          _msg_error 'Package installation failed! Use --verbose option for details.' 1
-    else
-        env -u TMPDIR \
-          pacstrap -C "${work_dir}/pacman-testing.conf" -c -G -M -- "${pacstrap_dir}" "${pkg_testing_list[@]}"
-    fi
-
-    if [[ -n "${gpg_key}" ]]; then
         exec {ARCHISO_GNUPG_FD}<&-
         unset ARCHISO_GNUPG_FD
     fi
@@ -2249,7 +2184,6 @@ _read_profile() {
           packages_locales="$(realpath -- "${profile}/lang/${lang}/packages.${arch}")"
         fi
         pacman_conf="$(realpath -- "${pacman_conf}")"
-        [[ -n "${pacman_testing_conf}" ]] && pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
 
         cd -- "${OLDPWD}"
     fi
@@ -2302,12 +2236,6 @@ _validate_options() {
         _msg_error "${uefi_default_bootloader} is not a valid EFI boot loader!" 0
     fi
 
-    # Check if pacman-testing configuration file exists
-    if [[ -n "${pacman_testing_conf}" && ! -e "${pacman_testing_conf}" ]]; then
-        (( validation_error=validation_error+1 ))
-        _msg_error "File '${pacman_testing_conf}' does not exist." 0
-    fi
-
     if (( validation_error )); then
         _msg_error "${validation_error} errors were encountered while validating the profile. Aborting." 1
     fi
@@ -2339,12 +2267,6 @@ _set_overrides() {
         pacman_conf="/etc/pacman.conf"
     fi
     pacman_conf="$(realpath -- "${pacman_conf}")"
-    if [[ -v override_pacman_testing_conf ]]; then
-        pacman_testing_conf="${override_pacman_testing_conf}"
-    elif [[ -z "${pacman_testing_conf}" ]]; then
-        pacman_testing_conf="/etc/pacman_testing.conf"
-    fi
-    pacman_testing_conf="$(realpath -- "${pacman_testing_conf}")"
     # TODO: allow overriding bootstrap_pkg_list
     if [[ -v override_iso_label ]]; then
         iso_label="${override_iso_label}"
@@ -2485,11 +2407,9 @@ _build_iso_base() {
 
     _show_config
     _run_once _make_pacman_conf
-    [[ -n "${pacman_testing_conf}" ]] && _run_once _make_pacman_testing_conf
     [[ -z "${gpg_key}" ]] || _run_once _export_gpg_publickey
     _run_once _make_custom_airootfs
     _run_once _make_packages
-    [[ -n "${pkg_testing_list[*]}" ]] && _run_once _make_packages_testing
     [[ -n "${user_pkg_dir}" && -d "${user_pkg_dir}" ]] && _run_once _make_packages_upgrade
     _run_once _make_version
     _run_once _make_customize_airootfs
@@ -2592,11 +2512,11 @@ _build() {
 }
 
 OPTS=$(getopt -o '?A:C:c:D:g:G:hL:l:m:N:o:P:p:rvw:' \
-              -l 'addpkg:,addpkgtesting:,application:,embeddir:' \
-              -l 'add-pkg:,add-pkg-testing:,build-modes:,cert:,embed-dir:' \
+              -l 'addpkg:,application:,embeddir:' \
+              -l 'add-pkg:,build-modes:,cert:,embed-dir:' \
               -l 'gpgkey:,gpgsender:,graphics:,installdir:,label:,language:' \
-              -l 'lts,outdir:,pacman-testing-conf:,pkgdir:,publisher:' \
-              -l 'install-dir:,out-dir:,pacmantestingconf:,pkg-dir:' \
+              -l 'lts,outdir:,pkgdir:,publisher:' \
+              -l 'install-dir:,out-dir:,pkg-dir:' \
               -l 'verbose,workdir:,work-dir:,zfs-support' \
               -l 'remove-work-dir' \
               -l 'help' \
@@ -2611,9 +2531,6 @@ while true; do
             _usage 0 ;;
         '-p'|'--add-pkg'|'--addpkg')
             pkg_list_additions+=($(tr ',' ' ' <<< "${2}"))
-            shift 2 ;;
-        '--add-pkg-testing'|'--addpkgtesting')
-            pkg_testing_list=($(tr ',' ' ' <<< "${2}"))
             shift 2 ;;
         '-A'|'--application')
             override_iso_application="${2}"
@@ -2688,9 +2605,6 @@ while true; do
             shift 2 ;;
         '-o'|'--out-dir'|'--outdir')
             override_out_dir="${2}"
-            shift 2 ;;
-        '--pacman-testing-conf'|'--pacmantestingconf')
-            override_pacman_testing_conf="$(realpath -- "${2}")"
             shift 2 ;;
         '--pkg-dir'|'--pkgdir')
             user_pkg_dir="${2}"

@@ -17,7 +17,6 @@ bootmodes=('bios.syslinux'
 uefi_default_bootloader="uefi.systemd-boot"
 arch="x86_64"
 pacman_conf="pacman.conf"
-pacman_testing_conf="pacman-testing.conf"
 airootfs_image_type="squashfs"
 airootfs_image_tool_options=('-comp' 'zstd')
 bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical')
