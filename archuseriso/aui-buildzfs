@@ -16,6 +16,7 @@ auiwork=""
 ar64=""
 help="no"
 linuxtesting="no"
+yes="no"
 linuxversion=""
 modulesversion=""
 pkgdest=""
@@ -24,7 +25,9 @@ release=""
 SCRIPTUSER="${SUDO_USER:-}"
 zfsversion=""
 # https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
-ZFSPUBKEYS=(C77B9667 D4598027 C6AF658B)
+# Tony Hutter, Brian Behlendorf (same fingerprints as pkgbuild/*/PKGBUILD validpgpkeys)
+ZFSPUBKEYS=(4F3BA9AB6D1F8D683DC2DFB56AD860EED4598027
+            C33DF142657ED1F7C328A2960AB9E991C6AF658B)
 declare -a zfsmissingkeys=()
 declare -a zfspackages
 declare -a zfssources
@@ -56,6 +59,7 @@ _help () {
     echo '--pkgdest=<path>          Packages destination directory. Default: ./out'
     echo '-r, --release             OpenZFS release to build (2.1.2 or zfs-2.1.2).'
     echo "                          Default: latest. Example: ${appname} --release=2.1.2"
+    echo '-y, --yes                 Retrieve missing OpenZFS public keys without prompting'
     echo
     exit "${1}"
 }
@@ -190,7 +194,9 @@ _build_zfs () {
     rm -r -- "${auiwork}"
 }
 
-if ! OPTS=$(getopt -o 'D:,h,r:' -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:' -n "${appname}" -- "$@"); then
+if ! OPTS=$(getopt -o 'D:,h,r:,y' \
+        -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:,yes' \
+        -n "${appname}" -- "$@"); then
     _usage 1
 fi
 eval set -- "${OPTS}"
@@ -213,6 +219,9 @@ while true; do
         '-r'|'--release')
             release="${2}"
             shift 2 ;;
+        '-y'|'--yes')
+            yes="yes"
+            shift ;;
         '--')
             shift
             break ;;
@@ -239,7 +248,7 @@ if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
 fi
 
 
-for _zfspubkey in ${ZFSPUBKEYS[@]}; do
+for _zfspubkey in "${ZFSPUBKEYS[@]}"; do
     if ! sudo --user "${SCRIPTUSER}" gpg --list-public-keys "${_zfspubkey}" &> /dev/null; then
         zfsmissingkeys+=("${_zfspubkey}")
     fi
@@ -248,17 +257,24 @@ done
 if [[ -n "${zfsmissingkeys[*]}" ]]; then
     echo "Missing OpenZFS public keys: ${zfsmissingkeys[*]}"
     echo
-    read -r -n1 -p 'Retreive missing OpenZFS public keys (N/y)? '
-    echo
-    if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
-        echo 'Operation canceled by user!'
-        exit 0
+    if [[ "${yes}" != "yes" ]]; then
+        if [[ ! -t 0 ]]; then
+            echo "Pass --yes to retrieve missing OpenZFS public keys, aborting!"
+            exit 1
+        fi
+        read -r -n1 -p 'Retrieve missing OpenZFS public keys (N/y)? '
+        echo
+        if [[ ! "${REPLY}" =~ ^[Yy]$ ]]; then
+            echo 'Operation canceled by user!'
+            exit 0
+        fi
     fi
-    for _zfsmissingkey in ${zfsmissingkeys[@]}; do
-        if ! sudo --user "${SCRIPTUSER}" gpg --recv "${_zfsmissingkey}"; then
+    for _zfsmissingkey in "${zfsmissingkeys[@]}"; do
+        if ! sudo --user "${SCRIPTUSER}" gpg --recv-keys "${_zfsmissingkey}"; then
             echo
-            echo "Retreiving OpenZFS public key ${_zfsmissingkey} failed, aborting!"
+            echo "Retrieving OpenZFS public key ${_zfsmissingkey} failed, aborting!"
             echo
+            exit 1
         fi
     done
 fi
