@@ -1,6 +1,6 @@
 # Archuseriso
 
-Bash toolkit for building **Arch Linux live ISO/IMG** media and **USB** layouts from [archiso](https://wiki.archlinux.org/title/Archiso)-style profiles, plus utilities for persistence, full install-to-USB, hybrid media, ZFS package builds, and packing a running system into a bootable image.
+Bash toolkit for building **Arch Linux live ISO/IMG** media and **USB** layouts from [archiso](https://wiki.archlinux.org/title/Archiso)-style profiles, plus utilities for persistence, full install-to-USB, hybrid media, and ZFS package builds.
 
 | | |
 |---|---|
@@ -20,7 +20,6 @@ Requires root for image/USB operations. Targets **x86_64**. Host needs a working
 - USB: **persistent live** (`aui-mkusb`), **install** (`aui-mkinstall`), **hybrid** (`aui-mkhybrid`)
 - Optional **encryption**, **Ext4 / Btrfs / F2FS** (and ZFS where scripted)
 - **ZFS** live support via in-tree package build (`aui-buildzfs` / `--zfs-support`)
-- **hd2aui**: squash a mounted installed system into an AUI-style bootable image
 - QEMU helper: `aui-run` (BIOS / UEFI)
 
 Boot modes are profile-defined (`profiledef.sh` → `bootmodes`). Typical combo: **BIOS `syslinux`**, **UEFI `systemd-boot`** (default), optional `uefi.grub` / `uefi.refind` (rEFInd as chainload entry, not sole primary on all firmware).
@@ -79,7 +78,6 @@ Published ISOs at dl.gnutux.fr already ship the tools in the live environment.
 | `aui-mkusb` | Partition USB: live RO + ESP + persistence |
 | `aui-mkinstall` | Full system install onto USB from ISO |
 | `aui-mkhybrid` | Hybrid layout (live + installed root) |
-| `aui-hd2aui` | Compress mounted root → bootable AUI image |
 | `aui-buildzfs` | Build OpenZFS packages for the running kernel |
 | `aui-run` | QEMU boot of ISO or block device |
 
@@ -202,24 +200,6 @@ echo Fix | sudo parted /dev/sdc ---pretend-input-tty print
 sudo aui-buildzfs                    # zfs-utils + zfs-linux(+headers) for current kernel
 sudo aui-mkiso --zfs-support xfce    # or --pkg-dir with prebuilt packages
 ```
-
----
-
-## aui-hd2aui
-
-Pack a mounted installed system into an AUI-style bootable image.
-
-```text
-aui-hd2aui [options] <mounted-root>
-```
-
-```bash
-sudo mount /dev/sdc2 /mnt/rootfs
-sudo mount /dev/sdc3 /mnt/rootfs/home   # if separate
-sudo aui-hd2aui /mnt/rootfs/
-```
-
-Typical resulting GPT sketch: BIOS boot partition, ESP, squashfs RO, persistence.
 
 ---
 
