@@ -15,7 +15,6 @@ pkgbuild_dir="/usr/share/archuseriso/pkgbuild"
 auiwork=""
 ar64=""
 help="no"
-linuxtesting="no"
 yes="no"
 linuxversion=""
 modulesversion=""
@@ -55,7 +54,6 @@ _help () {
     echo 'Options:'
     echo '-h, --help                Command line help'
     echo "-D, --pkgbuild-dir=<path> Path to pkgbuild directory (default: ${pkgbuild_dir})"
-    echo '--linuxtesting            Build packages against the linux kernel in testing repository'
     echo '--pkgdest=<path>          Packages destination directory. Default: ./out'
     echo '-r, --release             OpenZFS release to build (2.1.2 or zfs-2.1.2).'
     echo "                          Default: latest. Example: ${appname} --release=2.1.2"
@@ -129,18 +127,6 @@ _create_archroot64 () {
         -M /usr/share/devtools/makepkg.conf.d/x86_64.conf \
         -c /var/cache/pacman/pkg \
         -- "${ar64}/root" base linux linux-headers base-devel > /dev/null
-    if [[ "${linuxtesting}" == "yes" ]]; then
-        unshare --fork --pid pacman --config "${pkgbuild_dir}/pacman-testing.conf" --root "${ar64}/root" -Sy
-        if unshare --fork --pid pacman --config "${pkgbuild_dir}/pacman-testing.conf" --root "${ar64}/root" -Si testing/linux; then
-            pacstrap -C "${pkgbuild_dir}/pacman-testing.conf" -c -G -M "${ar64}/root" linux linux-headers > /dev/null
-        else
-            echo
-            echo 'No linux package in testing currently, aborting!'
-            echo
-            rm -r -- "${auiwork}"
-            exit 1
-        fi
-    fi
     _msg_info "Done!"
 }
 
@@ -195,7 +181,7 @@ _build_zfs () {
 }
 
 if ! OPTS=$(getopt -o 'D:,h,r:,y' \
-        -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:,yes' \
+        -l 'help,pkgbuild-dir:,pkgdest:,release:,yes' \
         -n "${appname}" -- "$@"); then
     _usage 1
 fi
@@ -206,9 +192,6 @@ while true; do
     case "${1}" in
         '-h'|'--help')
             help="yes"
-            shift ;;
-        '--linuxtesting')
-            linuxtesting="yes"
             shift ;;
         '-D'|'--pkgbuild-dir')
             pkgbuild_dir="${2}"
