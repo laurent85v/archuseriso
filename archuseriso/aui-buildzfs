@@ -12,8 +12,8 @@ set -e -u -o pipefail
 WD="$(pwd)"
 appname="${0##*/}"
 pkgbuild_dir="/usr/share/archuseriso/pkgbuild"
-auiwork="$(mktemp -d "${WD}/auiwork.XXXXXXXX")"
-ar64="${auiwork}/archroot64"
+auiwork=""
+ar64=""
 help="no"
 linuxtesting="no"
 linuxversion=""
@@ -54,8 +54,8 @@ _help () {
     echo "-D, --pkgbuild-dir=<path> Path to pkgbuild directory (default: ${pkgbuild_dir})"
     echo '--linuxtesting            Build packages against the linux kernel in testing repository'
     echo '--pkgdest=<path>          Packages destination directory. Default: ./out'
-    echo '-r, --release             Specify the zfs release version to build.'
-    echo "                          Example: ${appname} --release=2.1.2"
+    echo '-r, --release             OpenZFS release to build (2.1.2 or zfs-2.1.2).'
+    echo "                          Default: latest. Example: ${appname} --release=2.1.2"
     echo
     exit "${1}"
 }
@@ -72,14 +72,15 @@ _cleanup() {
 }
 
 _init () {
-    local _link="https://api.github.com/repos/openzfs/zfs/releases"
+    local _json _link _tag _url
+    _link="https://api.github.com/repos/openzfs/zfs/releases"
     if ! pacman -Q devtools &> /dev/null; then
         echo 'devtools package not installed, aborting!'
-        exit 0
+        exit 1
     fi
     if ! pacman -Q pacman-contrib &> /dev/null; then
         echo 'pacman-contrib package not installed, aborting!'
-        exit 0
+        exit 1
     else
         # check host PKGDEST setting in /etc/makepkg.conf
         # where packages created have to be placed
@@ -88,30 +89,32 @@ _init () {
     fi
     if ! pacman -Q jq &> /dev/null; then
         echo 'jq package not installed, aborting!'
-        exit 0
+        exit 1
     fi
     pkgdest_makepkg="${pkgdest_makepkg:-"${WD}/out"}"
     pkgdest="${pkgdest:-${pkgdest_makepkg}}"
     mkdir -p -- "${ar64}" "${pkgdest}"
     if [[ -z "${release}" ]]; then
-        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
-                                  "${_link}"/latest | \
-                                  jq -r '.assets[].browser_download_url')
+        _url="${_link}/latest"
     else
-        mapfile -t zfssources < <(curl --silent --retry 3 --retry-connrefused --fail -- \
-                                  "${_link}" | \
-                                  jq -r --arg release "${release}" \
-                                     '.[] | select(.tag_name == $release) | .assets[].browser_download_url')
-        if [[ -z "${zfssources:-}" ]]; then 
-            echo "release ${release} not found, aborting!"
-            exit 0
-        fi
+        _tag="${release}"
+        [[ "${_tag}" == zfs-* ]] || _tag="zfs-${_tag}"
+        _url="${_link}/tags/${_tag}"
     fi
-    zfsversion="${zfssources[0]%/zfs-*}"
-    zfsversion="${zfsversion#*-}"
-    if [[ -z "${zfsversion}" ]]; then
+    if ! _json="$(curl --silent --retry 3 --retry-connrefused --fail -- "${_url}")"; then
+        if [[ -n "${release}" ]]; then
+            echo "release ${release} not found, aborting!"
+        else
+            echo 'Retrieving ZFS data failed, aborting!'
+        fi
+        exit 1
+    fi
+    zfsversion="$(jq -r '.tag_name' <<< "${_json}")"
+    zfsversion="${zfsversion#zfs-}"
+    mapfile -t zfssources < <(jq -r '.assets[].browser_download_url' <<< "${_json}")
+    if [[ -z "${zfsversion}" || "${zfsversion}" == "null" || -z "${zfssources:-}" ]]; then
         echo 'Retrieving ZFS data failed, aborting!'
-        exit 0
+        exit 1
     fi
 }
 
@@ -134,6 +137,7 @@ _create_archroot64 () {
 }
 
 _build_zfs () {
+    local _zfs_install=() _zfspkg
     linuxversion=$(pacman --sysroot "${ar64}/root" -Q linux | cut -d' ' -f2)
     if [[ "$(cut -d'.' -f3 <<< "${linuxversion}")" =~ 'arch' ]]; then
         modulesversion="${linuxversion%.arch*}.0-${linuxversion##*.}"
@@ -155,21 +159,36 @@ _build_zfs () {
 
     _msg_info "Building zfs-utils & zfs-utils-debug"
     LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-    mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
+    mapfile -t zfspackages < <(find -- "${auiwork}/zfs-utils" -type f \
+        \( -name 'zfs-utils-*.pkg.tar.zst' -o -name 'zfs-utils-*.pkg.tar.xz' \) \
+        ! -name 'zfs-utils-debug-*' | sort)
+    if [[ ${#zfspackages[@]} -eq 0 ]]; then
+        echo 'zfs-utils package not found, aborting!'
+        exit 1
+    fi
     _msg_info "Done!"
 
     cd -- "${auiwork}/zfs-linux/"
-    _msg_info "Building zfs-linux & zfs-linux-headers" 
-    LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" -I "${zfspackages[0]}" -I "${zfspackages[1]}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
-    mapfile -t zfspackages < <(find -- "${auiwork}/"{zfs-utils,zfs-linux} | grep -E '\.pkg\.tar\.(zst|xz)$')
+    _msg_info "Building zfs-linux & zfs-linux-headers"
+    for _zfspkg in "${zfspackages[@]}"; do
+        _zfs_install+=(-I "${_zfspkg}")
+    done
+    LC_ALL=C sudo --user "${SCRIPTUSER}" makechrootpkg -r "${ar64}" "${_zfs_install[@]}" -- PKGDEST="" --cleanbuild --clean --force --syncdeps --needed --noconfirm --noprogressbar
+    mapfile -t zfspackages < <(find -- "${auiwork}/zfs-utils" "${auiwork}/zfs-linux" -type f \
+        \( -name '*.pkg.tar.zst' -o -name '*.pkg.tar.xz' \) | sort)
+    if [[ ${#zfspackages[@]} -eq 0 ]]; then
+        echo 'ZFS packages not found, aborting!'
+        exit 1
+    fi
     _msg_info "Done!"
 
     cp -- "${zfspackages[@]}" "${pkgdest}"
     rm -r -- "${auiwork}"
 }
 
-OPTS=$(getopt -o 'C:,D:,h,r:' -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:' -n "${appname}" -- "$@")
-[[ $? -eq 0 ]] || _usage 1
+if ! OPTS=$(getopt -o 'D:,h,r:' -l 'help,linuxtesting,pkgbuild-dir:,pkgdest:,release:' -n "${appname}" -- "$@"); then
+    _usage 1
+fi
 eval set -- "${OPTS}"
 unset OPTS
 
@@ -212,7 +231,7 @@ if [[ "${SCRIPTUSER}" = 'root' || -z "${SUDO_USER:-}" ]]; then
     echo
     echo 'The script must be run from a _user session_ using sudo!'
     echo 'Aborting...'
-    exit 0
+    exit 1
 fi
 
 
@@ -240,6 +259,8 @@ if [[ -n "${zfsmissingkeys[*]}" ]]; then
     done
 fi
 
+auiwork="$(mktemp -d "${WD}/auiwork.XXXXXXXX")"
+ar64="${auiwork}/archroot64"
 trap _cleanup EXIT
 _init
 _create_archroot64
