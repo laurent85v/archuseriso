@@ -1609,9 +1609,9 @@ _validate_requirements_airootfs_image_type_squashfs() {
 }
 
 _validate_requirements_airootfs_image_type_ext4+squashfs() {
-    if ! { command -v mkfs.ext4 &> /dev/null && command -v tune2fs &> /dev/null; }; then
+    if ! command -v mkfs.ext4 &> /dev/null; then
         (( validation_error=validation_error+1 ))
-        _msg_error "Validating '${airootfs_image_type}': mkfs.ext4 and/or tune2fs is not available on this host. Install 'e2fsprogs'!" 0
+        _msg_error "Validating '${airootfs_image_type}': mkfs.ext4 is not available on this host. Install 'e2fsprogs'!" 0
     fi
     _validate_requirements_airootfs_image_type_squashfs
 }
