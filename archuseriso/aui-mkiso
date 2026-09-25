@@ -50,6 +50,7 @@ packages=""
 packages_locales=""
 pacman_conf=""
 pacstrap_dir=""
+boot_dir=""
 pkg_list=()
 pkg_list_additions=()
 profile=""
@@ -698,20 +699,20 @@ _fat_image_common_efiboot_files() {
 
     if (( need_external_ucodes )); then
         for _file in "${ucodes[@]}"; do
-            if [[ -e "${pacstrap_dir}/boot/${_file}" ]]; then
-                _available_ucodes+=("${pacstrap_dir}/boot/${_file}")
+            if [[ -e "${boot_dir}/${_file}" ]]; then
+                _available_ucodes+=("${boot_dir}/${_file}")
             fi
         done
     fi
 
-    efiboot_files+=("${pacstrap_dir}/boot/vmlinuz-"*
-                    "${pacstrap_dir}/boot/initramfs-"*".img"
+    efiboot_files+=("${boot_dir}/vmlinuz-"*
+                    "${boot_dir}/initramfs-"*".img"
                     "${_available_ucodes[@]}")
     [[ -f "${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi" ]] && \
         efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi")
     [[ -f "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]] && \
         efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
-    [[ -f "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]] && efiboot_files+=("${pacstrap_dir}/boot/memtest86+/memtest.efi")
+    [[ -f "${boot_dir}/memtest86+/memtest.efi" ]] && efiboot_files+=("${boot_dir}/memtest86+/memtest.efi")
 }
 
 _make_common_bootmode_grub_cfg() {
@@ -824,11 +825,18 @@ _fat_image_efiboot_files_uefi.systemd-boot() {
                     "${work_dir}/loader/")
 }
 
+# Copy /boot out of the airootfs so that its files survive _cleanup_pacstrap_dir.
+_copy_boot_out_of_pacstrap_dir() {
+    _msg_info "Copying /boot out of the airootfs..."
+    _unshare cp -aT -- "${pacstrap_dir}/boot" "${boot_dir}"
+    _msg_info "Done!"
+}
+
 # Check if initramfs files contain microcode update files
 _check_if_initramfs_has_ucode() {
     local initrd
 
-    for initrd in $(compgen -G "${pacstrap_dir}"'/boot/initramfs-*.img'); do
+    for initrd in $(compgen -G "${boot_dir}"'/initramfs-*.img'); do
         if ! bsdtar -tf "$initrd" 'early_cpio' 'kernel/x86/microcode/*.bin' &>/dev/null; then
             need_external_ucodes=1
             _msg_info "Initramfs file does not contain microcode update files. External microcode initramfs images will be copied."
@@ -841,13 +849,13 @@ _check_if_initramfs_has_ucode() {
 _make_boot_on_iso9660() {
     _msg_info "Preparing kernel and initramfs for the ISO 9660 file system..."
     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/${arch}"
-    install -m 0644 -- "${pacstrap_dir}/boot/initramfs-"*".img" "${isofs_dir}/${install_dir}/boot/${arch}/"
-    install -m 0644 -- "${pacstrap_dir}/boot/vmlinuz-"* "${isofs_dir}/${install_dir}/boot/${arch}/"
+    install -m 0644 -- "${boot_dir}/initramfs-"*".img" "${isofs_dir}/${install_dir}/boot/${arch}/"
+    install -m 0644 -- "${boot_dir}/vmlinuz-"* "${isofs_dir}/${install_dir}/boot/${arch}/"
 
     if (( need_external_ucodes )); then
         for _ucode_image in "${ucodes[@]}"; do
-            if [[ -e "${pacstrap_dir}/boot/${_ucode_image}" ]]; then
-                install -m 0644 -- "${pacstrap_dir}/boot/${_ucode_image}" "${isofs_dir}/${install_dir}/boot/"
+            if [[ -e "${boot_dir}/${_ucode_image}" ]]; then
+                install -m 0644 -- "${boot_dir}/${_ucode_image}" "${isofs_dir}/${install_dir}/boot/"
                 if [[ -e "${pacstrap_dir}/usr/share/licenses/${_ucode_image%.*}/" ]]; then
                     install -d -m 0755 -- "${isofs_dir}/${install_dir}/boot/licenses/${_ucode_image%.*}/"
                     install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/${_ucode_image%.*}/"* \
@@ -910,12 +918,12 @@ _make_boot_on_fat() {
     mmd -i "${efibootimg}" \
         "::/${install_dir}" "::/${install_dir}/boot" "::/${install_dir}/boot/${arch}" \
         "::/boot" "::/boot/memtest86+"
-    mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/vmlinuz-"* \
-        "${pacstrap_dir}/boot/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
+    mcopy -i "${efibootimg}" "${boot_dir}/vmlinuz-"* \
+        "${boot_dir}/initramfs-"*".img" "::/${install_dir}/boot/${arch}/"
     if (( need_external_ucodes )); then
         for _ucode_image in "${ucodes[@]}"; do
-            if [[ -e "${pacstrap_dir}/boot/${_ucode_image}" ]]; then
-                _all_ucode_images+=("${pacstrap_dir}/boot/${_ucode_image}")
+            if [[ -e "${boot_dir}/${_ucode_image}" ]]; then
+                _all_ucode_images+=("${boot_dir}/${_ucode_image}")
             fi
         done
         if (( ${#_all_ucode_images[@]} )); then
@@ -949,13 +957,13 @@ _ed2k-shell() {
 
 _memtest86() {
     # Add other aditional/extra files to efibootimg ${install_dir}/boot/
-    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
-        mcopy -i "${efibootimg}" "${pacstrap_dir}/boot/memtest86+/memtest.efi" "::/boot/memtest86+/"
+    if [[ -e "${boot_dir}/memtest86+/memtest.efi" ]]; then
+        mcopy -i "${efibootimg}" "${boot_dir}/memtest86+/memtest.efi" "::/boot/memtest86+/"
     fi
     # Add other aditional/extra files to ${install_dir}/boot/
-    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.efi" ]]; then
+    if [[ -e "${boot_dir}/memtest86+/memtest.efi" ]]; then
         install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
-        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.efi" "${isofs_dir}/boot/memtest86+/memtest.efi"
+        install -m 0644 -- "${boot_dir}/memtest86+/memtest.efi" "${isofs_dir}/boot/memtest86+/memtest.efi"
         install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-only.txt" "${isofs_dir}/boot/memtest86+/LICENSE"
     fi
 }
@@ -985,10 +993,10 @@ _make_bootmode_bios.syslinux() {
     fi
 
     # Add other aditional/extra files to ${install_dir}/boot/
-    if [[ -e "${pacstrap_dir}/boot/memtest86+/memtest.bin" ]]; then
+    if [[ -e "${boot_dir}/memtest86+/memtest.bin" ]]; then
         # rename for PXE: https://wiki.archlinux.org/title/Syslinux#Using_memtest
         install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
-        install -m 0644 -- "${pacstrap_dir}/boot/memtest86+/memtest.bin" "${isofs_dir}/boot/memtest86+/memtest"
+        install -m 0644 -- "${boot_dir}/memtest86+/memtest.bin" "${isofs_dir}/boot/memtest86+/memtest"
         install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-only.txt" "${isofs_dir}/boot/memtest86+/LICENSE"
     fi
     install -d -m 0755 -- "${isofs_dir}/boot/syslinux"
@@ -2440,6 +2448,7 @@ _build_iso_base() {
     local buildmode_pkg_list=("${pkg_list[@]}")
     # Set up essential directory paths
     pacstrap_dir="${work_dir}/${arch}/airootfs"
+    boot_dir="${work_dir}/${arch}/boot"
     isofs_dir="${work_dir}/iso"
 
     # Write build date to file if it does not exist already
@@ -2455,6 +2464,7 @@ _build_iso_base() {
     _make_iso_limited_grubenv_and_search_uuid_file
     _run_once _make_customize_airootfs
     _run_once _make_setup_mkinitcpio
+    _run_once _copy_boot_out_of_pacstrap_dir
     _run_once _make_pkglist
     _run_once _check_if_initramfs_has_ucode
     # Copy the kernel and initramfs to ISO 9660 for boot loaders that can read the ISO 9660 file system and also for
