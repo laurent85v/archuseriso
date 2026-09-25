@@ -110,7 +110,8 @@ usage: ${app_name} [options] <profile_dir>
                                         Default: '${pacman_conf}'
      -D, --install-dir  <install_dir>   Set an install_dir. All files will be located here.
                                         Default: '${install_dir}'
-                                        NOTE: Max 8 characters, use only [a-z0-9]
+                                        NOTE: For 'iso', 'img' and 'netboot', use only [a-z0-9].
+                                              For 'iso' and 'img', max 30 characters.
      --embed-dir <path>                 Embed directory contents in the iso image,
                                         data available from the live's session.
      -g, --gpgkey <gpg_key>             Set the PGP key ID to be used for signing the rootfs image.
@@ -1691,6 +1692,11 @@ _validate_common_requirements_buildmode_iso_netboot() {
     local bootmode
     local pkg_list_from_file=()
 
+    if [[ ! "${install_dir}" =~ ^[a-z0-9]+$ ]]; then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating '${_buildmode}': Invalid install_dir '${install_dir}'. Use only [a-z0-9]." 0
+    fi
+
     # Check if the package list file exists and read packages from it
     if [[ -e "${packages}" ]]; then
         mapfile -t pkg_list_from_file < <(sed '/^[[:blank:]]*#.*/d;s/#.*//;/^[[:blank:]]*$/d;s/[[:blank:]]/\n/g' "${packages}" "${packages_locales:-/dev/null}" | sed '/^$/d')
@@ -1758,6 +1764,10 @@ _validate_common_requirements_buildmode_iso_netboot() {
 _validate_requirements_buildmode_iso() {
     _run_once _validate_common_requirements_buildmode_iso_netboot
     _run_once _validate_common_requirements_buildmode_all
+    if (( ${#install_dir} > 30 )); then
+        (( validation_error=validation_error+1 ))
+        _msg_error "Validating '${_buildmode}': install_dir '${install_dir}' must not exceed 30 characters." 0
+    fi
     # Check if the specified bootmodes are supported
     if (( ${#bootmodes[@]} < 1 )); then
         (( validation_error=validation_error+1 ))
@@ -2310,7 +2320,7 @@ _set_overrides() {
     if [[ -v override_install_dir ]]; then
         install_dir="${override_install_dir}"
     elif [[ -z "${install_dir}" ]]; then
-        install_dir="${app_name}"
+        install_dir="${app_name//[^a-z0-9]/}"
     fi
     [[ ! -v override_gpg_key ]] || gpg_key="${override_gpg_key}"
     [[ ! -v override_gpg_sender ]] || gpg_sender="$override_gpg_sender"
