@@ -2363,21 +2363,6 @@ _make_version() {
         rm -f -- "${bootstrap_parent}/version"
         printf '%s\n' "${iso_version}" >"${bootstrap_parent}/version"
     fi
-    if [[ "${buildmode}" == "iso" ]]; then
-        # Write a limited grubenv with version information to install_dir on ISO 9660 for use cases where only the
-        # install_dir is used.
-        rm -f -- "${isofs_dir}/${install_dir}/grubenv"
-        printf '%.1024s' "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\n%s' \
-            "${iso_name}" "${iso_version}" "$(printf '%0.1s' "#"{1..1024})")" \
-            > "${isofs_dir}/${install_dir}/grubenv"
-
-        # Create a /boot/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
-        # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
-        # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
-        search_filename="/boot/${iso_uuid}.uuid"
-        install -d -m 755 -- "${isofs_dir}/boot"
-        : >"${isofs_dir}${search_filename}"
-    fi
     # Write version file to system installation dir.
     # Assign before the pipe: a := inside a pipeline would stay in a subshell.
     [[ -n "${iso_version}" ]] || iso_version="$(date +%m%d)"
@@ -2402,6 +2387,24 @@ _make_version() {
 
     _msg_info "Done!"
 
+}
+
+# Limited grubenv and the file GRUB searches for. Not guarded by _run_once: iso, img and netboot share
+# _make_version, so the first mode would otherwise skip this for the later ones.
+_make_iso_limited_grubenv_and_search_uuid_file() {
+    # Write a limited grubenv with version information to install_dir on ISO 9660 for use cases where only the
+    # install_dir is used.
+    rm -f -- "${isofs_dir}/${install_dir}/grubenv"
+    printf '%.1024s' "$(printf '# GRUB Environment Block\nNAME=%s\nVERSION=%s\n%s' \
+        "${iso_name}" "${iso_version}" "$(printf '%0.1s' "#"{1..1024})")" \
+        > "${isofs_dir}/${install_dir}/grubenv"
+
+    # Create a /boot/YYYY-mm-dd-HH-MM-SS-00.uuid file on ISO 9660. GRUB will search for it to find the ISO
+    # volume. This is similar to what grub-mkrescue does, except it places the file in /.disk/, but we opt to use a
+    # directory that does not start with a dot to avoid it being accidentally missed when copying the ISO's contents.
+    search_filename="/boot/${iso_uuid}.uuid"
+    install -d -m 755 -- "${isofs_dir}/boot"
+    : >"${isofs_dir}${search_filename}"
 }
 
 _make_pkglist() {
@@ -2449,6 +2452,7 @@ _build_iso_base() {
     _run_once _make_packages
     [[ -n "${user_pkg_dir}" && -d "${user_pkg_dir}" ]] && _run_once _make_packages_upgrade
     _run_once _make_version
+    _make_iso_limited_grubenv_and_search_uuid_file
     _run_once _make_customize_airootfs
     _run_once _make_setup_mkinitcpio
     _run_once _make_pkglist
