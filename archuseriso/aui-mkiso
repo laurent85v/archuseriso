@@ -23,7 +23,7 @@ bootmodes=()
 bootstrap_packages=""
 bootstrap_parent=""
 bootstrap_pkg_list=()
-bootstrap_tarball_compression=""
+bootstrap_tarball_compression=()
 buildmodes=()
 cert_list=()
 directory_profiles="/usr/share/archuseriso/profiles"
@@ -2493,15 +2493,17 @@ _build_buildmode_bootstrap() {
     _unshare install -d -m 0755 -o 0 -g 0 -- "${pacstrap_dir}"
 
     # Set tarball extension
-    case "${bootstrap_tarball_compression[0]}" in
-        'bzip2') image_name="${image_name}.bz2" ;;
-        'gzip') image_name="${image_name}.gz" ;;
-        'lrzip') image_name="${image_name}.lrz" ;;
-        'lzip') image_name="${image_name}.lz" ;;
-        'lzop') image_name="${image_name}.lzo" ;;
-        'xz') image_name="${image_name}.xz" ;;
-        'zstd'|'zstdmt') image_name="${image_name}.zst" ;;
-    esac
+    if (( ${#bootstrap_tarball_compression[@]} )); then
+        case "${bootstrap_tarball_compression[0]}" in
+            'bzip2') image_name="${image_name}.bz2" ;;
+            'gzip') image_name="${image_name}.gz" ;;
+            'lrzip') image_name="${image_name}.lrz" ;;
+            'lzip') image_name="${image_name}.lz" ;;
+            'lzop') image_name="${image_name}.lzo" ;;
+            'xz') image_name="${image_name}.xz" ;;
+            'zstd'|'zstdmt') image_name="${image_name}.zst" ;;
+        esac
+    fi
 
     [[ "${quiet}" == "y" ]] || _show_config
     _run_once _make_pacman_conf
