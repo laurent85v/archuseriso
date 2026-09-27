@@ -85,7 +85,7 @@ _qemu_bin() {
         command -v qemu-system-x86_64
         return
     fi
-    printf '[%s] ERROR: %s\n' "${app_name}" 'qemu-system-x86_64 not found in PATH'
+    printf '[%s] ERROR: %s\n' "${app_name}" 'qemu-system-x86_64 not found in PATH' >&2
     exit 1
 }
 
