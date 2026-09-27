@@ -2722,6 +2722,17 @@ if (( EUID != 0 )); then
     if [[ "${zfs_support}" == 'yes' ]]; then
         _msg_error "--zfs-support must be run as root." 1
     fi
+elif [[ -v SUDO_USER && "${zfs_support}" != 'yes' ]]; then
+    _need_root=0
+    for _buildmode in "${buildmodes[@]}"; do
+        if [[ "${_buildmode}" == 'img' ]]; then
+            _need_root=1
+            break
+        fi
+    done
+    unset -v _buildmode
+    (( _need_root )) || _msg_warning "Running as root via sudo is not needed for this build."
+    unset -v _need_root
 fi
 echo
 if [[ -d "${work_dir}" ]]; then
