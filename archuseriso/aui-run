@@ -164,10 +164,50 @@ _usb_hostdevice() {
     printf '%s' "${hostdev}"
 }
 
+# sudo drops the desktop session. Point QEMU back at the invoking user's
+# Wayland or X11 display. Do not enable audio here: PipeWire as root aborts QEMU.
+_restore_sudo_session() {
+    local runtime socket xauth home newest newest_mtime mtime
+
+    [[ "${EUID}" -eq 0 && -n "${SUDO_UID:-}" ]] || return 0
+    runtime="/run/user/${SUDO_UID}"
+    [[ -d "${runtime}" ]] || return 0
+    export XDG_RUNTIME_DIR="${runtime}"
+
+    if [[ -z "${WAYLAND_DISPLAY:-}" ]]; then
+        newest=''
+        newest_mtime=0
+        for socket in "${runtime}"/wayland-*; do
+            [[ -S "${socket}" ]] || continue
+            mtime="$(stat -c '%Y' -- "${socket}")"
+            if (( mtime > newest_mtime )); then
+                newest="${socket}"
+                newest_mtime="${mtime}"
+            fi
+        done
+        if [[ -n "${newest}" ]]; then
+            export WAYLAND_DISPLAY="${newest##*/}"
+        fi
+    fi
+
+    if [[ -z "${XAUTHORITY:-}" || ! -r "${XAUTHORITY}" ]]; then
+        for xauth in "${runtime}"/.mutter-Xwaylandauth.* "${runtime}"/xauth_* "${runtime}"/xauth.*; do
+            [[ -f "${xauth}" && -r "${xauth}" ]] || continue
+            export XAUTHORITY="${xauth}"
+            return 0
+        done
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            home="$(getent passwd -- "${SUDO_USER}" | cut -d: -f6)"
+            [[ -n "${home}" && -r "${home}/.Xauthority" ]] && export XAUTHORITY="${home}/.Xauthority"
+        fi
+    fi
+}
+
 _run() {
     local -a qemu_options
     local qemu_bin ovmf_code machine usbdev
     qemu_bin="$(_qemu_bin)"
+    _restore_sudo_session
 
     if [[ "${boot_type}" == 'uefi' ]]; then
         machine='type=q35,smm=on,accel=kvm:tcg,usb=on'
