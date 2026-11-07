@@ -693,9 +693,24 @@ _profile_bootmode_uefi.systemd-boot() {
     done
 }
 
+_memtest86_efi_src() {
+    local _candidate
+
+    for _candidate in \
+        "${boot_dir}/memtest86+/memtest.efi" \
+        "${boot_dir}/memtest86+/memtest86x64.efi"
+    do
+        if [[ -f "${_candidate}" ]]; then
+            printf '%s\n' "${_candidate}"
+            return 0
+        fi
+    done
+}
+
 _fat_image_common_efiboot_files() {
     local _file
     local _available_ucodes=()
+    local _memtest_efi
 
     if (( need_external_ucodes )); then
         for _file in "${ucodes[@]}"; do
@@ -712,7 +727,10 @@ _fat_image_common_efiboot_files() {
         efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/x64/Shell_Full.efi")
     [[ -f "${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi" ]] && \
         efiboot_files+=("${pacstrap_dir}/usr/share/edk2-shell/ia32/Shell_Full.efi")
-    [[ -f "${boot_dir}/memtest86+/memtest.efi" ]] && efiboot_files+=("${boot_dir}/memtest86+/memtest.efi")
+    _memtest_efi="$(_memtest86_efi_src)"
+    if [[ -n "${_memtest_efi}" ]]; then
+        efiboot_files+=("${_memtest_efi}")
+    fi
 }
 
 _make_common_bootmode_grub_cfg() {
@@ -956,15 +974,18 @@ _ed2k-shell() {
 
 
 _memtest86() {
-    # Add other aditional/extra files to efibootimg ${install_dir}/boot/
-    if [[ -e "${boot_dir}/memtest86+/memtest.efi" ]]; then
-        mcopy -i "${efibootimg}" "${boot_dir}/memtest86+/memtest.efi" "::/boot/memtest86+/"
-    fi
-    # Add other aditional/extra files to ${install_dir}/boot/
-    if [[ -e "${boot_dir}/memtest86+/memtest.efi" ]]; then
+    local _memtest_efi
+
+    # Add other aditional/extra files to efibootimg and ${install_dir}/boot/
+    # memtest86+-efi 8.10 renamed memtest.efi to memtest86x64.efi. Keep the old
+    # install name so existing boot entries stay valid.
+    _memtest_efi="$(_memtest86_efi_src)"
+    if [[ -n "${_memtest_efi}" ]]; then
+        mcopy -i "${efibootimg}" "${_memtest_efi}" "::/boot/memtest86+/memtest.efi"
         install -d -m 0755 -- "${isofs_dir}/boot/memtest86+/"
-        install -m 0644 -- "${boot_dir}/memtest86+/memtest.efi" "${isofs_dir}/boot/memtest86+/memtest.efi"
-        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-only.txt" "${isofs_dir}/boot/memtest86+/LICENSE"
+        install -m 0644 -- "${_memtest_efi}" "${isofs_dir}/boot/memtest86+/memtest.efi"
+        install -m 0644 -- "${pacstrap_dir}/usr/share/licenses/spdx/GPL-2.0-only.txt" \
+            "${isofs_dir}/boot/memtest86+/LICENSE"
     fi
 }
 
